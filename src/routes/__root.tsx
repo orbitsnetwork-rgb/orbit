@@ -27,6 +27,12 @@ export const Route = createRootRoute({
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
+            __html:
+              "try{var h=document.head;if(h){for(var n=h.firstChild;n;){var x=n.nextSibling;if(n.nodeType===8||(n.nodeType===3&&!n.textContent.trim()))h.removeChild(n);n=x}}}catch(e){}",
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
             __html: "try{if(sessionStorage.getItem('vosma-gap')==='1')document.documentElement.dataset.open='app'}catch(e){}",
           }}
         />

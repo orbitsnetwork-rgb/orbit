@@ -5,17 +5,11 @@ import {
   activeCreation,
   chanceOf,
   CHARGE_MS,
-  CODE_MS,
   CODES_PER_DAY,
   DAY_MS,
   FUND_PERIOD_MS,
-  holdBonus,
   me,
-  NOVICE_CODES_PER_DAY,
-  ORBIT_CAP,
   previewShare,
-  STABILITY_GATE,
-  turnoverPrev,
   utcDay,
   type Account,
   type World,
@@ -23,6 +17,7 @@ import {
 import { bootOrbits, deviceKeys, useOrbits } from "@/lib/orbit/store";
 
 type Tab = "home" | "market" | "mine" | "flow" | "me";
+type Sheet = "rules" | "terms" | "refund" | "contact" | null;
 
 const TABS: { id: Tab; key: "home" | "market" | "mine" | "flow" | "me"; icon: typeof Orbit }[] = [
   { id: "home", key: "home", icon: Orbit },
@@ -90,6 +85,7 @@ export function OrbitApp() {
   const ready = useOrbits((state) => state.ready);
   const lang = useLang();
   const [tab, setTab] = useState<Tab>("home");
+  const [sheet, setSheet] = useState<Sheet>(null);
 
   useEffect(() => {
     bootOrbits();
@@ -126,7 +122,8 @@ export function OrbitApp() {
         {tab === "market" ? <Market world={world} user={user} /> : null}
         {tab === "mine" ? <Mine world={world} user={user} /> : null}
         {tab === "flow" ? <Flow world={world} user={user} /> : null}
-        {tab === "me" ? <Person world={world} user={user} /> : null}
+        {tab === "me" ? <Person world={world} user={user} onSheet={setSheet} /> : null}
+        {sheet ? <Docs sheet={sheet} onClose={() => setSheet(null)} /> : null}
         {world.log[0] && tab !== "me" && !flash ? <p className="orbit-log">Сталося. {world.log[0].text}</p> : null}
       </div>
       <nav className="orbit-nav" aria-label="Розділи">
@@ -171,6 +168,7 @@ function Gate({
   const [birth, setBirth] = useState("");
   const [key, setKey] = useState("");
   const [oldName, setOldName] = useState("");
+  const [sheet, setSheet] = useState<Sheet>(null);
   const old = world.accounts.find((account) => account.name.toLowerCase() === oldName.trim().toLowerCase());
   const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const enteringOld = Boolean(old && key.trim().length >= 8);
@@ -181,7 +179,7 @@ function Gate({
       <main className="orbit-shell orbit-gate">
         <p className="orbit-kicker">{t(lang, "brand")}</p>
         <h1>{t(lang, "sub")}</h1>
-        <p className="orbit-note">Усі поля одразу. Ключ заповнюй лише якщо це ім’я вже є.</p>
+        <p className="orbit-note">Пошта, телефон, ім’я. Ключ — лише для входу.</p>
         <LangRow lang={lang} />
         <form
           className="orbit-block"
@@ -207,7 +205,9 @@ function Gate({
             {ready ? (key.trim().length >= 8 ? t(lang, "enter") : t(lang, "create")) : "…"}
           </button>
           {flash ? <p className={bad ? "orbit-flash" : "orbit-ok"}>{flash}</p> : null}
+          <DocsRow onSheet={setSheet} />
         </form>
+        {sheet ? <Docs sheet={sheet} onClose={() => setSheet(null)} /> : null}
       </main>
     </div>
   );
@@ -220,7 +220,7 @@ function MailGate() {
   const typed = code.replace(/\D/g, "").slice(0, 6);
   return (
     <>
-      <p className="orbit-note">Лист не надіслано. Код прев’ю {self.mailCode}. Купівля і черга закриті, доки не введеш його.</p>
+      <p className="orbit-note">Код {self.mailCode}</p>
       <label className="grid gap-1.5">
         <span className="orbit-kicker">Код з пошти</span>
         <input className="orbit-field" inputMode="numeric" maxLength={6} value={typed} onChange={(event) => setCode(event.target.value)} />
@@ -230,6 +230,66 @@ function MailGate() {
       </button>
       <Notice />
     </>
+  );
+}
+
+function DocsRow({ onSheet }: { onSheet: (sheet: Sheet) => void }) {
+  return (
+    <div className="orbit-docs">
+      <button type="button" className="orbit-quiet" onClick={() => onSheet("rules")}>Правила</button>
+      <button type="button" className="orbit-quiet" onClick={() => onSheet("terms")}>Умови</button>
+      <button type="button" className="orbit-quiet" onClick={() => onSheet("refund")}>Повернення</button>
+      <button type="button" className="orbit-quiet" onClick={() => onSheet("contact")}>Контакт</button>
+    </div>
+  );
+}
+
+function Docs({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: () => void }) {
+  const pages = {
+    rules: {
+      title: "Правила",
+      lines: [
+        "8 000 000 орбіт. Усі рівні. Ціна одна.",
+        "Нова ціна о 00:00 UTC.",
+        "Фонд ділиться раз на 3 доби.",
+        "70% активним за 3 доби. 30% за стабільністю.",
+        "Утримання 7 / 14 / 30 діб додає 10% / 25% / 50%.",
+        "ОД — внутрішня одиниця. Не гроші.",
+      ],
+    },
+    terms: {
+      title: "Умови",
+      lines: [
+        "Орбіти — закритий світ. ОД не виводяться і не переказуються як гроші.",
+        "Поповнення купує ОД у цього світу. 1 ОД = 1 цент США.",
+        "Ключ лишається на телефоні. Втрачений ключ не відновлюється.",
+        "Торгівля орбітами йде лише всередині додатка.",
+        "Зараз тестовий режим. Бойові платежі не підключені.",
+      ],
+    },
+    refund: {
+      title: "Повернення",
+      lines: [
+        "Невитрачені ОД можна повернути протягом 14 днів.",
+        "Вже витрачені на орбіту ОД не повертаються.",
+        "Напиши на orbits.network@gmail.com з поштою акаунта.",
+        "Повернення йде на ту саму картку.",
+      ],
+    },
+    contact: {
+      title: "Контакт",
+      lines: ["orbits.network@gmail.com", "Сайт: orbits-yw58.netlify.app", "Відповідь протягом 2 діб."],
+    },
+  } as const;
+  const page = pages[sheet];
+  return (
+    <section className="orbit-block orbit-sheet">
+      <p className="orbit-kicker">{page.title}</p>
+      {page.lines.map((line) => (
+        <p key={line} className="orbit-note">{line}</p>
+      ))}
+      <button type="button" className="orbit-go" onClick={onClose}>Закрити</button>
+    </section>
   );
 }
 
@@ -316,26 +376,12 @@ function Home({ world, user, onMine }: { world: World; user: Account; onMine: ()
     act = onMine;
   }
   const chance = Math.round(chanceOf(world.orbits.length) * 100);
-  const today = world.trades.filter((trade) => trade.at >= dayStart(world.now)).reduce((sum, trade) => sum + trade.amount, 0);
-  const day = utcDay(world.now);
-  const used = user.confirmDay === day ? user.confirmsToday : 0;
-  const cap = user.stability >= STABILITY_GATE ? CODES_PER_DAY : NOVICE_CODES_PER_DAY;
-  const leftCodes = Math.max(0, cap - used);
-  const witnessing = world.creations.some((item) => item.status === "charging" && item.confirms.some((confirm) => confirm.witnessId === user.id));
   return (
     <section className="orbit-block">
-      <p className="orbit-kicker">Поточна ціна · {when(world.now)}</p>
+      <p className="orbit-kicker">Ціна · {when(world.now)}</p>
       <p className="orbit-price">{money.format(world.price)}</p>
       <p className="orbit-note">
-        ОД · у черзі {world.queue.length} · орбіт {money.format(world.orbits.length)} з {money.format(ORBIT_CAP)}
-      </p>
-      <p className="orbit-note">
-        Оборот сьогодні {money.format(today)} ОД. Минулої доби {money.format(turnoverPrev(world))} ОД. Шанс нового заряду {chance}%.
-      </p>
-      <p className="orbit-note">Нова ціна о 00:00 UTC, через {left(nextMidnight(world.now) - world.now)}.</p>
-      <p className="orbit-note">
-        {leftCodes > 0 ? `Сьогодні можна підтвердити ще ${leftCodes}.` : "Сьогодні коди закінчились."}
-        {witnessing ? " Якщо заряд, який ти підтвердив, пройде — стабільність +3." : ""}
+        Черга {world.queue.length} · орбіт {money.format(world.orbits.length)} · шанс {chance}% · нова ціна через {left(nextMidnight(world.now) - world.now)}
       </p>
       {pendingMail ? (
         <MailGate />
@@ -377,7 +423,7 @@ function Market({ world, user }: { world: World; user: Account }) {
           </div>
         );
       })}
-      {pendingMail ? <p className="orbit-note">Купівля і черга закриті, доки не введено код з пошти. Він на Ціні.</p> : null}
+      {pendingMail ? <p className="orbit-note">Спочатку код на Ціні.</p> : null}
       {pendingMail
         ? null
         : loose.map((orbit) => (
@@ -410,8 +456,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
       <section className="orbit-block">
         <p className="orbit-kicker">Заряд</p>
         <h1 className="orbit-h">{chance}%</h1>
-        <p className="orbit-note">Вісім підтверджень зібрано. Результат через {left(readyAt - wall)}.</p>
-        <p className="orbit-note">Шанс не змінюється, поки йдуть ці 24 години.</p>
+        <p className="orbit-note">Результат через {left(readyAt - wall)}.</p>
       </section>
     );
   }
@@ -432,7 +477,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
         {live ? (
           <>
             <p className="orbit-code">{creation.code}</p>
-            <p className="orbit-note">Для іншої людини. Згорає за {left(creation.codeExpires - wall)} і після одного введення.</p>
+            <p className="orbit-note">Згорає за {left(creation.codeExpires - wall)}.</p>
           </>
         ) : (
           <>
@@ -443,7 +488,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
           </>
         )}
         <p className="orbit-note">
-          Сьогодні {used} з {CODES_PER_DAY}. Код живе {Math.round(CODE_MS / 60_000)} хвилин.
+          Сьогодні {used} з {CODES_PER_DAY}.
         </p>
         <Names world={world} userId={user.id} />
       </section>
@@ -454,9 +499,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
   return (
     <section className="orbit-block">
       <p className="orbit-kicker">Підтвердження</p>
-      <h1 className="orbit-h">Ввести чужий код</h1>
-      <p className="orbit-note">Або введи код, який тобі передали. Свій код ця людина не прийме.</p>
-      {user.stability < STABILITY_GATE ? <p className="orbit-note">До стабільності 20 — один код на добу.</p> : null}
+      <h1 className="orbit-h">Чужий код</h1>
       <label className="grid gap-1.5">
         <span className="orbit-kicker">Ввести чужий код</span>
         <input
@@ -494,36 +537,20 @@ function Names({ world, userId }: { world: World; userId: string }) {
     .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
     .slice(0, 8);
   if (names.length === 0) return null;
-  return <p className="orbit-note">Зараз у світі: {names.map((account) => account.name).join(", ")}. Ключів тут немає.</p>;
+  return <p className="orbit-note">Зараз: {names.map((account) => account.name).join(", ")}</p>;
 }
 
 function Flow({ world, user }: { world: World; user: Account }) {
   const wall = useWall(world.now);
   const due = world.lastDistributionAt + FUND_PERIOD_MS;
-  const last = world.payouts.find((row) => row.userId === user.id);
   const nowShare = previewShare(world, user.id);
-  const laterShare = previewShare(world, user.id, 7 * DAY_MS);
-  const holds = world.orbits.some((orbit) => orbit.ownerId === user.id);
   return (
     <section className="orbit-block">
       <p className="orbit-kicker">Фонд</p>
       <p className="orbit-price">{money.format(world.fund)}</p>
       {world.fund === 0 ? <p className="orbit-note">Поки немає угод.</p> : null}
-      <p className="orbit-note">ОД · резерв {money.format(world.reserve)} · поділ через {left(due - wall)}</p>
-      <p className="orbit-note">70% порівну тим, хто був активний 3 доби. 30% за стабільністю. Остання доба подвоює вагу.</p>
-      <p className="orbit-note">Утримання 7, 14 і 30 діб додає 10%, 25% і 50% до виплати. Поділ сам, раз на три доби.</p>
-      <p className="orbit-note">{last ? `Минулий поділ приніс тобі ${money.format(last.amount)} ОД.` : "Минулого поділу тебе не було."}</p>
-      <p className="orbit-note">
-        З поточного фонду тобі близько {money.format(nowShare)} ОД.
-        {holds ? ` Якщо потримати найдовшу ще 7 днів — близько ${money.format(laterShare)}.` : " Орбіти ще немає, тож утримання не додається."} Це прикидка, не виплата.
-      </p>
+      <p className="orbit-note">Поділ через {left(due - wall)} · тобі близько {money.format(nowShare)} ОД</p>
       <p className="orbit-kicker">Світ</p>
-      <p className="orbit-note">
-        Орбіт {money.format(world.orbits.length)}. Імен {money.format(world.accounts.length)}. Активні за добу{" "}
-        {money.format(world.accounts.filter((account) => wall - account.lastActiveAt <= DAY_MS).length)}. Оборот сьогодні{" "}
-        {money.format(world.trades.filter((trade) => trade.at >= dayStart(wall)).reduce((sum, trade) => sum + trade.amount, 0))} ОД. Заявок{" "}
-        {world.creations.filter((item) => item.status === "collecting" || item.status === "charging").length}.
-      </p>
       {world.payouts.slice(0, 4).map((row, index) => {
         const name = world.accounts.find((account) => account.id === row.userId)?.name ?? "хтось";
         return (
@@ -537,12 +564,11 @@ function Flow({ world, user }: { world: World; user: Account }) {
   );
 }
 
-function Person({ world, user }: { world: World; user: Account }) {
+function Person({ world, user, onSheet }: { world: World; user: Account; onSheet: (sheet: Sheet) => void }) {
   const lang = useLang();
   const [other, setOther] = useState("");
   const [pass, setPass] = useState("");
   const mine = world.orbits.filter((orbit) => orbit.ownerId === user.id);
-  const bonus = mine.reduce((best, orbit) => Math.max(best, holdBonus(world.now - orbit.createdAt)), 0);
   const known = world.accounts.find((account) => account.name.toLowerCase() === other.trim().toLowerCase());
   const held = deviceKeys();
   const ownKey = held[user.id];
@@ -551,10 +577,7 @@ function Person({ world, user }: { world: World; user: Account }) {
     <section className="orbit-block">
       <p className="orbit-kicker">Стабільність</p>
       <p className="orbit-price">{user.stability}</p>
-      <p className="orbit-note">
-        Баланс {money.format(user.balance)} ОД. Орбіт {mine.length}. Поріг чужих кодів — {STABILITY_GATE}.
-        {bonus > 0 ? ` Утримання +${Math.round(bonus * 100)}%.` : ""}
-      </p>
+      <p className="orbit-note">Баланс {money.format(user.balance)} ОД · орбіт {mine.length}</p>
       <Face userId={user.id} letter={user.name.slice(0, 1).toUpperCase()} />
       {mine.map((orbit) => (
         <div key={orbit.id} className="orbit-row">
@@ -581,7 +604,8 @@ function Person({ world, user }: { world: World; user: Account }) {
       ) : (
         <p className="orbit-note">У цього імені немає ключа на цьому телефоні.</p>
       )}
-      <p className="orbit-note">Ключ зберігається на цьому пристрої.</p>
+      <p className="orbit-note">Ключ лишається на цьому телефоні.</p>
+      <DocsRow onSheet={onSheet} />
       <div>
         {local.map((account) => (
           <button
@@ -620,7 +644,6 @@ function Person({ world, user }: { world: World; user: Account }) {
         </button>
         <Notice />
       </form>
-      <p className="orbit-note">{t(lang, "card")}</p>
       <p className="orbit-kicker">Налаштування</p>
       <LangRow lang={lang} />
       <SoundRow lang={lang} />
@@ -636,7 +659,7 @@ function TopupRow() {
   return (
     <div className="grid gap-3">
       <p className="orbit-kicker">Поповнити</p>
-      <p className="orbit-note">Тестовий режим. 1 ОД = 1 цент. Картка в базу не пишеться.</p>
+      <p className="orbit-note">Тест. 1 ОД = 1 цент. Картка не зберігається.</p>
       <div className="orbit-chips">
         {[100, 500, 1000].map((value) => (
           <button key={value} type="button" className="orbit-chip" data-on={amount === value ? "1" : "0"} onClick={() => setAmount(value)}>

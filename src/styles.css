@@ -831,6 +831,18 @@ a.h-11.bg-accent::after { display: none !important; }
   border-color: var(--color-orbit-accent);
   background: var(--color-orbit-accent);
 }
+.orbit-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem 1rem;
+}
+.orbit-sheet {
+  position: fixed;
+  inset: auto 0 4.8rem;
+  z-index: 40;
+  width: min(28rem, calc(100% - 1.2rem));
+  margin: 0 auto;
+}
 .orbit-nav {
   position: fixed;
   bottom: 0;

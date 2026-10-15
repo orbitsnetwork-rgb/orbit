@@ -205,8 +205,8 @@ function Gate({
             {ready ? (key.trim().length >= 8 ? t(lang, "enter") : t(lang, "create")) : "…"}
           </button>
           {flash ? <p className={bad ? "orbit-flash" : "orbit-ok"}>{flash}</p> : null}
-          <DocsRow onSheet={setSheet} />
         </form>
+        <DocsRow onSheet={setSheet} />
         {sheet ? <Docs sheet={sheet} onClose={() => setSheet(null)} /> : null}
       </main>
     </div>

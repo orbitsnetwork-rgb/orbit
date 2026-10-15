@@ -565,7 +565,22 @@ function Person({ world, user }: { world: World; user: Account }) {
       {user.impulseUntil > world.now ? <p className="orbit-note">Імпульс ще {left(user.impulseUntil - world.now)}. На ціну не впливає.</p> : null}
       <SelfCard />
       <TopupRow />
-      {ownKey ? <p className="orbit-note">{ownKey}</p> : <p className="orbit-note">У цього імені немає ключа на цьому телефоні.</p>}
+      {ownKey ? (
+        <p className="orbit-key">
+          <span>{ownKey}</span>
+          <button
+            type="button"
+            className="orbit-quiet"
+            onClick={() => {
+              void navigator.clipboard.writeText(ownKey);
+            }}
+          >
+            Копіювати
+          </button>
+        </p>
+      ) : (
+        <p className="orbit-note">У цього імені немає ключа на цьому телефоні.</p>
+      )}
       <p className="orbit-note">Ключ зберігається на цьому пристрої.</p>
       <div>
         {local.map((account) => (
@@ -622,9 +637,9 @@ function TopupRow() {
     <div className="grid gap-3">
       <p className="orbit-kicker">Поповнити</p>
       <p className="orbit-note">Тестовий режим. 1 ОД = 1 цент. Картка в базу не пишеться.</p>
-      <div className="flex gap-3">
+      <div className="orbit-chips">
         {[100, 500, 1000].map((value) => (
-          <button key={value} type="button" className="orbit-quiet" data-on={amount === value ? "1" : "0"} onClick={() => setAmount(value)}>
+          <button key={value} type="button" className="orbit-chip" data-on={amount === value ? "1" : "0"} onClick={() => setAmount(value)}>
             {value}
           </button>
         ))}

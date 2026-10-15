@@ -6,11 +6,6 @@ screenshots/
 .tanstack/
 artifacts/
 *.zip
-public/brand/
-public/canon/
-public/proofs/
-public/shots/
-public/geo/
 
 .env
 .env.*

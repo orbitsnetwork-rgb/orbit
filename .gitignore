@@ -1,0 +1,13 @@
+node_modules/
+data/
+attachments/
+screenshots/
+.vercel/
+.tanstack/
+artifacts/
+*.zip
+public/brand/
+public/canon/
+public/proofs/
+public/shots/
+public/geo/

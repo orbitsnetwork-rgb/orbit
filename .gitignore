@@ -11,3 +11,9 @@ public/canon/
 public/proofs/
 public/shots/
 public/geo/
+
+.env
+.env.*
+.neon/
+neon.json
+.grok/

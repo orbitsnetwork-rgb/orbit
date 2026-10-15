@@ -1,4 +1,5 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "./";
 @import "@fontsource/manrope/latin-400.css";
 @import "@fontsource/manrope/latin-600.css";
 @import "@fontsource/manrope/cyrillic-400.css";

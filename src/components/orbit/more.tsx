@@ -1,9 +1,9 @@
-import { Activity, Bell, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
+import { Activity, Bell, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -121,6 +121,7 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0 }: { onOpen: (rou
           <p className="mo-group-title">Світ</p>
           <div className="mo-card">
             <Row icon={<Telescope size={18} strokeWidth={1.5} />} title="Оглядач орбіт" sub="Будь-яка орбіта за номером" onClick={() => onOpen("explorer")} />
+            <Row icon={<Trophy size={18} strokeWidth={1.5} />} title="Рейтинг" sub="Стабільність, орбіти, тримання" onClick={() => onOpen("leaders")} />
             <Row icon={<Activity size={18} strokeWidth={1.5} />} title="Стан системи" sub="Зв’язок, розклад ціни і фонду" onClick={() => onOpen("status")} />
           </div>
         </section>

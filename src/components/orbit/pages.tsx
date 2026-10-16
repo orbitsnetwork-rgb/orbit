@@ -1,3 +1,4 @@
+import { Assets } from "@/components/orbit/assets";
 import { History } from "@/components/orbit/history";
 import { DocList, DocView, isDoc, MoreHub, type Route } from "@/components/orbit/more";
 import type { DocId } from "@/lib/orbit/docs";
@@ -33,6 +34,20 @@ export function Pages({
   if (top === "history" && world && user) {
     return (
       <History
+        world={world}
+        user={user}
+        onBack={onPop}
+        onClose={closer}
+        onGo={(tab) => {
+          onClose();
+          onTab?.(tab);
+        }}
+      />
+    );
+  }
+  if (top === "assets" && world && user) {
+    return (
+      <Assets
         world={world}
         user={user}
         onBack={onPop}

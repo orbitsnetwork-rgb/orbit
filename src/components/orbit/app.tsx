@@ -1,8 +1,9 @@
-import { ArrowLeftRight, FileText, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Waves } from "lucide-react";
+import { ArrowLeftRight, FileText, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
 import { Pages } from "@/components/orbit/pages";
 import { rememberTopup } from "@/lib/orbit/ledger";
+import { MASK, useHidden } from "@/lib/orbit/prefs";
 import type { DocId } from "@/lib/orbit/docs";
 import { useEffect, useRef, useState } from "react";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
@@ -90,6 +91,7 @@ export function OrbitApp() {
   const lang = useLang();
   const [tab, setTab] = useState<Tab>("home");
   const nav = useStack();
+  const [hidden] = useHidden();
 
   useEffect(() => {
     bootOrbits();
@@ -125,7 +127,9 @@ export function OrbitApp() {
             </div>
           </div>
           <div className="mo-top-right">
-            <div className="orbit-od">{spk(user.balance)}</div>
+            <button type="button" className="orbit-od" aria-label={hidden ? "Баланс приховано. Відкрити активи" : `Баланс ${spk(user.balance)}. Відкрити активи`} onClick={() => nav.open("assets")}>
+              {hidden ? `${MASK} ✦` : spk(user.balance)}
+            </button>
             <button type="button" className="mo-icon" aria-label="Ще" aria-haspopup="dialog" onClick={() => nav.open("more")}>
               <LayoutGrid size={18} strokeWidth={1.5} />
             </button>
@@ -628,6 +632,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
   const [copied, setCopied] = useState(false);
   const ownKey = held[user.id];
   const local = world.accounts.filter((account) => held[account.id]);
+  const [hidden] = useHidden();
   return (
     <div className="orbit-stack">
       <section className="orbit-block">
@@ -650,8 +655,8 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
       </section>
       <section className="orbit-block">
         <p className="orbit-kicker">Баланс</p>
-        <p className="orbit-price">{money.format(user.balance)}</p>
-        <p className="orbit-unit">{sparkWord(user.balance)} ✦</p>
+        <p className="orbit-price">{hidden ? MASK : money.format(user.balance)}</p>
+        <p className="orbit-unit">{hidden ? "приховано" : `${sparkWord(user.balance)} ✦`}</p>
         <TopupRow />
         <Soon />
       </section>
@@ -719,6 +724,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
       <section className="orbit-block">
         <div className="mo-card">
           <Row icon={<LayoutGrid size={18} strokeWidth={1.5} />} title="Ще" sub="Усі розділи" onClick={() => onOpen("more")} />
+          <Row icon={<Wallet size={18} strokeWidth={1.5} />} title="Активи" sub="Баланс і мої орбіти" onClick={() => onOpen("assets")} />
           <Row icon={<HistoryIcon size={18} strokeWidth={1.5} />} title="Історія" sub="Усі мої операції" onClick={() => onOpen("history")} />
           <Row icon={<FileText size={18} strokeWidth={1.5} />} title="Документи" sub="Правила, умови, приватність" onClick={() => onOpen("docs")} />
         </div>

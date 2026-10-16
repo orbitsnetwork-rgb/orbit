@@ -1,9 +1,9 @@
-import { ChevronLeft, ChevronRight, FileText, History as HistoryIcon, Mail, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -109,6 +109,7 @@ export function MoreHub({ onOpen, onBack, signedIn }: { onOpen: (route: Route) =
         <section className="mo-group" aria-label="Мої іскри">
           <p className="mo-group-title">Мої іскри</p>
           <div className="mo-card">
+            <Row icon={<Wallet size={18} strokeWidth={1.5} />} title="Активи" sub="Баланс, мої орбіти, статуси" onClick={() => onOpen("assets")} />
             <Row icon={<HistoryIcon size={18} strokeWidth={1.5} />} title="Історія" sub="Поповнення, купівлі, продажі, заряди, фонд" onClick={() => onOpen("history")} />
           </div>
         </section>

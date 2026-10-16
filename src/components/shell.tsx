@@ -278,7 +278,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
           }
         }
         const state = useAtlas.getState();
-        void warmApp(state.profile.key ?? "", state.profile.name ?? "");
+        // 12: Орбіти («/», «/l/…») не використовують старий «Поруч» — не тягнемо 640 КБ фото й зайві запити.
+        const orbitPath = window.location.pathname === "/" || window.location.pathname.startsWith("/l/");
+        if (!orbitPath) void warmApp(state.profile.key ?? "", state.profile.name ?? "");
       } catch {
         /* ключ прочитається пізніше, екран не відкочуємо */
       }

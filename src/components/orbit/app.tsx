@@ -247,7 +247,8 @@ export function OrbitApp() {
           }}
         />
       ) : null}
-      <div className="orbit-shell">
+      <main className="orbit-shell">
+        <h1 className="visually-hidden">Орбіти</h1>
         <header className="orbit-top">
           <div className="flex items-center gap-2.5">
             <img src="/favicon.svg" alt="" width={32} height={32} />
@@ -278,7 +279,7 @@ export function OrbitApp() {
           </Boundary>
         </div>
         <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} world={world} user={user} onTab={setTab} unread={inbox.unread} />
-      </div>
+      </main>
       <Toast text={flash} bad={bad} event={world.log[0]?.text ?? ""} />
       <nav className="orbit-nav" aria-label="Основна навігація" style={{ ["--i" as string]: TABS.findIndex((item) => item.id === tab) }}>
         <span className="orbit-nav-dot" aria-hidden />

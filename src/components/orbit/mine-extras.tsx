@@ -107,7 +107,7 @@ export function OnlineStrip({ world, userId }: { world: World; userId: string })
       {people.length === 0 ? (
         <p className="ex-hint">Зараз онлайн 0. Поділись посиланням з друзями — підтвердження дають живі люди.</p>
       ) : (
-        <ul className="mn-faces">
+        <ul className="mn-faces" tabIndex={0} aria-label="Хто підтвердив">
           {people.slice(0, 12).map((account) => (
             <li key={account.id}>
               <Avatar id={account.id} name={account.name} size={42} />

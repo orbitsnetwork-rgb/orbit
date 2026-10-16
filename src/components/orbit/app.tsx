@@ -299,6 +299,7 @@ function DocsRow({ onOpen }: { onOpen: (route: Route) => void }) {
         </button>
       ))}
       <button type="button" className="orbit-quiet" onClick={() => onOpen("docs")}>Усі документи</button>
+      <button type="button" className="orbit-quiet" onClick={() => onOpen("help")}>Довідка</button>
     </div>
   );
 }

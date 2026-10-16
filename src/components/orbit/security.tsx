@@ -141,7 +141,7 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
             </label>
           </div>
         ) : (
-          <p className="orbit-empty">Ключа немає на цьому телефоні. Увійди ним або відновлюй через пошту.</p>
+          <p className="orbit-empty">Ключа немає на цьому телефоні. Увійди ним ще раз або напиши нам з пошти акаунта.</p>
         )}
         <button
           type="button"
@@ -150,7 +150,7 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
             window.location.href = `mailto:${SUPPORT_MAIL}?subject=${encodeURIComponent("Відновити ключ")}`;
           }}
         >
-          Відновити ключ через пошту
+          Загубив ключ? Напиши нам
         </button>
       </section>
 

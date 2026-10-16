@@ -1270,3 +1270,31 @@ a.h-11.bg-accent::after { display: none !important; }
 .ox-time b { font-size: 0.9rem; font-weight: 650; }
 .ox-time small { color: #8a847a; font-size: 0.76rem; }
 .ox-search input::-webkit-search-cancel-button { display: none; }
+
+/* Довідка */
+.hp-list { overflow: hidden; }
+.hp-item { border-top: 1px solid var(--color-orbit-line); }
+.mo-card > .hp-item:first-child { border-top: 0; }
+.hp-q { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; width: 100%; padding: 0.85rem 0.9rem; border: 0; background: transparent; color: #ebe6dc; text-align: left; }
+.hp-q span { display: grid; gap: 0.15rem; }
+.hp-q small { color: #c9b48f; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.hp-q b { font-size: 0.93rem; font-weight: 650; line-height: 1.3; }
+.hp-q svg { flex: none; color: #8a847a; transition: transform 180ms ease; }
+.hp-item[data-open="1"] .hp-q svg { transform: rotate(180deg); color: #f0c98a; }
+.hp-q:focus-visible { outline: 2px solid color-mix(in oklab, #d7a15a 75%, white); outline-offset: -2px; }
+.hp-a { display: grid; gap: 0.5rem; padding: 0 0.9rem 0.9rem; color: #c9c2b6; font-size: 0.88rem; line-height: 1.5; animation: ox-in 180ms ease-out; }
+.hp-a[hidden] { display: none; }
+.hp-a p { margin: 0; }
+.hp-link { justify-self: start; display: inline-flex; align-items: center; gap: 0.2rem; padding: 0; }
+.hp-none { display: grid; gap: 0.4rem; justify-items: center; text-align: center; }
+.hp-none b { color: #ebe6dc; }
+.hp-topics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.hp-topic { position: relative; display: grid; gap: 0.2rem; padding: 0.8rem 0.9rem; border: 1px solid var(--color-orbit-line); border-radius: 14px; background: #0e0c0a; color: #ebe6dc; text-align: left; }
+.hp-topic b { font-size: 0.9rem; padding-right: 1.4rem; }
+.hp-topic small { color: #8a847a; font-size: 0.74rem; line-height: 1.3; }
+.hp-topic em { position: absolute; top: 0.75rem; right: 0.8rem; font-style: normal; color: #c9b48f; font-size: 0.74rem; font-weight: 700; }
+.hp-topic:active { background: #15130f; }
+.hp-contact { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.75rem; align-items: center; padding: 0.9rem; border: 1px solid color-mix(in oklab, #d7a15a 25%, #2c2824); border-radius: 16px; background: color-mix(in oklab, #d7a15a 6%, #0e0c0a); color: #f0c98a; }
+.hp-contact div { display: grid; gap: 0.15rem; }
+.hp-contact b { color: #ebe6dc; font-size: 0.92rem; }
+.hp-contact small { color: #9a9286; font-size: 0.76rem; line-height: 1.35; }

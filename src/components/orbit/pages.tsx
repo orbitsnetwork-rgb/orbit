@@ -1,4 +1,5 @@
 import { Assets } from "@/components/orbit/assets";
+import { Explorer } from "@/components/orbit/explorer";
 import { Fees } from "@/components/orbit/fees";
 import { History } from "@/components/orbit/history";
 import { Security } from "@/components/orbit/security";
@@ -39,6 +40,20 @@ export function Pages({
   if (top === "history" && world && user) {
     return (
       <History
+        world={world}
+        user={user}
+        onBack={onPop}
+        onClose={closer}
+        onGo={(tab) => {
+          onClose();
+          onTab?.(tab);
+        }}
+      />
+    );
+  }
+  if (top === "explorer" && world && user) {
+    return (
+      <Explorer
         world={world}
         user={user}
         onBack={onPop}

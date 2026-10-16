@@ -35,6 +35,8 @@ export type Account = {
   confirmDay: string;
   confirmsToday: number;
   stabilityFromConfirmToday: number;
+  /** Б4: окремий день для ліміту стабільності за підтвердження (раніше ділив поле confirmDay з лічильником кодів). */
+  stabilityDay?: string;
   impulseUntil: number;
   lastActiveAt: number;
 };
@@ -201,14 +203,15 @@ function grantWitnesses(world: World, confirms: Confirm[], delta: number): World
   const day = utcDay(world.now);
   for (const confirm of confirms) {
     next = patchAccount(next, confirm.witnessId, (account) => {
-      const sameDay = account.confirmDay === day;
+      // Б4: лічильник кодів (confirmDay/confirmsToday) тут не чіпаємо — інакше вчорашній confirmsToday блокував новачка.
+      const sameDay = (account.stabilityDay ?? account.confirmDay) === day;
       const used = sameDay ? account.stabilityFromConfirmToday : 0;
       let add = delta;
       if (delta > 0) add = Math.max(0, Math.min(delta, STABILITY_CONFIRM_CAP - used));
       return {
         ...account,
         stability: Math.max(0, account.stability + add),
-        confirmDay: day,
+        stabilityDay: day,
         stabilityFromConfirmToday: delta > 0 ? used + add : used,
         balance: account.balance + (delta > 0 ? WITNESS_OD : 0),
       };
@@ -310,6 +313,7 @@ export function register(world: World, rawName: string): Step {
     confirmDay: "",
     confirmsToday: 0,
     stabilityFromConfirmToday: 0,
+    stabilityDay: "",
     impulseUntil: 0,
     lastActiveAt: base.now,
   };

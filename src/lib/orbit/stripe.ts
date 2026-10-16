@@ -62,6 +62,9 @@ export async function readCheckout(sessionId: string) {
   return { id: json.id, userId: json.metadata.userId, amount };
 }
 
+/** Стільки ж записів, скільки тримає рушій у note(): поповнення не має обрізати спільний журнал. */
+const LOG_KEEP = 40;
+
 export function creditTopup(world: World, topups: Topup[], paid: { id: string; userId: string; amount: number }) {
   if (topups.some((row) => row.id === paid.id && row.status === "paid")) {
     return { world, topups, notice: "Вже зараховано." };
@@ -76,7 +79,7 @@ export function creditTopup(world: World, topups: Topup[], paid: { id: string; u
     ...topups.filter((row) => row.id !== paid.id),
     { id: paid.id, userId: paid.userId, amount: paid.amount, status: "paid" as const, at: Date.now() },
   ];
-  const log = [{ at: Date.now(), text: `Поповнення ${paid.amount} ОД.` }, ...world.log].slice(0, 12);
+  const log = [{ at: Date.now(), text: `Поповнення ${paid.amount} ОД.` }, ...world.log].slice(0, LOG_KEEP);
   return { world: { ...world, accounts, log }, topups: trimTopups(next), notice: `Зараховано ${paid.amount} ОД.` };
 }
 

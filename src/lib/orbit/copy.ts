@@ -24,7 +24,7 @@ const rows = {
     home: "Ціна",
     market: "Обмін",
     mine: "Заявка",
-    flow: "Потік",
+    flow: "Фонд",
     me: "Я",
   },
   en: {

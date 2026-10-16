@@ -17,7 +17,7 @@ import {
   type World,
 } from "@/lib/orbit/engine";
 import { creditTopup, openCheckout, readCheckout } from "@/lib/orbit/stripe";
-import { addEvents, addOrigins, diffEvents, markDay, mineOf, type Extra, type Mine } from "@/lib/orbit/social";
+import { diffEvents, markDay, type Ev, type Extra, type Mine } from "@/lib/orbit/social";
 
 export type OrbitAction =
   | { type: "pull" }
@@ -114,10 +114,26 @@ function attach(world: World, sessionId: string | null): World {
 }
 
 /** Що бачить клієнт: світ лише з власними приватними полями. */
-function reply(step: OrbitReply, people: Identity[], extra?: Extra): OrbitReply {
+function reply(step: OrbitReply, people: Identity[], social?: Social): OrbitReply {
   if (!step.world.sessionId) return { ...step, world: guestWorld(step.world), pub: statsOf(step.world) };
-  const mine = extra ? mineOf(extra, step.world, step.world.sessionId) : undefined;
-  return { ...step, world: project(step.world, step.world.sessionId, people), mine, origins: extra?.origins };
+  return { ...step, world: project(step.world, step.world.sessionId, people), mine: social?.mine, origins: social?.origins };
+}
+
+type Social = { mine: Mine; origins: Record<string, string> };
+
+/** Заявки, для яких клієнту потрібне походження орбіти: свої та останні 300 завершених. */
+function crsFor(world: World, userId: string) {
+  const done = world.creations.filter((item) => item.status === "done");
+  const mineCrs = done.filter((item) => item.userId === userId || item.confirms.some((row) => row.witnessId === userId));
+  return [...new Set([...mineCrs, ...done.slice(-300)].map((item) => item.id))];
+}
+
+async function loadSocial(sql: import("@/lib/db").Sql, world: World, extra: Extra): Promise<Social | undefined> {
+  const userId = world.sessionId;
+  if (!userId) return undefined;
+  const { ensureSocial, readMine } = await import("@/lib/orbit/social-db");
+  await ensureSocial(sql);
+  return readMine(sql, userId, extra.days[userId] ?? null, crsFor(world, userId));
 }
 
 export function statsOf(world: World): PublicStats {
@@ -222,7 +238,7 @@ export const orbitAct = createServerFn({ method: "POST" })
     try {
       const out: Seen = { people: [] };
       const step = await act(await stamp(data), out);
-      return reply(step, out.people, out.extra);
+      return reply(step, out.people, out.social);
     } catch (error) {
       // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
       console.error("orbitAct failed", error instanceof Error ? error.message : "unknown");
@@ -251,8 +267,9 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   if (!sameWorld(stored, clocked)) return null;
   const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
   out.people = bag.people;
-  out.extra = bag.extra;
-  return { world: attach(clocked, self), self: own(bag.people, self) };
+  const world = attach(clocked, self);
+  out.social = await loadSocial(sql, world, bag.extra);
+  return { world, self: own(bag.people, self) };
 }
 
 /**
@@ -273,7 +290,7 @@ async function stamp(data: Call): Promise<Call> {
 }
 
 /** Хто є хто — щоб показати іншим «Ім’я П.». Заповнює act. */
-type Seen = { people: Identity[]; extra?: Extra };
+type Seen = { people: Identity[]; social?: Social };
 
 async function act(data: Call, out: Seen): Promise<OrbitReply> {
     if (data.action.type === "pull") {
@@ -282,6 +299,11 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
     }
     const { withTransaction } = await import("@/lib/db");
     return withTransaction(async (sql) => {
+      const { ensureSocial, insertEvents, insertOrigins, insertThank } = await import("@/lib/orbit/social-db");
+      await ensureSocial(sql);
+      const pending: [string, Ev][] = [];
+      let days: Extra = { events: {}, thanks: {}, days: {}, origins: {} };
+      const done = await (async (): Promise<OrbitReply> => {
       await sql.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb) on conflict (id) do nothing`, [
         packDoc(emptyWorld(), {}),
       ]);
@@ -291,16 +313,16 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       let limits: Record<string, Limit> = bag.limits;
       let seen = bag.seen;
       let extra = bag.extra;
-      out.extra = extra;
-      /** Перед кожним записом: додати особисті події з різниці «було → стало». */
+      days = extra;
+      /** Перед кожним записом: особисті події з різниці «було → стало» йдуть в orbit_events (у документі — лише дні). */
       const track = (w: World, t: Topup[]) => {
-        const adds = diffEvents(bag.world, w, bag.topups, t);
-        const next = { ...extra, events: addEvents(extra.events, adds), origins: addOrigins(extra.origins, adds) };
-        out.extra = next;
-        return next;
+        pending.length = 0;
+        pending.push(...diffEvents(bag.world, w, bag.topups, t));
+        return extra;
       };
       const daily = (id: string | null) => {
         extra = { ...extra, days: markDay(extra.days, id, wall) };
+        days = extra;
       };
       const clocked = adoptClock({ ...bag.world, sessionId: null });
       const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
@@ -448,15 +470,11 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         const mine = own(bag.people, self);
         if (!item || item.userId !== self || item.status !== "done") return { world: base, error: "Подякувати можна після успішного заряду свого запуску.", self: mine };
         if (!item.confirms.some((row) => row.witnessId === to)) return { world: base, error: "Ця людина не підтверджувала запуск.", self: mine };
-        if ((extra.thanks[cr] ?? []).includes(to)) return { world: base, notice: "Подяку вже надіслано.", self: mine };
-        extra = {
-          ...extra,
-          thanks: { ...extra.thanks, [cr]: [...(extra.thanks[cr] ?? []), to] },
-          events: addEvents(extra.events, [
-            [to, { t: "thanksGot", at: wall, other: self, cr }],
-            [self, { t: "thanksSent", at: wall, other: to, cr }],
-          ]),
-        };
+        if (!(await insertThank(sql, cr, to, self, wall))) return { world: base, notice: "Подяку вже надіслано.", self: mine };
+        await insertEvents(sql, [
+          [to, { t: "thanksGot", at: wall, other: self, cr }],
+          [self, { t: "thanksSent", at: wall, other: to, cr }],
+        ]);
         await persist();
         return { world: base, notice: "Подяку надіслано ✦", self: mine };
       }
@@ -561,5 +579,11 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits, seen, track(shared, topups))]);
       const session = step.world.sessionId;
       return { ...step, world: attach(shared, session), key, self: fresh?.userId ? fresh : own(people, session) };
+      })();
+      // Лише події останнього запису документа (track скидає чергу перед кожним packDoc).
+      await insertEvents(sql, pending);
+      await insertOrigins(sql, pending, Date.now());
+      out.social = await loadSocial(sql, done.world, days);
+      return done;
     });
 }

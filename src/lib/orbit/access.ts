@@ -75,7 +75,7 @@ export function packDoc(
   seen: Record<string, string[]> = {},
   extra: Extra = emptyExtra(),
 ) {
-  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits, seen, extra });
+  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits, seen, extra: { days: extra.days } });
 }
 
 /** Скільки акаунтів пам’ятаємо на один пристрій (найсвіжіші). */

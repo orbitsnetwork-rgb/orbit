@@ -1,5 +1,7 @@
 /** «Я» v8: показники профілю і картки моїх орбіт. */
-import { CalendarDays, CheckCircle2, ListOrdered, Orbit as OrbitIcon, ShieldCheck, Zap } from "lucide-react";
+import { ThankList } from "@/components/orbit/crew";
+import { useOrbits } from "@/lib/orbit/store";
+import { CalendarDays, CheckCircle2, Heart, ListOrdered, Orbit as OrbitIcon, ShieldCheck, Zap } from "lucide-react";
 import { DAY_MS, holdBonus, type Account, type World } from "@/lib/orbit/engine";
 import { Empty, SectionHead, Stat } from "@/components/orbit/ui/kit";
 
@@ -13,6 +15,7 @@ export function daysWith(user: Account, now: number) {
 }
 
 export function ProfileStats({ world, user }: { world: World; user: Account }) {
+  const thanks = useOrbits((state) => state.mine?.thanksGot ?? 0);
   const orbits = world.orbits.filter((orbit) => orbit.ownerId === user.id).length;
   const given = world.creations.reduce((sum, row) => sum + row.confirms.filter((c) => c.witnessId === user.id).length, 0);
   return (
@@ -21,7 +24,21 @@ export function ProfileStats({ world, user }: { world: World; user: Account }) {
       <Stat icon={<Zap size={16} strokeWidth={2} />} tone="nebula" value={fmt.format(user.stability)} label="стабільність" />
       <Stat icon={<ShieldCheck size={16} strokeWidth={2} />} tone="aurora" value={fmt.format(given)} label="твоїх підтверджень" />
       <Stat icon={<CalendarDays size={16} strokeWidth={2} />} tone="ion" value={fmt.format(daysWith(user, world.now))} label="днів в Орбітах" />
+      <Stat icon={<Heart size={16} strokeWidth={2} />} tone="sun" value={fmt.format(thanks)} label="подяки" />
     </div>
+  );
+}
+
+/** Успішні власні запуски, де ще є кому подякувати. */
+export function ThanksDue({ world, user }: { world: World; user: Account }) {
+  const thanked = useOrbits((state) => state.mine?.thanked) ?? {};
+  const due = world.creations.filter((row) => row.userId === user.id && row.status === "done" && row.confirms.some((c) => !(thanked[row.id] ?? []).includes(c.witnessId)));
+  if (!due.length) return null;
+  return (
+    <section className="orbit-block" aria-labelledby="pr-thanks-title">
+      <SectionHead id="pr-thanks-title" title="Подякуй екіпажу" />
+      {due.map((row) => <ThankList key={row.id} world={world} creation={row} compact />)}
+    </section>
   );
 }
 

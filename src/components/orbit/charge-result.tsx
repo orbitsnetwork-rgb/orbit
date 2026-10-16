@@ -1,3 +1,5 @@
+import { ThankList } from "@/components/orbit/crew";
+import { useOrbits } from "@/lib/orbit/store";
 import { Orbit as OrbitIcon, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CHARGE_MS, chanceOf, DAY_MS, WITNESS_OD, type Creation, type World } from "@/lib/orbit/engine";
@@ -138,7 +140,8 @@ export function ChargeResult({ outcome, onView, onRestart, onClose }: { outcome:
             ? `Вона вже у твоєму профілі. Можна тримати її або виставити в чергу. Учасники, які підтвердили запуск, отримали по ${WITNESS_OD} іскор ✦.`
             : `Шанс був ${chance}%, але заряд не втримався. Ці 8 підтверджень не зберігаються. Новий запуск можна почати будь-коли — це нічого не коштує.`}
         </p>
-        {names.length ? (
+        {passed ? <ThankList world={useOrbits.getState().world} creation={outcome.creation} /> : null}
+        {!passed && names.length ? (
           <div className="cr-who">
             <p>{passed ? "Тебе запустили" : "Тебе підтримали"}</p>
             <ul aria-label={passed ? "Тебе запустили" : "Тебе підтримали"}>

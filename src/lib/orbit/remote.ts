@@ -33,7 +33,8 @@ export type OrbitAction =
   | { type: "cancel"; orbitId: number }
   | { type: "buy"; price: number }
   | { type: "topup"; amount: number }
-  | { type: "confirmTopup"; sessionId: string };
+  | { type: "confirmTopup"; sessionId: string }
+  | { type: "thank"; cr: string; to: string };
 
 type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
@@ -60,7 +61,7 @@ function clean(input: unknown): Call {
     sessionKey?: unknown;
     key?: unknown;
     device?: unknown;
-    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown };
+    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown; cr?: unknown; to?: unknown };
   };
   const sessionId = typeof raw.sessionId === "string" && raw.sessionId.startsWith("u-") ? raw.sessionId : null;
   const sessionKey = clipKey(raw.sessionKey);
@@ -95,6 +96,9 @@ function clean(input: unknown): Call {
   if (type === "topup") return { sessionId, sessionKey, key, device, action: { type, amount: Number(action.amount) } };
   if (type === "confirmTopup") {
     return { sessionId, sessionKey, key, device, action: { type, sessionId: String(action.sessionId ?? "").slice(0, 80) } };
+  }
+  if (type === "thank") {
+    return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40), to: String(action.to ?? "").slice(0, 40) } };
   }
   if (type === "buy") {
     const price = Number(action.price);
@@ -435,6 +439,25 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         // Ціна могла змінитися опівночі UTC між відкриттям вікна й натисканням. Рушій не чіпаємо: перевіряємо тут.
         await persist();
         return { world: base, error: `Ціна щойно змінилась: тепер ${clocked.price} ✦. Перевір і підтвердь ще раз.`, self: own(bag.people, self) };
+      }
+      if (data.action.type === "thank" && self) {
+        // «Дякую» підтверджувачу: без іскор, лише сповіщення й лічильник подяк. Рушій не бере участі.
+        const { cr, to } = data.action;
+        const item = clocked.creations.find((row) => row.id === cr);
+        const mine = own(bag.people, self);
+        if (!item || item.userId !== self || item.status !== "done") return { world: base, error: "Подякувати можна після успішного заряду свого запуску.", self: mine };
+        if (!item.confirms.some((row) => row.witnessId === to)) return { world: base, error: "Ця людина не підтверджувала запуск.", self: mine };
+        if ((extra.thanks[cr] ?? []).includes(to)) return { world: base, notice: "Подяку вже надіслано.", self: mine };
+        extra = {
+          ...extra,
+          thanks: { ...extra.thanks, [cr]: [...(extra.thanks[cr] ?? []), to] },
+          events: addEvents(extra.events, [
+            [to, { t: "thanksGot", at: wall, other: self, cr }],
+            [self, { t: "thanksSent", at: wall, other: to, cr }],
+          ]),
+        };
+        await persist();
+        return { world: base, notice: "Подяку надіслано ✦", self: mine };
       }
       if (data.action.type === "topup" && self) {
         const { getRequestUrl } = await import("@tanstack/react-start/server");

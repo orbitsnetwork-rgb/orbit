@@ -2625,3 +2625,14 @@ h2.orbit-h { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-he
 .hm-first-code { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .hm-first-code .orbit-field { letter-spacing: .3em; text-align: center; font-variant-numeric: tabular-nums; }
 .hm-first-code .orbit-go { min-height: 48px; padding: 0 16px; width: auto; }
+
+/* v11: «Дякую» підтверджувачам. */
+.th-list { display: grid; gap: 8px; text-align: left; }
+.th-head { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-2); font: 600 14px/20px var(--font-sans); }
+.th-head svg { color: #f2a7c3; }
+.th-list ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.th-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 14px; background: rgb(255 255 255 / .04); }
+.th-list li span { color: var(--text-1); font: 600 14px/18px var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--space-700); color: var(--text-1); font: 700 13px/1 var(--font-sans); }
+.th-btn[data-done="1"] { background: transparent; color: var(--text-3); border-color: transparent; }
+.th-btn:disabled { cursor: default; }

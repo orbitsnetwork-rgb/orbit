@@ -2574,3 +2574,35 @@ body:has(.mo-page, .ky-scrim, .ex-overlay, .ob-screen, .cr-screen, .ky-screen) .
 .sk-splash img { animation: sk-pulse 1.4s ease-in-out infinite; filter: drop-shadow(0 0 24px rgb(242 196 109 / .45)); }
 @keyframes sk-pulse { 50% { opacity: .55; transform: scale(.94); } }
 @media (prefers-reduced-motion: reduce) { .sk-splash img { animation: none; } }
+
+/* ── v9 · Узгодженість: шрифти, іконки, розміри кнопок, стани ── */
+/* Типографіка: заголовок екрана 30/800, заголовок кроку 20/800, заголовок секції 17/700. */
+h1.orbit-h, .mo-title { font-size: 30px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.12; }
+h2.orbit-h { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+/* Іконки: 18 у рядках, 20 у кнопках-іконках і плитках, 16 у малих кнопках з текстом. */
+:is(.mo-row-ico, .hi-ico, .hp-q, .ln-row, .ox-trade) svg:not(.k-avatar svg) { width: 18px; height: 18px; }
+.mo-icon { width: 40px; height: 40px; min-width: 40px; }
+.mo-icon svg { width: 20px; height: 20px; }
+.hm-quick button svg, .mh-tiles button > span svg, .k-action-ico svg { width: 20px; height: 20px; }
+:is(.k-ghost, .k-banner-cta, .se-out, .orbit-chip, .k-tonal) svg { width: 16px; height: 16px; flex: none; }
+.orbit-go svg, .ky-go svg, .ex-buy svg, .ex-sell svg { width: 18px; height: 18px; flex: none; }
+/* Поверхні дотику: текстові кнопки щонайменше 40 px заввишки. */
+.orbit-quiet { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 4px; border-radius: 10px; }
+.ex-soon-btn { min-height: 32px; display: inline-flex; align-items: center; }
+.orbit-chip { min-height: 36px; }
+/* Стани: фокус з клавіатури однаковий скрізь, вимкнене не реагує на дотик. */
+:where(.orbit-app, .mo-page, .ky-scrim, .ex-overlay, .ky-screen, .ob-screen, .cr-screen) :is(button, a[href], [role="tab"], select):focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--sun) 80%, white);
+  outline-offset: 2px;
+}
+:where(.orbit-app, .mo-page, .ky-scrim, .ex-overlay, .ky-screen, .ob-screen, .cr-screen) button:disabled { cursor: not-allowed; }
+:where(.orbit-app, .mo-page, .ky-scrim, .ex-overlay) :is(.orbit-quiet, .orbit-chip, .k-ghost, .se-out):disabled { opacity: 0.45; }
+@media (hover: hover) {
+  :is(.orbit-go, .ky-go, .ex-buy, .ex-sell):hover:not(:disabled) { filter: brightness(1.06); }
+  :is(.mo-icon, .orbit-chip, .k-ghost, .se-out):hover:not(:disabled) { border-color: var(--line-strong); }
+}
+/* Ритм: вміст сторінок «Ще» тримає той самий відступ між картками, що й головні вкладки. */
+.mo-body > :is(.mo-card, .orbit-block) + :is(.mo-card, .orbit-block) { margin-top: 14px; }
+/* Кнопки-іконки всередині картки — 36 px з іконкою 18, у шапці — 40 з іконкою 20. */
+.mo-icon.as-eye, .se-key-line .mo-icon { width: 36px; height: 36px; min-width: 36px; border-radius: 11px; }
+.mo-icon.as-eye svg, .se-key-line .mo-icon svg { width: 18px; height: 18px; }

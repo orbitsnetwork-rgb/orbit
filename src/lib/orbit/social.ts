@@ -152,7 +152,19 @@ export function markDay(days: Record<string, Days>, userId: string | null, now: 
 }
 
 /** Що бачить сама людина про себе. */
-export type Mine = { events: Ev[]; days: Days | null; thanksGot: number; thanked: Record<string, string[]> };
+/** Розподіл фонду (агрегат з orbit_payouts): коли, скільки людей, скільки ✦. */
+export type FundRun = { at: number; n: number; total: number };
+export type Mine = {
+  events: Ev[];
+  days: Days | null;
+  thanksGot: number;
+  thanked: Record<string, string[]>;
+  /** Повна історія з окремої таблиці (сервер); якщо немає — екрани беруть world.payouts. */
+  payouts?: { at: number; userId: string; amount: number }[];
+  myPaidTotal?: number;
+  fundRuns?: FundRun[];
+  fundPaidTotal?: number;
+};
 
 export function mineOf(extra: Extra, world: World, userId: string): Mine {
   const own = new Set(world.creations.filter((item) => item.userId === userId).map((item) => item.id));

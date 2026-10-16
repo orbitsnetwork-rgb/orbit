@@ -75,7 +75,8 @@ export function History({ world, user, onBack, onClose, onGo }: { world: World; 
     setTopups(readTopups(user.id));
   }, [user.id, user.balance]);
   const events = useOrbits((state) => state.mine?.events);
-  const all = useMemo(() => buildLedger(world, user, topups, events ?? []), [world, user, topups, events]);
+  const payouts = useOrbits((state) => state.mine?.payouts);
+  const all = useMemo(() => buildLedger(world, user, topups, events ?? [], payouts), [world, user, topups, events, payouts]);
   const rows = filter === "all" ? all : all.filter((row) => row.kind === filter);
   const counts = useMemo(() => {
     const map = new Map<Filter, number>([["all", all.length]]);

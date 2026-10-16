@@ -65,7 +65,7 @@ function creationTime(id: string) {
  * events — особисті події з сервера (за id, не за іменем). Старий розбір тексту журналу за іменем
  * лишається тільки для записів, старіших за першу особисту подію (акаунти до появи подій).
  */
-export function buildLedger(world: World, user: Account, topups: LocalTopup[], events: Ev[] = []): Entry[] {
+export function buildLedger(world: World, user: Account, topups: LocalTopup[], events: Ev[] = [], payouts?: { at: number; userId: string; amount: number }[]): Entry[] {
   const rows: Entry[] = [];
   const name = escape(user.name);
   const seen = new Set<string>();
@@ -104,7 +104,7 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
     });
   }
 
-  for (const [index, row] of world.payouts.entries()) {
+  for (const [index, row] of (payouts ?? world.payouts).entries()) {
     if (row.userId !== user.id) continue;
     rows.push({
       id: `fund-${row.at}-${index}`,

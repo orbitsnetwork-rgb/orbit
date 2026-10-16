@@ -325,7 +325,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
     }
     const { withTransaction } = await import("@/lib/db");
     return withTransaction(async (sql) => {
-      const { ensureSocial, insertEvents, insertOrigins, insertThank } = await import("@/lib/orbit/social-db");
+      const { ensureSocial, insertEvents, insertOrigins, insertPayouts, insertThank } = await import("@/lib/orbit/social-db");
       await ensureSocial(sql);
       const pending: [string, Ev][] = [];
       let wrote = false;
@@ -611,6 +611,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       // Лише події останнього запису документа (track скидає чергу перед кожним packDoc).
       await insertEvents(sql, pending);
       await insertOrigins(sql, pending, Date.now());
+      await insertPayouts(sql, pending);
       out.social = await loadSocial(sql, done.world, days);
       return done;
     });

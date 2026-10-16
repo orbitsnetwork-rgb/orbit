@@ -89,7 +89,7 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
 
       <div className="k-grid2">
         <Stat icon={<ArrowLeftRight size={16} strokeWidth={2} />} tone="ion" value={fmt.format(recent.length)} label="угод за 24 год" foot={<Sparkline values={deals} tone="ion" width={120} height={22} />} />
-        <Stat icon={<Coins size={16} strokeWidth={2} />} value={`${fmt.format(volume)} ✦`} label="обсяг за 24 год" foot={<Change abs={dayDelta(deals)} suffix="угод до вчора" />} />
+        <Stat icon={<Coins size={16} strokeWidth={2} />} value={`${fmt.format(volume)} ✦`} label="обсяг за 24 год" foot={<Change abs={dayDelta(deals)} suffix="угод проти вчора" />} />
         <Stat icon={<ListOrdered size={16} strokeWidth={2} />} tone="nebula" value={fmt.format(world.queue.length)} label="орбіт у черзі" foot={<Sparkline values={listed} tone="nebula" width={120} height={22} />} />
         <Stat icon={<Wallet size={16} strokeWidth={2} />} tone="aurora" value={`${fmt.format(loose.length)} / ${fmt.format(mineAll.length)}`} label="твої вільні / усі" foot={<span className="ex-foot">{myListings.length ? `у черзі: ${myListings.length}` : "у черзі: немає"}</span>} />
       </div>

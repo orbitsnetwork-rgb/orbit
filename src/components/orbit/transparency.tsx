@@ -3,6 +3,7 @@ import { Coins, Download, Landmark, RefreshCw, TriangleAlert, Users } from "luci
 import { Page } from "@/components/orbit/more";
 import { Empty, SectionHead, Skeleton, Stat } from "@/components/orbit/ui/kit";
 import { toCsv, type Transparency as Data } from "@/lib/orbit/emission";
+import { FUND_SHARE, SELLER_SHARE } from "@/lib/orbit/engine";
 import { orbitTransparency } from "@/lib/orbit/transparency-fn";
 
 const fmt = new Intl.NumberFormat("uk-UA");
@@ -67,8 +68,8 @@ export function Transparency({ onBack, onClose }: { onBack: () => void; onClose?
           <div className="k-grid2">
             <Stat icon={<Coins size={16} strokeWidth={2} />} tone="sun" value={`${fmt.format(data.mass)} ✦`} label="усього іскор у світі" />
             <Stat icon={<Landmark size={16} strokeWidth={2} />} tone="aurora" value={`${fmt.format(data.fund)} ✦`} label="у фонді зараз" />
-            <Stat icon={<Landmark size={16} strokeWidth={2} />} tone="nebula" value={`${fmt.format(data.reserve)} ✦`} label="у резерві" />
-            <Stat icon={<Users size={16} strokeWidth={2} />} tone="ion" value={fmt.format(data.accounts)} label="імен у світі" />
+            <Stat icon={<Landmark size={16} strokeWidth={2} />} tone="nebula" value={`${fmt.format(data.reserve)} ✦`} label={`у резерві · ${(Math.round((1 - SELLER_SHARE - FUND_SHARE) * 1000) / 10).toString().replace(".", ",")}% з кожної угоди`} />
+            <Stat icon={<Users size={16} strokeWidth={2} />} tone="ion" value={fmt.format(data.accounts)} label="учасників" />
           </div>
 
           <section className="orbit-block" aria-labelledby="tr-days">

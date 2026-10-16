@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { forgive, keyMatches, limited, mailCode, markDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
+import { forgive, keyMatches, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
   adoptClock,
@@ -34,7 +34,7 @@ export type OrbitAction =
   | { type: "topup"; amount: number }
   | { type: "confirmTopup"; sessionId: string };
 
-type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; action: OrbitAction };
+type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
 export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats };
@@ -182,7 +182,11 @@ const RULES = {
   code: [10, 60 * MIN, 30 * MIN],
   key: [10, 60 * MIN, 60 * MIN],
   probe: [30, 60 * MIN, 30 * MIN],
+  /** Реєстрації з однієї IP-адреси: 10 спроб на годину (мобільні мережі ділять IP, тож не менше). REG_PER_IP_HOUR змінює число. */
+  reg: [10, 60 * MIN, 60 * MIN],
 } as const;
+const SAME_DEVICE = "Цей запуск відкрили на тому самому пристрої. Підтвердження мають давати інші люди зі своїх телефонів.";
+const REG_SLOW = "З цієї мережі забагато реєстрацій. Спробуй за годину.";
 const SLOW = "Забагато спроб. Спробуй пізніше.";
 
 function run(world: World, action: OrbitAction): Step {
@@ -211,7 +215,7 @@ export const orbitAct = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<OrbitReply> => {
     try {
       const out: Seen = { people: [] };
-      const step = await act(data, out);
+      const step = await act(await stamp(data), out);
       return reply(step, out.people);
     } catch (error) {
       // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
@@ -244,6 +248,23 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   return { world: attach(clocked, self), self: own(bag.people, self) };
 }
 
+/**
+ * Пристрій береться з підписаної cookie (сервер), а не з localStorage: очищення сховища більше не скидає ліміти.
+ * Якщо cookie ще немає, приймаємо id з клієнта (для старих пристроїв) або створюємо новий — і підписуємо.
+ */
+async function stamp(data: Call): Promise<Call> {
+  const server = await import("@tanstack/react-start/server");
+  const dev = await import("@/lib/orbit/device");
+  const signed = dev.readDevice(server.getCookie(dev.DEVICE_COOKIE));
+  const device = signed ?? data.device ?? dev.mintDevice();
+  if (!signed) {
+    const https = new URL(server.getRequestUrl()).protocol === "https:";
+    server.setCookie(dev.DEVICE_COOKIE, dev.signDevice(device), { httpOnly: true, sameSite: "lax", secure: https, path: "/", maxAge: 60 * 60 * 24 * 400 });
+  }
+  const rawIp = server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
+  return { ...data, device, ip: dev.ipTag(rawIp.split(",")[0].trim()) };
+}
+
 /** Хто є хто — щоб показати іншим «Ім’я П.». Заповнює act. */
 type Seen = { people: Identity[] };
 
@@ -261,13 +282,14 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const bag = unpackDoc(rows[0]?.doc);
       out.people = bag.people;
       let limits: Record<string, Limit> = bag.limits;
+      let seen = bag.seen;
       const clocked = adoptClock({ ...bag.world, sessionId: null });
       const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
       const base = attach(clocked, self);
       const wall = Date.now();
       const persist = (people = bag.people) =>
         sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits),
+          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen),
         ]);
       const gate = async (id: string, rule: keyof typeof RULES): Promise<OrbitReply | null> => {
         if (!limited(limits, id, wall)) return null;
@@ -275,10 +297,30 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         return { world: base, error: SLOW, self: own(bag.people, self) };
       };
       const miss = (id: string, rule: keyof typeof RULES) => {
-        const [max, windowMs, lockMs] = RULES[rule];
+        const [fixed, windowMs, lockMs] = RULES[rule];
+        const custom = rule === "reg" ? Number(process.env.REG_PER_IP_HOUR) : NaN;
+        const max = Number.isFinite(custom) && custom > 0 ? custom : fixed;
         limits = strike(limits, id, wall, max, windowMs, lockMs);
       };
 
+      if (self && actsAsSelf(data.action)) seen = markSeen(seen, data.device, self);
+      if (data.action.type === "accept" && self) {
+        // Два акаунти, що бували на одному пристрої, не підтверджують запуски одне одного. Рушій не чіпаємо: перевірка тут.
+        const code = data.action.code.replace(/\D/g, "").slice(0, 6);
+        const target = clocked.creations.find((item) => item.status === "collecting" && item.code === code && clocked.now < item.codeExpires);
+        if (target && target.userId !== self && sharedDevice(seen, self, target.userId)) {
+          await persist();
+          return { world: base, error: SAME_DEVICE, self: own(bag.people, self) };
+        }
+      }
+      if (data.action.type === "register") {
+        const tag = `r:${data.ip ?? "unknown"}`;
+        if (limited(limits, tag, wall)) {
+          await persist();
+          return { world: base, error: REG_SLOW };
+        }
+        miss(tag, "reg");
+      }
       if (data.action.type === "probe") {
         const blocked = await gate(`p:${data.device ?? "none"}`, "probe");
         if (blocked) return blocked;
@@ -301,7 +343,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       if (data.action.type === "probe") {
         const email = data.action.email.trim().toLowerCase();
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
         ]);
         return { world: base, taken: bag.people.some((person) => person.email === email), self: own(bag.people, self) };
       }
@@ -315,15 +357,16 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           miss(`k:${email}`, "key");
           miss(`kd:${data.device ?? "none"}`, "key");
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
           ]);
           return { world: base, error: LOCKED };
         }
         limits = forgive(limits, `k:${email}`);
+        seen = markSeen(seen, data.device, person.userId);
         const opened = enter(attach(clocked, null), person.userId);
         const sharedMail = { ...opened.world, sessionId: null };
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits),
+          packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
         ]);
         return { ...opened, world: attach(sharedMail, person.userId), self: person };
       }
@@ -331,14 +374,14 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         miss(`k:${data.action.id}`, "key");
         miss(`kd:${data.device ?? "none"}`, "key");
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
         ]);
         return { world: base, error: LOCKED };
       }
       if (actsAsSelf(data.action) && !self) {
         const step = data.sessionId ? { world: base, error: LOCKED } : run(base, data.action);
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
         ]);
         return { ...step, self: own(bag.people, self) };
       }
@@ -359,7 +402,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         limits = forgive(limits, `m:${self}`);
         const people = bag.people.map((row) => (row.userId === self ? { ...row, confirmed: true, mailCode: null } : row));
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits),
+          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen),
         ]);
         return { world: base, self: people.find((row) => row.userId === self) ?? null, notice: "Пошту підтверджено." };
       }
@@ -386,7 +429,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           { id: opened.id, userId: self, amount: data.action.amount, status: "open", at: clocked.now },
         ];
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, topups, limits),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, topups, limits, seen),
         ]);
         return { world: base, url: opened.url, notice: "Відкриваю тестову оплату.", self: own(bag.people, self) };
       }
@@ -397,7 +440,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         const done = creditTopup(clocked, bag.topups, paid);
         const sharedPay = { ...done.world, sessionId: null };
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedPay, bag.keys, bag.devices, bag.people, done.topups, limits),
+          packDoc(sharedPay, bag.keys, bag.devices, bag.people, done.topups, limits, seen),
         ]);
         return {
           world: attach(sharedPay, self),
@@ -422,19 +465,19 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         );
         if ("error" in person) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
           ]);
           return { world: base, error: person.error };
         }
         if (bag.people.some((row) => row.email === person.email || row.phone === person.phone)) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
           ]);
           return { world: base, error: "Така пошта або телефон вже є." };
         }
         if (!data.device || namesLeft(bag.devices, data.device, day) <= 0) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
           ]);
           return { world: base, error: data.device ? "Сьогодні з цього пристрою вже 3 імені." : "Пристрій не впізнано." };
         }
@@ -467,8 +510,9 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         people = [...people, fresh];
         out.people = people;
       }
+      if (!step.error && (data.action.type === "register" || data.action.type === "enter")) seen = markSeen(seen, data.device, step.world.sessionId);
       const shared = { ...step.world, sessionId: null };
-      await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits)]);
+      await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits, seen)]);
       const session = step.world.sessionId;
       return { ...step, world: attach(shared, session), key, self: fresh?.userId ? fresh : own(people, session) };
     });

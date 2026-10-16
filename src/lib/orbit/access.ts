@@ -21,6 +21,8 @@ export type Bag = {
   people: Identity[];
   topups: Topup[];
   limits: Record<string, Limit>;
+  /** Які акаунти входили чи діяли з якого пристрою (підписаний id). Лише для антиспаму. */
+  seen: Record<string, string[]>;
 };
 
 /** Лічильник спроб: n спроб у вікні, що почалося в start; до until — блок. */
@@ -45,8 +47,8 @@ export function mintKey(): string {
 
 export function unpackDoc(doc: unknown): Bag {
   const value = typeof doc === "string" ? parse(doc) : doc;
-  if (!value || typeof value !== "object") return { world: emptyWorld(), keys: {}, devices: {}, people: [], topups: [], limits: {} };
-  const bag = value as { world?: unknown; keys?: unknown; devices?: unknown; people?: unknown; topups?: unknown; limits?: unknown };
+  if (!value || typeof value !== "object") return { world: emptyWorld(), keys: {}, devices: {}, people: [], topups: [], limits: {}, seen: {} };
+  const bag = value as { world?: unknown; keys?: unknown; devices?: unknown; people?: unknown; topups?: unknown; limits?: unknown; seen?: unknown };
   const world = asWorld(bag.world) ?? asWorld(value);
   return {
     world: world ?? emptyWorld(),
@@ -55,6 +57,7 @@ export function unpackDoc(doc: unknown): Bag {
     people: asPeople(bag.people),
     topups: asTopups(bag.topups),
     limits: asLimits(bag.limits),
+    seen: asSeen(bag.seen),
   };
 }
 
@@ -65,8 +68,36 @@ export function packDoc(
   people: Identity[] = [],
   topups: Topup[] = [],
   limits: Record<string, Limit> = {},
+  seen: Record<string, string[]> = {},
 ) {
-  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits });
+  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits, seen });
+}
+
+/** Скільки акаунтів пам’ятаємо на один пристрій (найсвіжіші). */
+const SEEN_PER_DEVICE = 20;
+
+function asSeen(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, string[]> = {};
+  for (const [device, ids] of Object.entries(value as Record<string, unknown>)) {
+    if (!/^d-[A-Z2-9]{8}$/.test(device) || !Array.isArray(ids)) continue;
+    const clean = ids.filter((id): id is string => typeof id === "string" && id.startsWith("u-")).slice(-SEEN_PER_DEVICE);
+    if (clean.length) out[device] = clean;
+  }
+  return out;
+}
+
+/** Позначити, що акаунт був на цьому пристрої. */
+export function markSeen(seen: Record<string, string[]>, device: string | null, userId: string | null) {
+  if (!device || !userId) return seen;
+  const have = seen[device] ?? [];
+  if (have[have.length - 1] === userId) return seen;
+  return { ...seen, [device]: [...have.filter((id) => id !== userId), userId].slice(-SEEN_PER_DEVICE) };
+}
+
+/** Чи бували два акаунти на одному пристрої. */
+export function sharedDevice(seen: Record<string, string[]>, a: string, b: string) {
+  return Object.values(seen).some((ids) => ids.includes(a) && ids.includes(b));
 }
 
 /** Публічне ім’я: «Олена К.». Повне прізвище бачить лише сама людина. */

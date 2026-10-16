@@ -36,6 +36,10 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
   const creation = activeCreation(world, user.id);
   const codesUsed = creation && creation.codeDay === day ? creation.codesToday : 0;
   const gross = world.price * count;
+  // Фактичний поділ, як у рушії (floor), а не номінальні константи (аудит K8).
+  const cut = { seller: Math.floor(world.price * SELLER_SHARE), fund: Math.floor(world.price * FUND_SHARE), reserve: 0 };
+  cut.reserve = world.price - cut.seller - cut.fund;
+  const pctOf = (v: number) => pct(world.price ? v / world.price : 0);
   const seller = Math.floor(world.price * SELLER_SHARE) * count;
   const fund = Math.floor(world.price * FUND_SHARE) * count;
   const reserve = gross - seller - fund;
@@ -73,7 +77,7 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
             <div className="fe-table" role="table">
               <div className="fe-tr fe-th" role="row"><span role="columnheader">Що</span><span role="columnheader">Комісія</span></div>
               <Tr name="Купівля орбіти" value="0%" note="Платиш рівно ціну дня" />
-              <Tr name="Продаж орбіти" value={pct(1 - SELLER_SHARE)} note={`${pct(FUND_SHARE)} у фонд · ${pct(1 - SELLER_SHARE - FUND_SHARE)} у резерв`} />
+              <Tr name="Продаж орбіти" value={`${cut.fund + cut.reserve} ✦`} note={`За ціни ${world.price} ✦: ${cut.seller} продавцю · ${cut.fund} у фонд · ${cut.reserve} у резерв (${pctOf(cut.seller)} / ${pctOf(cut.fund)} / ${pctOf(cut.reserve)})`} />
               <Tr name="Заявка, коди, заряд" value="0%" note="Безкоштовно" />
               <Tr name="Тестове поповнення" value="0%" note="Справжні гроші не списуються" />
               <Tr name="Зберігання, вхід" value="0%" note="Без плати за бездіяльність" />

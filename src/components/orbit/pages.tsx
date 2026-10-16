@@ -1,4 +1,5 @@
 import { Assets } from "@/components/orbit/assets";
+import { Fees } from "@/components/orbit/fees";
 import { History } from "@/components/orbit/history";
 import { Inbox } from "@/components/orbit/inbox";
 import { DocList, DocView, isDoc, MoreHub, type Route } from "@/components/orbit/more";
@@ -48,6 +49,7 @@ export function Pages({
       />
     );
   }
+  if (top === "fees" && world && user) return <Fees world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "inbox" && world && user) return <Inbox world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "assets" && world && user) {
     return (

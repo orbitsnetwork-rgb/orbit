@@ -1,7 +1,7 @@
 /** «Я» v8: показники профілю і картки моїх орбіт. */
 import { ThankList } from "@/components/orbit/crew";
 import { useOrbits } from "@/lib/orbit/store";
-import { CalendarDays, CheckCircle2, Heart, ListOrdered, Orbit as OrbitIcon, ShieldCheck, Zap } from "lucide-react";
+import { CalendarDays, CheckCircle2, Flame, Heart, ListOrdered, Orbit as OrbitIcon, ShieldCheck, Zap } from "lucide-react";
 import { DAY_MS, holdBonus, type Account, type World } from "@/lib/orbit/engine";
 import { Empty, SectionHead, Stat } from "@/components/orbit/ui/kit";
 
@@ -16,6 +16,7 @@ export function daysWith(user: Account, now: number) {
 
 export function ProfileStats({ world, user }: { world: World; user: Account }) {
   const thanks = useOrbits((state) => state.mine?.thanksGot ?? 0);
+  const active = useOrbits((state) => state.mine?.days?.count ?? 0);
   const orbits = world.orbits.filter((orbit) => orbit.ownerId === user.id).length;
   const given = world.creations.reduce((sum, row) => sum + row.confirms.filter((c) => c.witnessId === user.id).length, 0);
   return (
@@ -25,6 +26,7 @@ export function ProfileStats({ world, user }: { world: World; user: Account }) {
       <Stat icon={<ShieldCheck size={16} strokeWidth={2} />} tone="aurora" value={fmt.format(given)} label="твоїх підтверджень" />
       <Stat icon={<CalendarDays size={16} strokeWidth={2} />} tone="ion" value={fmt.format(daysWith(user, world.now))} label="днів в Орбітах" />
       <Stat icon={<Heart size={16} strokeWidth={2} />} tone="sun" value={fmt.format(thanks)} label="подяки" />
+      <Stat icon={<Flame size={16} strokeWidth={2} />} tone="sun" value={fmt.format(active)} label="днів на орбіті" />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, ThanksDue, daysWith } from "@/components/orbit/person-extras";
 import { MyCrews } from "@/components/orbit/crew";
+import { OrbitDays } from "@/components/orbit/badges";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
@@ -965,6 +966,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
         <SelfCard />
       </section>
       <ProfileStats world={world} user={user} />
+      <OrbitDays world={world} userId={user.id} />
       <ThanksDue world={world} user={user} />
       <section className="orbit-block pr-bal" aria-labelledby="pr-bal-title">
         <div className="hm-wallet-head">

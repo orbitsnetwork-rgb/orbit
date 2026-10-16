@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, FileText, Shield, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
+import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
 import { Pages } from "@/components/orbit/pages";
@@ -6,7 +6,7 @@ import { rememberTopup } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
 import {
   activeCreation,
@@ -148,7 +148,7 @@ export function OrbitApp() {
             </button>
           </div>
         </header>
-        {tab === "home" ? <Home world={world} user={user} onMine={() => setTab("mine")} /> : null}
+        {tab === "home" ? <Home world={world} user={user} onMine={() => setTab("mine")} onOpen={nav.open} /> : null}
         {tab === "market" ? <Exchange world={world} user={user} /> : null}
         {tab === "mine" ? <Mine world={world} user={user} /> : null}
         {tab === "flow" ? <Flow world={world} user={user} /> : null}
@@ -384,7 +384,7 @@ function LangRow({ lang }: { lang: Lang }) {
   );
 }
 
-function Home({ world, user, onMine }: { world: World; user: Account; onMine: () => void }) {
+function Home({ world, user, onMine, onOpen }: { world: World; user: Account; onMine: () => void; onOpen: (route: Route) => void }) {
   const lang = useLang();
   const wall = useWall(world.now);
   const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
@@ -465,9 +465,24 @@ function Home({ world, user, onMine }: { world: World; user: Account; onMine: ()
           <Notice />
         </>
       )}
+      <nav className="hm-quick" aria-label="Швидкий доступ">
+        {QUICK.map((item) => (
+          <button key={item.route} type="button" onClick={() => onOpen(item.route)}>
+            <span aria-hidden>{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+      </nav>
     </section>
   );
 }
+
+const QUICK: { route: Route; label: string; icon: ReactNode }[] = [
+  { route: "explorer", label: "Оглядач", icon: <Telescope size={19} strokeWidth={1.5} /> },
+  { route: "leaders", label: "Рейтинг", icon: <Trophy size={19} strokeWidth={1.5} /> },
+  { route: "learn", label: "Навчання", icon: <GraduationCap size={19} strokeWidth={1.5} /> },
+  { route: "help", label: "Довідка", icon: <CircleHelp size={19} strokeWidth={1.5} /> },
+];
 
 function Mine({ world, user }: { world: World; user: Account }) {
   const creation = activeCreation(world, user.id);

@@ -1369,3 +1369,10 @@ a.h-11.bg-accent::after { display: none !important; }
 .ln-why[data-ok="1"] { color: #8fe6b8; }
 .ln-nav { display: grid; grid-template-columns: auto 1fr; gap: 0.6rem; align-items: center; }
 .ln-go { justify-self: end; min-width: 10rem; }
+
+/* Головна: швидкий доступ */
+.hm-quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; margin-top: 0.4rem; }
+.hm-quick button { display: grid; justify-items: center; gap: 0.35rem; padding: 0.55rem 0.2rem; border: 0; border-radius: 14px; background: transparent; color: #c9c2b6; font: 600 0.72rem/1.2 var(--font-sans); }
+.hm-quick button span { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 14px; border: 1px solid var(--color-orbit-line); background: #0e0c0a; color: #f0c98a; }
+.hm-quick button:active span { background: #15130f; }
+.hm-quick button:focus-visible { outline: 2px solid color-mix(in oklab, #d7a15a 75%, white); outline-offset: 2px; }

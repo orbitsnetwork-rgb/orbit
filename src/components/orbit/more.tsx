@@ -1,6 +1,7 @@
 import { BellRing, CreditCard, Download, KeyRound, Landmark, MonitorSmartphone, UserX, Users } from "lucide-react";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { useInstall } from "@/lib/orbit/pwa";
+import { Boundary, LinkBanner } from "@/components/orbit/states";
 import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
@@ -90,7 +91,8 @@ export function Page({
               <h1 className="orbit-h mo-title" id={id} ref={head} tabIndex={-1}>{title}</h1>
             </div>
           </div>
-          {children}
+          <LinkBanner />
+          <Boundary name={title}>{children}</Boundary>
         </div>
       </div>
       {footer ? <div className="mo-foot">{footer}</div> : null}

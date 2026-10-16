@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { registerShell } from "@/lib/orbit/pwa";
 import { Checklist } from "@/components/orbit/checklist";
 import { NudgeButton } from "@/components/orbit/nudge";
+import { Boundary, LinkBanner } from "@/components/orbit/states";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
 import {
   activeCreation,
@@ -266,12 +267,15 @@ export function OrbitApp() {
             </button>
           </div>
         </header>
+        <LinkBanner />
         <div key={tab} className="tab-in">
+          <Boundary name={tab}>
           {tab === "home" ? <Home world={world} user={user} onTab={setTab} onOpen={nav.open} /> : null}
           {tab === "market" ? <Exchange world={world} user={user} /> : null}
           {tab === "mine" ? <Mine world={world} user={user} /> : null}
           {tab === "flow" ? <Fund world={world} user={user} /> : null}
           {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
+          </Boundary>
         </div>
         <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} world={world} user={user} onTab={setTab} unread={inbox.unread} />
       </div>

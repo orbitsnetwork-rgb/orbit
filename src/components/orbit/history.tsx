@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, CircleDot, Gift, Hourglass, Plus, Sparkles, WifiOff } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CircleDot, Gift, Hourglass, Plus, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import { spk } from "@/lib/orbit/copy";
@@ -67,7 +67,6 @@ function signed(amount: number) {
 
 export function History({ world, user, onBack, onClose, onGo }: { world: World; user: Account; onBack: () => void; onClose?: () => void; onGo: (tab: "market" | "mine" | "me") => void }) {
   const ready = useOrbits((state) => state.ready);
-  const offline = useOrbits((state) => state.bad && state.flash === "Спільний світ не відповідає.");
   const [filter, setFilter] = useState<Filter>("all");
   const [open, setOpen] = useState<Entry | null>(null);
   const [topups, setTopups] = useState(() => readTopups(user.id));
@@ -95,11 +94,6 @@ export function History({ world, user, onBack, onClose, onGo }: { world: World; 
 
   return (
     <Page title="Історія" kicker="Мої операції · UTC" onBack={onBack} onClose={onClose}>
-      {offline ? (
-        <p className="hi-offline" role="status">
-          <WifiOff size={15} strokeWidth={1.75} aria-hidden /> Немає зв’язку. Показуємо останні дані.
-        </p>
-      ) : null}
       <div className="hi-sum" aria-label="Підсумок">
         <div>
           <span>Прийшло</span>

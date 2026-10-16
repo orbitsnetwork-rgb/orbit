@@ -1298,3 +1298,23 @@ a.h-11.bg-accent::after { display: none !important; }
 .hp-contact div { display: grid; gap: 0.15rem; }
 .hp-contact b { color: #ebe6dc; font-size: 0.92rem; }
 .hp-contact small { color: #9a9286; font-size: 0.76rem; line-height: 1.35; }
+
+/* Стан системи */
+.st-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.85rem; align-items: center; padding: 14px 16px; border-radius: 18px; border: 1px solid color-mix(in oklab, #3dd68c 35%, #2c2824); background: color-mix(in oklab, #3dd68c 8%, #0e0c0a); }
+.st-head div { display: grid; gap: 0.15rem; }
+.st-head b { font-size: 1.05rem; font-weight: 700; color: #ebe6dc; }
+.st-head small { color: #9a9286; font-size: 0.8rem; line-height: 1.35; }
+.st-head i { width: 12px; height: 12px; border-radius: 99px; background: #3dd68c; box-shadow: 0 0 0 0 color-mix(in oklab, #3dd68c 60%, transparent); animation: st-pulse 2s ease-out infinite; }
+.st-head[data-state="slow"] { border-color: color-mix(in oklab, #d7a15a 40%, #2c2824); background: color-mix(in oklab, #d7a15a 9%, #0e0c0a); }
+.st-head[data-state="slow"] i { background: #d7a15a; }
+.st-head[data-state="down"] { border-color: color-mix(in oklab, #e85d4c 40%, #2c2824); background: color-mix(in oklab, #e85d4c 9%, #0e0c0a); }
+.st-head[data-state="down"] i { background: #e85d4c; animation: none; }
+@keyframes st-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, #3dd68c 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) { .st-head i { animation: none; } }
+.st-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; align-items: center; padding: 0.7rem 0.9rem; border-top: 1px solid var(--color-orbit-line); }
+.mo-card > .st-row:first-child { border-top: 0; }
+.st-pill { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: color-mix(in oklab, #3dd68c 14%, #0e0c0a); color: #8fe6b8; white-space: nowrap; }
+.st-pill[data-state="slow"], .st-pill[data-state="test"] { background: color-mix(in oklab, #d7a15a 15%, #0e0c0a); color: #f0c98a; }
+.st-pill[data-state="down"] { background: color-mix(in oklab, #e85d4c 16%, #0e0c0a); color: #f0a49a; }
+.st-pill[data-state="off"] { background: #1c1a17; color: #8a847a; }
+.st-time { font: 700 0.95rem/1 ui-monospace, "JetBrains Mono", monospace; color: #ebe6dc; font-variant-numeric: tabular-nums; white-space: nowrap; }

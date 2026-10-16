@@ -4,6 +4,7 @@ import { Fees } from "@/components/orbit/fees";
 import { Help } from "@/components/orbit/help";
 import { History } from "@/components/orbit/history";
 import { Security } from "@/components/orbit/security";
+import { Status } from "@/components/orbit/status";
 import { Inbox } from "@/components/orbit/inbox";
 import { DocList, DocView, isDoc, MoreHub, type Route } from "@/components/orbit/more";
 import type { DocId } from "@/lib/orbit/docs";
@@ -37,6 +38,7 @@ export function Pages({
   if (!top) return null;
   const closer = stack.length > 1 ? onClose : undefined;
   if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} signedIn={Boolean(user)} unread={unread} />;
+  if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
   if (top === "help") return <Help onBack={onPop} onClose={closer} onOpen={onPush} signedIn={Boolean(world && user)} />;
   if (top === "docs") return <DocList onOpen={(id) => onPush(`doc:${id}`)} onBack={onPop} onClose={closer} />;
   if (top === "history" && world && user) {

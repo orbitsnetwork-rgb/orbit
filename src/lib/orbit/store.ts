@@ -109,6 +109,8 @@ function blip() {
   osc.onended = () => void ctx.close();
 }
 
+export const OFFLINE = "Спільний світ не відповідає.";
+
 let tail: Promise<unknown> = Promise.resolve();
 
 function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise<OrbitReply | null> {
@@ -138,13 +140,14 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
       useOrbits.setState({
         world: step.world,
         self: step.self === undefined ? prior.self : step.self,
-        flash: quiet ? (prior.bad ? prior.flash : "") : shown,
-        bad: quiet ? prior.bad : Boolean(step.error),
+        // Тиха відповідь означає, що зв’язок повернувся: прибираємо лише помилку зв’язку.
+        flash: quiet ? (prior.bad && prior.flash !== OFFLINE ? prior.flash : "") : shown,
+        bad: quiet ? prior.bad && prior.flash !== OFFLINE : Boolean(step.error),
         ready: true,
       });
       return step;
     } catch {
-      useOrbits.setState({ ready: true, flash: "Спільний світ не відповідає.", bad: true });
+      useOrbits.setState({ ready: true, flash: OFFLINE, bad: true });
       return null;
     }
   });

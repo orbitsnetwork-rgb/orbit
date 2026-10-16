@@ -46,7 +46,8 @@ type OrbitState = {
   accept: (code: string) => Promise<void>;
   list: (orbitId: number) => Promise<void>;
   cancel: (orbitId: number) => Promise<void>;
-  buy: () => Promise<void>;
+  /** expected — ціна, яку людина бачила у вікні підтвердження. */
+  buy: (expected: number) => Promise<void>;
   topup: (amount: number) => Promise<void>;
   confirmTopup: (sessionId: string) => Promise<void>;
 };
@@ -218,7 +219,7 @@ export const useOrbits = create<OrbitState>()(() => ({
   accept: (code) => send({ type: "accept", code }).then(() => undefined),
   list: (orbitId) => send({ type: "list", orbitId }).then(() => undefined),
   cancel: (orbitId) => send({ type: "cancel", orbitId }).then(() => undefined),
-  buy: () => send({ type: "buy" }).then(() => undefined),
+  buy: (expected) => send({ type: "buy", price: expected }).then(() => undefined),
   topup: (amount) => send({ type: "topup", amount }).then(() => undefined),
   confirmTopup: (sessionId) => send({ type: "confirmTopup", sessionId }).then(() => undefined),
 }));

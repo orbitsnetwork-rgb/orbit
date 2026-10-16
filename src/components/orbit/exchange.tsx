@@ -22,7 +22,7 @@ function dayLabel(day: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", timeZone: "UTC" }).format(Date.parse(`${day}T00:00:00.000Z`));
 }
 
-type Confirm = { kind: "buy" } | { kind: "sell"; orbitId: number } | null;
+export type Confirm = { kind: "buy" } | { kind: "sell"; orbitId: number } | null;
 
 type Panel = "book" | "trades" | "mine";
 
@@ -200,7 +200,7 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
           confirm={confirm}
           busy={busy}
           onClose={() => setConfirm(null)}
-          onBuy={() => run(() => useOrbits.getState().buy())}
+          onBuy={(price) => run(() => useOrbits.getState().buy(price))}
           onSell={(orbitId) => run(() => useOrbits.getState().list(orbitId))}
         />
       ) : null}
@@ -208,7 +208,7 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
   );
 }
 
-function ConfirmSheet({
+export function ConfirmSheet({
   world,
   user,
   confirm,
@@ -222,7 +222,7 @@ function ConfirmSheet({
   confirm: Exclude<Confirm, null>;
   busy: boolean;
   onClose: () => void;
-  onBuy: () => void;
+  onBuy: (price: number) => void;
   onSell: (orbitId: number) => void;
 }) {
   useEffect(() => {
@@ -249,7 +249,7 @@ function ConfirmSheet({
             <div><span>Стабільність</span><b>+1</b></div>
           </div>
           <p className="orbit-note">Ціна одна для всіх і міняється о 00:00 UTC. Тестовий режим.</p>
-          <button type="button" className="orbit-go k-go" disabled={busy || short || !oldest} onClick={onBuy}>
+          <button type="button" className="orbit-go k-go" disabled={busy || short || !oldest} onClick={() => onBuy(price)}>
             {busy ? <><span className="k-spin" aria-hidden /> Купуємо…</> : `Купити за ${spk(price)}`}
           </button>
           <button type="button" className="orbit-quiet" onClick={onClose}>Скасувати</button>

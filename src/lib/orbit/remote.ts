@@ -29,7 +29,7 @@ export type OrbitAction =
   | { type: "accept"; code: string }
   | { type: "list"; orbitId: number }
   | { type: "cancel"; orbitId: number }
-  | { type: "buy" }
+  | { type: "buy"; price: number }
   | { type: "topup"; amount: number }
   | { type: "confirmTopup"; sessionId: string };
 
@@ -56,7 +56,7 @@ function clean(input: unknown): Call {
     sessionKey?: unknown;
     key?: unknown;
     device?: unknown;
-    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown };
+    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown };
   };
   const sessionId = typeof raw.sessionId === "string" && raw.sessionId.startsWith("u-") ? raw.sessionId : null;
   const sessionKey = clipKey(raw.sessionKey);
@@ -92,7 +92,11 @@ function clean(input: unknown): Call {
   if (type === "confirmTopup") {
     return { sessionId, sessionKey, key, device, action: { type, sessionId: String(action.sessionId ?? "").slice(0, 80) } };
   }
-  if (type === "start" || type === "issue" || type === "buy" || type === "pull") return { sessionId, sessionKey, key, device, action: { type } };
+  if (type === "buy") {
+    const price = Number(action.price);
+    return { sessionId, sessionKey, key, device, action: { type, price: Number.isFinite(price) ? Math.round(price) : -1 } };
+  }
+  if (type === "start" || type === "issue" || type === "pull") return { sessionId, sessionKey, key, device, action: { type } };
   return { sessionId, sessionKey, key, device, action: { type: "pull" } };
 }
 
@@ -283,6 +287,11 @@ async function act(data: Call): Promise<OrbitReply> {
         if (person && !person.confirmed) {
           return { world: base, error: "Спочатку код з пошти.", self: person };
         }
+      }
+      if (data.action.type === "buy" && self && data.action.price !== clocked.price) {
+        // Ціна могла змінитися опівночі UTC між відкриттям вікна й натисканням. Рушій не чіпаємо: перевіряємо тут.
+        await persist();
+        return { world: base, error: `Ціна щойно змінилась: тепер ${clocked.price} ✦. Перевір і підтвердь ще раз.`, self: own(bag.people, self) };
       }
       if (data.action.type === "topup" && self) {
         const { getRequestUrl } = await import("@tanstack/react-start/server");

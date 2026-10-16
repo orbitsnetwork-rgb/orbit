@@ -8,7 +8,7 @@ import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from 
 import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
-import { Exchange, Soon } from "@/components/orbit/exchange";
+import { ConfirmSheet, Exchange, Soon, type Confirm } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
 import { Pages } from "@/components/orbit/pages";
 import { rememberTopup } from "@/lib/orbit/ledger";
@@ -563,6 +563,17 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
   const wall = useWall(world.now);
   const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
   const [topup, setTopup] = useState(false);
+  const [sheet, setSheet] = useState<Confirm>(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
+  const runSheet = async (job: () => Promise<void>) => {
+    setSheetBusy(true);
+    try {
+      await job();
+    } finally {
+      setSheetBusy(false);
+      setSheet(null);
+    }
+  };
   const oldest = world.queue[0];
   const loose = world.orbits.find((orbit) => orbit.ownerId === user.id && !world.queue.some((row) => row.orbitId === orbit.id));
   const canBuy = Boolean(oldest && oldest.userId !== user.id);
@@ -578,11 +589,11 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
   if (canBuy) {
     label = t(lang, "buy");
     icon = <ShoppingCart size={18} strokeWidth={2} aria-hidden />;
-    act = () => useOrbits.getState().buy();
+    act = () => setSheet({ kind: "buy" });
   } else if (loose) {
     label = t(lang, "sell");
     icon = <Tag size={18} strokeWidth={2} aria-hidden />;
-    act = () => useOrbits.getState().list(loose.id);
+    act = () => setSheet({ kind: "sell", orbitId: loose.id });
   } else if (oldest?.userId === user.id) {
     label = "Перша в черзі твоя";
     icon = <ListOrdered size={18} strokeWidth={2} aria-hidden />;
@@ -642,6 +653,17 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
         ))}
       </nav>
       {topup ? <TopupSheet onClose={() => setTopup(false)} /> : null}
+      {sheet ? (
+        <ConfirmSheet
+          world={world}
+          user={user}
+          confirm={sheet}
+          busy={sheetBusy}
+          onClose={() => setSheet(null)}
+          onBuy={(price) => runSheet(() => useOrbits.getState().buy(price))}
+          onSell={(orbitId) => runSheet(() => useOrbits.getState().list(orbitId))}
+        />
+      ) : null}
     </div>
   );
 }

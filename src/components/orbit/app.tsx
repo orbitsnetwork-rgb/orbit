@@ -364,6 +364,7 @@ function Gate({
         <p className="orbit-kicker">{t(lang, "brand")}</p>
         <h1>{t(lang, "sub")}</h1>
         <p className="orbit-note">Пошта, телефон, ім’я. Ключ — лише для входу.</p>
+        <GuestStats />
         {invited ? (
           <p className="cs-invite" role="status">
             Тебе запросили підтвердити запуск орбіти. Увійди або створи акаунт — код уже чекатиме в «Запуску».
@@ -547,6 +548,20 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
       />
     </label>
+  );
+}
+
+/** До входу: лише загальні цифри світу, без імен і без того, хто кого підтвердив. */
+function GuestStats() {
+  const pub = useOrbits((state) => state.pub);
+  if (!pub) return null;
+  return (
+    <div className="orbit-stats gs-stats" aria-label="Світ Орбіт зараз">
+      <div><b>{money.format(pub.people)}</b><span>учасників</span></div>
+      <div><b>{money.format(pub.orbits)}</b><span>орбіт</span></div>
+      <div><b>{money.format(pub.price)}</b><span>✦ ціна дня</span></div>
+      <div><b>{money.format(pub.queue)}</b><span>у черзі</span></div>
+    </div>
   );
 }
 

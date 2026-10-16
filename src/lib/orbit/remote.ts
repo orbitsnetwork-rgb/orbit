@@ -12,6 +12,7 @@ import {
   register,
   startCreation,
   utcDay,
+  DAY_MS,
   type Step,
   type World,
 } from "@/lib/orbit/engine";
@@ -34,7 +35,9 @@ export type OrbitAction =
   | { type: "confirmTopup"; sessionId: string };
 
 type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; action: OrbitAction };
-export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string };
+/** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
+export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
+export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats };
 
 const LOCKED = "Це ім’я відкрите на іншому пристрої. Потрібен його ключ.";
 
@@ -107,7 +110,32 @@ function attach(world: World, sessionId: string | null): World {
 
 /** Що бачить клієнт: світ лише з власними приватними полями. */
 function reply(step: OrbitReply, people: Identity[]): OrbitReply {
+  if (!step.world.sessionId) return { ...step, world: guestWorld(step.world), pub: statsOf(step.world) };
   return { ...step, world: project(step.world, step.world.sessionId, people) };
+}
+
+export function statsOf(world: World): PublicStats {
+  const dayAgo = world.now - DAY_MS;
+  return {
+    price: world.price,
+    orbits: world.orbits.length,
+    queue: world.queue.length,
+    people: world.accounts.length,
+    trades24h: world.trades.filter((trade) => trade.at >= dayAgo).length,
+    fund: world.fund,
+  };
+}
+
+/** Світ для того, хто не увійшов: лише ціна й годинник, усі списки порожні. Цифри — у pub. */
+export function guestWorld(world: World): World {
+  return {
+    ...emptyWorld(world.now),
+    price: world.price,
+    priceDay: world.priceDay,
+    fund: world.fund,
+    nextNo: world.nextNo,
+    lastDistributionAt: world.lastDistributionAt,
+  };
 }
 
 /**

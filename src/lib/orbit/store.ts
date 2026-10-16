@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Identity } from "@/lib/orbit/access";
 import { emptyWorld, type World } from "@/lib/orbit/engine";
-import { orbitAct, type OrbitAction, type OrbitReply } from "@/lib/orbit/remote";
+import { orbitAct, type OrbitAction, type OrbitReply, type PublicStats } from "@/lib/orbit/remote";
 
 const WHO = "orbits-who";
 const KEYS = "orbits-keys";
@@ -27,6 +27,8 @@ function device(): string | null {
 
 type OrbitState = {
   world: World;
+  /** Загальні цифри світу для гостя (до входу). */
+  pub: PublicStats | null;
   self: Identity | null;
   flash: string;
   bad: boolean;
@@ -186,6 +188,7 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
       if (step.url && !step.error && typeof window !== "undefined") window.location.href = step.url;
       useOrbits.setState({
         world: step.world,
+        pub: step.pub ?? null,
         self: step.self === undefined ? prior.self : step.self,
         // Тиха відповідь означає, що зв’язок повернувся: прибираємо лише помилку зв’язку.
         flash: quiet ? (prior.bad && prior.flash !== OFFLINE ? prior.flash : "") : shown,
@@ -205,6 +208,7 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
 
 export const useOrbits = create<OrbitState>()(() => ({
   world: emptyWorld(),
+  pub: null,
   self: null,
   flash: "",
   bad: false,

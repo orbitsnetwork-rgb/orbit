@@ -1,6 +1,8 @@
 import { createPortal } from "react-dom";
+import { Avatar } from "@/components/orbit/ui/kit";
 import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from "@/components/orbit/home";
-import { Clock3, ListOrdered, Rocket, ShoppingCart, Tag } from "lucide-react";
+import { Clock3, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
+import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
@@ -644,6 +646,14 @@ const QUICK: { route: Route; label: string; icon: ReactNode }[] = [
 function Mine({ world, user }: { world: World; user: Account }) {
   const creation = activeCreation(world, user.id);
   const wall = useWall(world.now);
+  const tail = (
+    <>
+      <LaunchStats world={world} user={user} creation={creation ?? null} />
+      <LiveLaunches world={world} user={user} />
+      <OnlineStrip world={world} userId={user.id} />
+      <PastLaunches world={world} user={user} />
+    </>
+  );
   if (creation?.status === "charging" && creation.chargeStartedAt) {
     const readyAt = creation.chargeStartedAt + CHARGE_MS;
     const chance = Math.round(chanceOf(world.orbits.length) * 100);
@@ -652,7 +662,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
     return (
       <div className="orbit-stack">
         <section className="orbit-block ch-hero ch-live">
-          <p className="orbit-kicker">Заряд</p>
+          <LaunchSteps creation={creation} now={wall} />
           <Satellites trackId={creation.id} lit={8} charge={elapsed} state="charge" label={`Усі 8 супутників на місці. Заряджено ${Math.round(elapsed * 100)}%, залишилось ${left(leftMs)}.`}>
             <b className="ch-big">Шанс {chance}%</b>
             <small className="ch-small">{leftMs > 0 ? `Залишилось ${left(leftMs)}` : "Ось-ось буде результат"}</small>
@@ -661,6 +671,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
           <Witnesses world={world} creation={creation} title="Тебе запускають" />
         </section>
         <ConfirmCard userId={user.id} ownCode={null} />
+        {tail}
       </div>
     );
   }
@@ -672,7 +683,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
     return (
       <div className="orbit-stack">
       <section className="orbit-block ch-hero">
-        <p className="orbit-kicker">Запуск · підтвердження</p>
+        <LaunchSteps creation={creation} now={wall} />
         <Satellites trackId={creation.id} lit={creation.confirms.length} state="collect" label={`${creation.confirms.length} з 8 супутників світяться`}>
           <b className="ch-big">{creation.confirms.length} з 8</b>
           <small className="ch-small">підтверджень</small>
@@ -683,18 +694,19 @@ function Mine({ world, user }: { world: World; user: Account }) {
         ) : (
           <>
             {creation.code ? <p className="orbit-note ch-center">Код згас. Створи новий — він діятиме 10 хвилин.</p> : null}
-            <button type="button" className="orbit-go" disabled={used >= CODES_PER_DAY} onClick={() => useOrbits.getState().issue()}>
+            <button type="button" className="orbit-go k-go" disabled={used >= CODES_PER_DAY} onClick={() => useOrbits.getState().issue()}>
+              <QrCode size={18} strokeWidth={2} aria-hidden />
               Створити код підтвердження
             </button>
             <Notice />
           </>
         )}
-        <p className="orbit-note">
+        <p className="orbit-note ch-center">
           Кодів сьогодні: {used} з {CODES_PER_DAY}{used >= CODES_PER_DAY ? ". Нові — після 00:00 UTC." : ""}
         </p>
-        <Names world={world} userId={user.id} />
       </section>
       <ConfirmCard userId={user.id} ownCode={live ? creation.code : null} />
+      {tail}
       </div>
     );
   }
@@ -702,17 +714,23 @@ function Mine({ world, user }: { world: World; user: Account }) {
   const chance = Math.round(chanceOf(world.orbits.length) * 100);
   return (
     <div className="orbit-stack">
-      <section className="orbit-block">
-        <p className="orbit-kicker">Запуск орбіти</p>
-        <h1 className="orbit-h">Запусти свою орбіту</h1>
-        <p className="orbit-note">Потрібно 8 підтверджень від інших учасників, а потім 24 години заряду. Шанс зараз — {chance}%.</p>
-        <button type="button" className="orbit-go" onClick={() => void useOrbits.getState().start()}>
+      <section className="orbit-block mn-idle" aria-labelledby="mn-idle-title">
+        <div className="mn-idle-art" aria-hidden>
+          <OrbitRings />
+          <span><Rocket size={30} strokeWidth={1.6} /></span>
+        </div>
+        <p className="orbit-kicker">Запуск орбіти · №{money.format(world.nextNo)} наступна</p>
+        <h1 className="orbit-h mn-h1" id="mn-idle-title">Запусти свою орбіту</h1>
+        <LaunchIntro chance={chance} />
+        <button type="button" className="orbit-go k-go" onClick={() => void useOrbits.getState().start()}>
+          <Rocket size={18} strokeWidth={2} aria-hidden />
           Почати запуск
         </button>
+        <p className="ex-hint mn-center">Перша орбіта — приблизно за 4 дні. Безкоштовно.</p>
         <Notice />
       </section>
       <ConfirmCard userId={user.id} ownCode={null} />
-      <Names world={world} userId={user.id} />
+      {tail}
     </div>
   );
 }
@@ -769,8 +787,13 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
   }
   return (
     <section className="orbit-block cs-confirm" ref={box} aria-labelledby="cs-confirm-title" data-link={fromLink ? "1" : "0"}>
-      <p className="orbit-kicker">Підтвердження</p>
-      <h2 className="orbit-h cs-h2" id="cs-confirm-title">Підтверди запуск учасника</h2>
+      <div className="mn-cf-head">
+        <span className="mn-cf-ico" aria-hidden><ShieldCheck size={20} strokeWidth={1.9} /></span>
+        <div>
+          <p className="orbit-kicker">Підтвердження</p>
+          <h2 className="orbit-h cs-h2" id="cs-confirm-title">Підтверди запуск учасника</h2>
+        </div>
+      </div>
       {fromLink ? (
         <p className="cs-from-link" role="status">
           Код із посилання вже в полі. Перевір цифри і натисни «Підтвердити».
@@ -806,7 +829,8 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
             }}
           />
         </label>
-        <button type="submit" className="orbit-go" disabled={typed.length !== 6 || busy}>
+        <button type="submit" className="orbit-go k-go" disabled={typed.length !== 6 || busy}>
+          {busy ? <span className="k-spin" aria-hidden /> : <ShieldCheck size={18} strokeWidth={2} aria-hidden />}
           {busy ? "Підтверджуємо…" : "Підтвердити"}
         </button>
       </form>
@@ -824,26 +848,17 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
 
 function Witnesses({ world, creation, title }: { world: World; creation: { confirms: { witnessId: string }[] }; title: string }) {
   if (!creation.confirms.length) return null;
-  const names = creation.confirms.map((row) => world.accounts.find((account) => account.id === row.witnessId)?.name ?? "Учасник");
+  const people = creation.confirms.map((row) => ({ id: row.witnessId, name: world.accounts.find((account) => account.id === row.witnessId)?.name ?? "Учасник" }));
   return (
     <div className="ch-who">
       <span>{title}</span>
       <ul>
-        {names.map((name, i) => (
-          <li key={`${name}-${i}`}>{name}</li>
+        {people.map((row, i) => (
+          <li key={`${row.id}-${i}`}><Avatar id={row.id} name={row.name} size={20} />{row.name}</li>
         ))}
       </ul>
     </div>
   );
-}
-
-function Names({ world, userId }: { world: World; userId: string }) {
-  const names = world.accounts
-    .filter((account) => account.id !== userId && world.now - account.lastActiveAt <= DAY_MS)
-    .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
-    .slice(0, 8);
-  if (names.length === 0) return <p className="orbit-note">Зараз онлайн 0</p>;
-  return <p className="orbit-note">Зараз: {names.map((account) => account.name).join(", ")}</p>;
 }
 
 function Flow({ world, user }: { world: World; user: Account }) {

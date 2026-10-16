@@ -174,7 +174,34 @@ export const orbitAct = createServerFn({ method: "POST" })
     }
   });
 
+/** Спільна частина світу без поля now: щоб зрозуміти, чи годинник щось реально змінив. */
+function sameWorld(a: World, b: World) {
+  return JSON.stringify({ ...a, now: 0, sessionId: null }) === JSON.stringify({ ...b, now: 0, sessionId: null });
+}
+
+/**
+ * Періодичне опитування лише читає: без блокування рядка й без перезапису.
+ * Якщо годинник щось змінив (ціна доби, заряд, поділ фонду), повертаємо null —
+ * тоді це зробить звичайний шлях під блокуванням, один раз і для всіх.
+ */
+async function peek(data: Call): Promise<OrbitReply | null> {
+  const { getSql } = await import("@/lib/db");
+  const sql = await getSql();
+  const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
+  if (!rows[0]) return null;
+  const bag = unpackDoc(rows[0].doc);
+  const stored = { ...bag.world, sessionId: null };
+  const clocked = adoptClock(stored);
+  if (!sameWorld(stored, clocked)) return null;
+  const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
+  return { world: attach(clocked, self), self: own(bag.people, self) };
+}
+
 async function act(data: Call): Promise<OrbitReply> {
+    if (data.action.type === "pull") {
+      const quick = await peek(data);
+      if (quick) return quick;
+    }
     const { withTransaction } = await import("@/lib/db");
     return withTransaction(async (sql) => {
       await sql.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb) on conflict (id) do nothing`, [

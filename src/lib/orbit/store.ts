@@ -144,7 +144,19 @@ export const OFFLINE = "Спільний світ не відповідає.";
 
 let tail: Promise<unknown> = Promise.resolve();
 
+/** Коли людина востаннє щось зробила сама: одразу після дії опитуємо частіше. */
+let lastOwnAction = 0;
+let replan: (() => void) | null = null;
+export function sinceOwnAction() {
+  return Date.now() - lastOwnAction;
+}
+
 function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise<OrbitReply | null> {
+  if (action.type !== "pull" && action.type !== "probe") {
+    lastOwnAction = Date.now();
+    // Відповідь на дію вже несе свіжий світ; далі — швидший ритм, щоб побачити реакцію інших.
+    queueMicrotask(() => replan?.());
+  }
   const job = tail.then(async () => {
     const sessionId = who();
     const held = deviceKeys();
@@ -226,4 +238,43 @@ export const useOrbits = create<OrbitState>()(() => ({
 
 export function bootOrbits() {
   void useOrbits.getState().refresh();
+}
+
+/** Звичайний ритм опитування і швидший — перші 30 с після власної дії (чекаємо відповіді інших). */
+export const POLL_MS = 10_000;
+export const POLL_FAST_MS = 3_000;
+const FAST_WINDOW_MS = 30_000;
+
+/**
+ * Опитування світу: раз на ~10 с, частіше одразу після власної дії, пауза, поки вкладка прихована.
+ * Повернення на вкладку — миттєве оновлення. Повертає функцію зупинки.
+ */
+export function startPolling(): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  let timer = 0;
+  let stopped = false;
+  const plan = () => {
+    window.clearTimeout(timer);
+    if (stopped || document.hidden) return;
+    const wait = sinceOwnAction() < FAST_WINDOW_MS ? POLL_FAST_MS : POLL_MS;
+    timer = window.setTimeout(() => {
+      void useOrbits.getState().refresh().finally(plan);
+    }, wait);
+  };
+  const onVisible = () => {
+    if (document.hidden) {
+      window.clearTimeout(timer);
+      return;
+    }
+    void useOrbits.getState().refresh().finally(plan);
+  };
+  document.addEventListener("visibilitychange", onVisible);
+  replan = plan;
+  plan();
+  return () => {
+    stopped = true;
+    if (replan === plan) replan = null;
+    window.clearTimeout(timer);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
 }

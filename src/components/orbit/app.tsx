@@ -33,7 +33,7 @@ import {
   type Account,
   type World,
 } from "@/lib/orbit/engine";
-import { bootOrbits, deviceKeys, pendingKeyScreen, useOrbits } from "@/lib/orbit/store";
+import { bootOrbits, deviceKeys, pendingKeyScreen, startPolling, useOrbits } from "@/lib/orbit/store";
 import { KeyScreen, useLeave } from "@/components/orbit/key";
 import { CodeShare } from "@/components/orbit/code-share";
 import { ChargeResult, markSeen, unseenOutcome } from "@/components/orbit/charge-result";
@@ -152,8 +152,7 @@ export function OrbitApp() {
         if (!state.bad && paid && who) rememberTopup(who.id, Number(paid[1]));
       });
     }
-    const timer = window.setInterval(() => void useOrbits.getState().refresh(), 2000);
-    return () => window.clearInterval(timer);
+    return startPolling();
   }, []);
 
   const user = me(world);

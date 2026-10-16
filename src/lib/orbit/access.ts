@@ -1,4 +1,5 @@
 import { emptyWorld, type World } from "@/lib/orbit/engine";
+import { asExtra, emptyExtra, type Extra } from "@/lib/orbit/social";
 
 export type DeviceSlot = { day: string; count: number };
 export type Identity = {
@@ -23,6 +24,8 @@ export type Bag = {
   limits: Record<string, Limit>;
   /** Які акаунти входили чи діяли з якого пристрою (підписаний id). Лише для антиспаму. */
   seen: Record<string, string[]>;
+  /** Особисті події, подяки, «Дні на орбіті». */
+  extra: Extra;
 };
 
 /** Лічильник спроб: n спроб у вікні, що почалося в start; до until — блок. */
@@ -47,8 +50,8 @@ export function mintKey(): string {
 
 export function unpackDoc(doc: unknown): Bag {
   const value = typeof doc === "string" ? parse(doc) : doc;
-  if (!value || typeof value !== "object") return { world: emptyWorld(), keys: {}, devices: {}, people: [], topups: [], limits: {}, seen: {} };
-  const bag = value as { world?: unknown; keys?: unknown; devices?: unknown; people?: unknown; topups?: unknown; limits?: unknown; seen?: unknown };
+  if (!value || typeof value !== "object") return { world: emptyWorld(), keys: {}, devices: {}, people: [], topups: [], limits: {}, seen: {}, extra: emptyExtra() };
+  const bag = value as { world?: unknown; keys?: unknown; devices?: unknown; people?: unknown; topups?: unknown; limits?: unknown; seen?: unknown; extra?: unknown };
   const world = asWorld(bag.world) ?? asWorld(value);
   return {
     world: world ?? emptyWorld(),
@@ -58,6 +61,7 @@ export function unpackDoc(doc: unknown): Bag {
     topups: asTopups(bag.topups),
     limits: asLimits(bag.limits),
     seen: asSeen(bag.seen),
+    extra: asExtra(bag.extra),
   };
 }
 
@@ -69,8 +73,9 @@ export function packDoc(
   topups: Topup[] = [],
   limits: Record<string, Limit> = {},
   seen: Record<string, string[]> = {},
+  extra: Extra = emptyExtra(),
 ) {
-  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits, seen });
+  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits, seen, extra });
 }
 
 /** Скільки акаунтів пам’ятаємо на один пристрій (найсвіжіші). */

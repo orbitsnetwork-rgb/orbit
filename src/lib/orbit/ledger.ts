@@ -4,6 +4,7 @@
  * Рушій і формули не змінюються.
  */
 import { CHARGE_MS, CONFIRM_NEED, STARTER_OD, WITNESS_OD, type Account, type World } from "@/lib/orbit/engine";
+import type { Ev } from "@/lib/orbit/social";
 
 export type Kind = "topup" | "buy" | "sell" | "charge" | "fund" | "bonus";
 export type Entry = {
@@ -60,10 +61,16 @@ function creationTime(id: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
-export function buildLedger(world: World, user: Account, topups: LocalTopup[]): Entry[] {
+/**
+ * events — особисті події з сервера (за id, не за іменем). Старий розбір тексту журналу за іменем
+ * лишається тільки для записів, старіших за першу особисту подію (акаунти до появи подій).
+ */
+export function buildLedger(world: World, user: Account, topups: LocalTopup[], events: Ev[] = []): Entry[] {
   const rows: Entry[] = [];
   const name = escape(user.name);
   const seen = new Set<string>();
+  const since = events.length ? Math.min(...events.map((ev) => ev.at)) : Number.POSITIVE_INFINITY;
+  const legacy = (at: number) => at < since;
 
   rows.push({
     id: `start-${user.id}`,
@@ -75,7 +82,12 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[]): 
     lines: [["Звідки", "Подарунок на старті, один раз"]],
   });
 
+  for (const ev of events) {
+    if (ev.t !== "topup" || !ev.amt) continue;
+    rows.push({ id: `topup-${ev.at}`, kind: "topup", at: ev.at, amount: ev.amt, title: "Тестове поповнення", source: "world", lines: [["Режим", "Тест · справжні гроші не списано"]] });
+  }
   for (const [index, row] of topups.entries()) {
+    if (!legacy(row.at)) continue;
     rows.push({
       id: `topup-${row.at}-${index}`,
       kind: "topup",
@@ -129,7 +141,8 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[]): 
     }
     const passed = item.status === "done";
     let orbitId: number | undefined;
-    if (passed) {
+    if (passed) orbitId = events.find((ev) => ev.t === "chargeOk" && ev.cr === item.id)?.orbit;
+    if (passed && orbitId === undefined && legacy(readyAt)) {
       const pattern = new RegExp(`^Заряд пройшов\\. Орбіта #(\\d+) у ${name}\\.`);
       const hit = world.log.find((row) => row.at >= readyAt - 1000 && pattern.test(row.text));
       orbitId = hit ? Number(pattern.exec(hit.text)?.[1]) : undefined;
@@ -174,7 +187,13 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[]): 
 
   // Купівлі: з журналу і з орбіт, які зараз у тебе (час купівлі = час власності).
   const buyText = new RegExp(`^${name} купив #(\\d+) за (\\d+) ОД`);
+  for (const ev of events) {
+    if (ev.t !== "buy" || ev.orbit === undefined) continue;
+    seen.add(`${ev.orbit}-${ev.at}`);
+    rows.push(buyEntry(ev.orbit, ev.at, Math.abs(ev.amt ?? 0), "world"));
+  }
   for (const row of world.log) {
+    if (!legacy(row.at)) continue;
     const match = buyText.exec(row.text);
     if (!match) continue;
     const orbitId = Number(match[1]);
@@ -196,8 +215,27 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[]): 
   const listText = new RegExp(`^${name} поставив #(\\d+) у чергу\\.`);
   const cancelText = new RegExp(`^${name} зняв #(\\d+) з черги\\.`);
   const sold = /^.+ купив #(\d+) за (\d+) ОД\. Продавцю (\d+)\./;
-  const chrono = [...world.log].reverse();
   const open = new Map<number, number>();
+  for (const ev of [...events].reverse()) {
+    if (ev.orbit === undefined) continue;
+    if (ev.t === "list") open.set(ev.orbit, ev.at);
+    if (ev.t === "cancel") {
+      const listedAt = open.get(ev.orbit);
+      open.delete(ev.orbit);
+      rows.push({ id: `cancel-${ev.orbit}-${ev.at}`, kind: "sell", at: ev.at, amount: 0, title: "Знято з черги", badge: "знято", status: no(ev.orbit), orbitId: ev.orbit, source: "world", lines: [["Виставлено", listedAt ? clock(listedAt) : "—"]] });
+    }
+    if (ev.t === "sold") {
+      const listedAt = open.get(ev.orbit) ?? 0;
+      open.delete(ev.orbit);
+      const price = ev.n ?? 0;
+      const got = ev.amt ?? 0;
+      rows.push({
+        id: `sold-${ev.orbit}-${ev.at}`, kind: "sell", at: ev.at, amount: got, title: "Продаж", status: no(ev.orbit), orbitId: ev.orbit, source: "world",
+        lines: [["Ціна дня", `${fmt.format(price)} ✦`], ["Тобі", `${fmt.format(got)} ✦`], ["Фонд і резерв", `${fmt.format(price - got)} ✦`], ["Чекала в черзі", listedAt ? wait(ev.at - listedAt) : "—"]],
+      });
+    }
+  }
+  const chrono = [...world.log].reverse().filter((row) => legacy(row.at));
   for (const row of chrono) {
     const listed = listText.exec(row.text);
     if (listed) {

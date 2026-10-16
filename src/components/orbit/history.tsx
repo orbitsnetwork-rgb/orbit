@@ -74,7 +74,8 @@ export function History({ world, user, onBack, onClose, onGo }: { world: World; 
   useEffect(() => {
     setTopups(readTopups(user.id));
   }, [user.id, user.balance]);
-  const all = useMemo(() => buildLedger(world, user, topups), [world, user, topups]);
+  const events = useOrbits((state) => state.mine?.events);
+  const all = useMemo(() => buildLedger(world, user, topups, events ?? []), [world, user, topups, events]);
   const rows = filter === "all" ? all : all.filter((row) => row.kind === filter);
   const counts = useMemo(() => {
     const map = new Map<Filter, number>([["all", all.length]]);

@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { sparkText } from "@/lib/orbit/copy";
 import type { Account, World } from "@/lib/orbit/engine";
+import type { Ev } from "@/lib/orbit/social";
+import { useOrbits } from "@/lib/orbit/store";
 
 export type Topic = "me" | "market" | "charge" | "fund" | "system";
 export type Note = { key: string; at: number; text: string; topic: Topic; mine: boolean; orbitId?: number };
@@ -42,23 +44,64 @@ export function topicOf(text: string): Topic {
   return "system";
 }
 
-export function notesOf(world: World, user: Account): Note[] {
+const no7 = (n?: number) => (n === undefined ? "" : `#${String(n).padStart(7, "0")}`);
+
+/** Текст особистої події. Інших людей називаємо за id — так, як їх показує сервер («Ім’я П.»). */
+export function eventText(ev: Ev, world: World): { text: string; topic: Topic } {
+  const who = (id?: string) => world.accounts.find((account) => account.id === id)?.name ?? "учасник";
+  const sp = (n?: number) => `${Math.abs(n ?? 0)} ✦`;
+  switch (ev.t) {
+    case "join": return { text: `Ти в Орбітах. Стартові ${sp(ev.amt)} на рахунку.`, topic: "me" };
+    case "launch": return { text: "Ти відкрив заявку на орбіту.", topic: "charge" };
+    case "confirmGiven": return { text: `Ти підтвердив запуск ${who(ev.other)} · ${ev.n} з 8.`, topic: "charge" };
+    case "confirmed": return { text: `${who(ev.other)} підтвердив твій запуск · ${ev.n} з 8.`, topic: "charge" };
+    case "charging": return { text: "Вісімка зібрана. Заряд на 24 години.", topic: "charge" };
+    case "chargeOk": return { text: `Заряд пройшов. Орбіта ${no7(ev.orbit)} твоя.`, topic: "charge" };
+    case "chargeFail": return { text: "Заряд зірвався. Підтвердження згоріли.", topic: "charge" };
+    case "witnessOk": return { text: `Запуск ${who(ev.other)}, який ти підтвердив, пройшов. +${sp(ev.amt)}.`, topic: "charge" };
+    case "witnessFail": return { text: `Запуск ${who(ev.other)}, який ти підтвердив, зірвався.`, topic: "charge" };
+    case "buy": return { text: `Ти купив ${no7(ev.orbit)} за ${sp(ev.amt)}.`, topic: "market" };
+    case "sold": return { text: `Твою ${no7(ev.orbit)} купили. Тобі ${sp(ev.amt)}.`, topic: "market" };
+    case "list": return { text: `Ти виставив ${no7(ev.orbit)} у чергу.`, topic: "market" };
+    case "cancel": return { text: `Ти зняв ${no7(ev.orbit)} з черги.`, topic: "market" };
+    case "fund": return { text: `Частка фонду: +${sp(ev.amt)}.`, topic: "fund" };
+    case "topup": return { text: `Тестове поповнення: +${sp(ev.amt)}.`, topic: "me" };
+    case "thanksGot": return { text: `${who(ev.other)} дякує тобі за підтвердження ✦`, topic: "me" };
+    case "thanksSent": return { text: `Ти подякував ${who(ev.other)}.`, topic: "me" };
+    default: return { text: "Подія", topic: "system" };
+  }
+}
+
+/**
+ * Сповіщення: мої події — з особистого списку (за id), решта — зі спільного журналу.
+ * Пошук свого імені в тексті журналу лишився лише для записів до першої особистої події.
+ */
+export function notesOf(world: World, user: Account, events: Ev[] = [], publicOnly = false): Note[] {
   const name = new RegExp(`(^|[\\s«(])${escape(user.name)}(?=$|[\\s.,!?»)])`);
-  return world.log.map((row) => {
-    // Лише вигляд: номери орбіт як у біржі (#0000019) і одиниця ✦ біля часток продажу.
-    const text = sparkText(row.text)
-      .replace(/(Продавцю|У фонд) (\d+)\./g, "$1 $2 ✦.")
-      .replace(/#(\d+)/g, (_m, n: string) => `#${n.padStart(7, "0")}`);
-    const orbit = /#(\d+)/.exec(row.text);
-    return {
-      key: `${row.at}-${row.text.length}-${row.text.slice(0, 16)}`,
-      at: row.at,
-      text,
-      topic: topicOf(row.text),
-      mine: name.test(row.text),
-      orbitId: orbit ? Number(orbit[1]) : undefined,
-    };
+  const since = events.length ? Math.min(...events.map((ev) => ev.at)) : Number.POSITIVE_INFINITY;
+  const taken = new Set(events.map((ev) => ev.at));
+  const personal: Note[] = publicOnly ? [] : events.map((ev, index) => {
+    const { text, topic } = eventText(ev, world);
+    return { key: `e-${ev.at}-${ev.t}-${index}`, at: ev.at, text, topic, mine: true, orbitId: ev.orbit };
   });
+  const shared = world.log
+    .filter((row) => publicOnly || !taken.has(row.at))
+    .map((row) => {
+      // Лише вигляд: номери орбіт як у біржі (#0000019) і одиниця ✦ біля часток продажу.
+      const text = sparkText(row.text)
+        .replace(/(Продавцю|У фонд) (\d+)\./g, "$1 $2 ✦.")
+        .replace(/#(\d+)/g, (_m, n: string) => `#${n.padStart(7, "0")}`);
+      const orbit = /#(\d+)/.exec(row.text);
+      return {
+        key: `${row.at}-${row.text.length}-${row.text.slice(0, 16)}`,
+        at: row.at,
+        text,
+        topic: topicOf(row.text),
+        mine: (publicOnly && taken.has(row.at)) || (row.at < since && name.test(row.text)),
+        orbitId: orbit ? Number(orbit[1]) : undefined,
+      };
+    });
+  return [...personal, ...shared].sort((a, b) => b.at - a.at);
 }
 
 export function useInbox(world: World, user: Account | null) {
@@ -71,7 +114,8 @@ export function useInbox(world: World, user: Account | null) {
     window.addEventListener(EVENT, read);
     return () => window.removeEventListener(EVENT, read);
   }, [id]);
-  const notes = user ? notesOf(world, user) : [];
+  const events = useOrbits((st) => st.mine?.events);
+  const notes = user ? notesOf(world, user, events ?? []) : [];
   // Нового користувача не засипаємо старою історією світу: усе до реєстрації вважається прочитаним.
   const floor = Math.max(state.upTo, user?.createdAt ?? 0);
   const unreadOf = (note: Note) => note.at > floor && !state.keys.includes(note.key);

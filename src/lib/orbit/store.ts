@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Identity } from "@/lib/orbit/access";
 import { emptyWorld, type World } from "@/lib/orbit/engine";
 import { orbitAct, type OrbitAction, type OrbitReply, type PublicStats } from "@/lib/orbit/remote";
+import type { Mine } from "@/lib/orbit/social";
 
 const WHO = "orbits-who";
 const KEYS = "orbits-keys";
@@ -29,6 +30,8 @@ type OrbitState = {
   world: World;
   /** Загальні цифри світу для гостя (до входу). */
   pub: PublicStats | null;
+  /** Мої особисті події, подяки й дні (лише свої; приходять із кожною відповіддю). */
+  mine: Mine | null;
   self: Identity | null;
   flash: string;
   bad: boolean;
@@ -189,6 +192,7 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
       useOrbits.setState({
         world: step.world,
         pub: step.pub ?? null,
+        mine: step.world.sessionId ? (step.mine ?? prior.mine) : null,
         self: step.self === undefined ? prior.self : step.self,
         // Тиха відповідь означає, що зв’язок повернувся: прибираємо лише помилку зв’язку.
         flash: quiet ? (prior.bad && prior.flash !== OFFLINE ? prior.flash : "") : shown,
@@ -209,6 +213,7 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
 export const useOrbits = create<OrbitState>()(() => ({
   world: emptyWorld(),
   pub: null,
+  mine: null,
   self: null,
   flash: "",
   bad: false,
@@ -228,7 +233,7 @@ export const useOrbits = create<OrbitState>()(() => ({
     keep(null);
     const world = useOrbits.getState().world;
     holdKeyScreen(null);
-    useOrbits.setState({ world: { ...world, sessionId: null }, self: null, flash: "", bad: false, fresh: null });
+    useOrbits.setState({ world: { ...world, sessionId: null }, mine: null, self: null, flash: "", bad: false, fresh: null });
   },
   start: () => send({ type: "start" }).then(() => undefined),
   issue: () => send({ type: "issue" }).then(() => undefined),

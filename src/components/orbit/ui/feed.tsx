@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Coins, Radio, Rocket, ShoppingCart, Sparkles, UserPlus } from "lucide-react";
 import type { Account, World } from "@/lib/orbit/engine";
 import { ago, notesOf, type Note } from "@/lib/orbit/inbox";
+import { useOrbits } from "@/lib/orbit/store";
 import { Avatar, Empty } from "@/components/orbit/ui/kit";
 
 function iconOf(note: Note): ReactNode {
@@ -44,7 +45,7 @@ function actor(world: World, text: string) {
 
 /** Події без службового шуму («випустив код» повторюється — залишаємо лише важливе). */
 export function feedOf(world: World, user: Account, filter?: (note: Note) => boolean) {
-  return notesOf(world, user).filter((note) => !/випустив код/.test(note.text) && (!filter || filter(note)));
+  return notesOf(world, user, useOrbits.getState().mine?.events ?? [], true).filter((note) => !/випустив код/.test(note.text) && (!filter || filter(note)));
 }
 
 export function Feed({ world, user, limit = 5, filter, empty = "Подій ще немає" }: { world: World; user: Account; limit?: number; filter?: (note: Note) => boolean; empty?: string }) {

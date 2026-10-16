@@ -17,6 +17,7 @@ import {
   type World,
 } from "@/lib/orbit/engine";
 import { creditTopup, openCheckout, readCheckout } from "@/lib/orbit/stripe";
+import { addEvents, diffEvents, markDay, mineOf, type Extra, type Mine } from "@/lib/orbit/social";
 
 export type OrbitAction =
   | { type: "pull" }
@@ -37,7 +38,7 @@ export type OrbitAction =
 type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
-export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats };
+export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine };
 
 const LOCKED = "Це ім’я відкрите на іншому пристрої. Потрібен його ключ.";
 
@@ -109,9 +110,10 @@ function attach(world: World, sessionId: string | null): World {
 }
 
 /** Що бачить клієнт: світ лише з власними приватними полями. */
-function reply(step: OrbitReply, people: Identity[]): OrbitReply {
+function reply(step: OrbitReply, people: Identity[], extra?: Extra): OrbitReply {
   if (!step.world.sessionId) return { ...step, world: guestWorld(step.world), pub: statsOf(step.world) };
-  return { ...step, world: project(step.world, step.world.sessionId, people) };
+  const mine = extra ? mineOf(extra, step.world, step.world.sessionId) : undefined;
+  return { ...step, world: project(step.world, step.world.sessionId, people), mine };
 }
 
 export function statsOf(world: World): PublicStats {
@@ -216,7 +218,7 @@ export const orbitAct = createServerFn({ method: "POST" })
     try {
       const out: Seen = { people: [] };
       const step = await act(await stamp(data), out);
-      return reply(step, out.people);
+      return reply(step, out.people, out.extra);
     } catch (error) {
       // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
       console.error("orbitAct failed", error instanceof Error ? error.message : "unknown");
@@ -245,6 +247,7 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   if (!sameWorld(stored, clocked)) return null;
   const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
   out.people = bag.people;
+  out.extra = bag.extra;
   return { world: attach(clocked, self), self: own(bag.people, self) };
 }
 
@@ -266,7 +269,7 @@ async function stamp(data: Call): Promise<Call> {
 }
 
 /** Хто є хто — щоб показати іншим «Ім’я П.». Заповнює act. */
-type Seen = { people: Identity[] };
+type Seen = { people: Identity[]; extra?: Extra };
 
 async function act(data: Call, out: Seen): Promise<OrbitReply> {
     if (data.action.type === "pull") {
@@ -283,13 +286,24 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       out.people = bag.people;
       let limits: Record<string, Limit> = bag.limits;
       let seen = bag.seen;
+      let extra = bag.extra;
+      out.extra = extra;
+      /** Перед кожним записом: додати особисті події з різниці «було → стало». */
+      const track = (w: World, t: Topup[]) => {
+        const next = { ...extra, events: addEvents(extra.events, diffEvents(bag.world, w, bag.topups, t)) };
+        out.extra = next;
+        return next;
+      };
+      const daily = (id: string | null) => {
+        extra = { ...extra, days: markDay(extra.days, id, wall) };
+      };
       const clocked = adoptClock({ ...bag.world, sessionId: null });
       const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
       const base = attach(clocked, self);
       const wall = Date.now();
       const persist = (people = bag.people) =>
         sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen),
+          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen, track(clocked, bag.topups)),
         ]);
       const gate = async (id: string, rule: keyof typeof RULES): Promise<OrbitReply | null> => {
         if (!limited(limits, id, wall)) return null;
@@ -303,7 +317,10 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         limits = strike(limits, id, wall, max, windowMs, lockMs);
       };
 
-      if (self && actsAsSelf(data.action)) seen = markSeen(seen, data.device, self);
+      if (self && actsAsSelf(data.action)) {
+        seen = markSeen(seen, data.device, self);
+        daily(self);
+      }
       if (data.action.type === "accept" && self) {
         // Два акаунти, що бували на одному пристрої, не підтверджують запуски одне одного. Рушій не чіпаємо: перевірка тут.
         const code = data.action.code.replace(/\D/g, "").slice(0, 6);
@@ -343,7 +360,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       if (data.action.type === "probe") {
         const email = data.action.email.trim().toLowerCase();
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
         ]);
         return { world: base, taken: bag.people.some((person) => person.email === email), self: own(bag.people, self) };
       }
@@ -358,16 +375,17 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           miss(`k:${email}`, "key");
           miss(`kd:${data.device ?? "none"}`, "key");
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
           ]);
           return { world: base, error: LOCKED };
         }
         limits = forgive(limits, `k:${email}`);
         seen = markSeen(seen, data.device, userId);
+        daily(userId);
         const opened = enter(attach(clocked, null), userId);
         const sharedMail = { ...opened.world, sessionId: null };
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+          packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(sharedMail, bag.topups)),
         ]);
         return { ...opened, world: attach(sharedMail, userId), self: own(bag.people, userId) };
       }
@@ -375,14 +393,14 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         miss(`k:${data.action.id}`, "key");
         miss(`kd:${data.device ?? "none"}`, "key");
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
         ]);
         return { world: base, error: LOCKED };
       }
       if (actsAsSelf(data.action) && !self) {
         const step = data.sessionId ? { world: base, error: LOCKED } : run(base, data.action);
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
         ]);
         return { ...step, self: own(bag.people, self) };
       }
@@ -403,7 +421,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         limits = forgive(limits, `m:${self}`);
         const people = bag.people.map((row) => (row.userId === self ? { ...row, confirmed: true, mailCode: null } : row));
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen),
+          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen, track(clocked, bag.topups)),
         ]);
         return { world: base, self: people.find((row) => row.userId === self) ?? null, notice: "Пошту підтверджено." };
       }
@@ -430,7 +448,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           { id: opened.id, userId: self, amount: data.action.amount, status: "open", at: clocked.now },
         ];
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, topups, limits, seen),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, topups, limits, seen, track(clocked, topups)),
         ]);
         return { world: base, url: opened.url, notice: "Відкриваю тестову оплату.", self: own(bag.people, self) };
       }
@@ -441,7 +459,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         const done = creditTopup(clocked, bag.topups, paid);
         const sharedPay = { ...done.world, sessionId: null };
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedPay, bag.keys, bag.devices, bag.people, done.topups, limits, seen),
+          packDoc(sharedPay, bag.keys, bag.devices, bag.people, done.topups, limits, seen, track(sharedPay, done.topups)),
         ]);
         return {
           world: attach(sharedPay, self),
@@ -466,19 +484,19 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         );
         if ("error" in person) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
           ]);
           return { world: base, error: person.error };
         }
         if (bag.people.some((row) => row.email === person.email || row.phone === person.phone)) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
           ]);
           return { world: base, error: "Така пошта або телефон вже є." };
         }
         if (!data.device || namesLeft(bag.devices, data.device, day) <= 0) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
           ]);
           return { world: base, error: data.device ? "Сьогодні з цього пристрою вже 3 імені." : "Пристрій не впізнано." };
         }
@@ -511,9 +529,12 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         people = [...people, fresh];
         out.people = people;
       }
-      if (!step.error && (data.action.type === "register" || data.action.type === "enter")) seen = markSeen(seen, data.device, step.world.sessionId);
+      if (!step.error && (data.action.type === "register" || data.action.type === "enter")) {
+        seen = markSeen(seen, data.device, step.world.sessionId);
+        daily(step.world.sessionId);
+      }
       const shared = { ...step.world, sessionId: null };
-      await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits, seen)]);
+      await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits, seen, track(shared, topups))]);
       const session = step.world.sessionId;
       return { ...step, world: attach(shared, session), key, self: fresh?.userId ? fresh : own(people, session) };
     });

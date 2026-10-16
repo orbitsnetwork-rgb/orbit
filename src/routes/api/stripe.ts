@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { packDoc, unpackDoc } from "@/lib/orbit/access";
 import { creditTopup, signedEvent } from "@/lib/orbit/stripe";
+import { addEvents, diffEvents } from "@/lib/orbit/social";
 
 export const Route = createFileRoute("/api/stripe")({
   server: {
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/api/stripe")({
           const bag = unpackDoc(rows[0]?.doc);
           const done = creditTopup(bag.world, bag.topups, { id, userId, amount });
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc({ ...done.world, sessionId: null }, bag.keys, bag.devices, bag.people, done.topups, bag.limits, bag.seen),
+            packDoc({ ...done.world, sessionId: null }, bag.keys, bag.devices, bag.people, done.topups, bag.limits, bag.seen, { ...bag.extra, events: addEvents(bag.extra.events, diffEvents(bag.world, done.world, bag.topups, done.topups)) }),
           ]);
         });
         return new Response("ok");

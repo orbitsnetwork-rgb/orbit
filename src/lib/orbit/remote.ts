@@ -114,7 +114,16 @@ function attach(world: World, sessionId: string | null): World {
 }
 
 /** Що бачить клієнт: світ лише з власними приватними полями. */
-function reply(step: OrbitReply, people: Identity[], social?: Social): OrbitReply {
+/**
+ * Код підтвердження пошти ніколи не йде клієнту (аудит B1/а9). Виняток лише для розробки, поки немає
+ * відправника листів: ORBIT_DEV_MAIL_CODE=1 показує код на екрані. На продакшені змінну не задавати.
+ */
+export function devMailCode() {
+  return process.env.ORBIT_DEV_MAIL_CODE?.trim() === "1";
+}
+
+function reply(raw: OrbitReply, people: Identity[], social?: Social): OrbitReply {
+  const step = raw.self && raw.self.mailCode && !devMailCode() ? { ...raw, self: { ...raw.self, mailCode: null } } : raw;
   if (!step.world.sessionId) return { ...step, world: guestWorld(step.world), pub: statsOf(step.world) };
   return { ...step, world: project(step.world, step.world.sessionId, people), mine: social?.mine, origins: social?.origins };
 }
@@ -319,13 +328,16 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const { ensureSocial, insertEvents, insertOrigins, insertThank } = await import("@/lib/orbit/social-db");
       await ensureSocial(sql);
       const pending: [string, Ev][] = [];
+      let wrote = false;
+      let stored: World | null = null;
       let days: Extra = { events: {}, thanks: {}, days: {}, origins: {} };
-      const done = await (async (): Promise<OrbitReply> => {
+      const result = await (async (): Promise<OrbitReply> => {
       await sql.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb) on conflict (id) do nothing`, [
         packDoc(emptyWorld(), {}),
       ]);
       const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world' for update`, []);
       const bag = unpackDoc(rows[0]?.doc);
+      stored = { ...bag.world, sessionId: null };
       out.people = bag.people;
       let limits: Record<string, Limit> = bag.limits;
       let seen = bag.seen;
@@ -333,6 +345,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       days = extra;
       /** Перед кожним записом: особисті події з різниці «було → стало» йдуть в orbit_events (у документі — лише дні). */
       const track = (w: World, t: Topup[]) => {
+        wrote = true;
         pending.length = 0;
         pending.push(...diffEvents(bag.world, w, bag.topups, t));
         return extra;
@@ -593,6 +606,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const session = step.world.sessionId;
       return { ...step, world: attach(shared, session), key, self: fresh?.userId ? fresh : own(people, session) };
       })();
+      // а9/K13: якщо нічого не записано, не віддаємо незбережений кидок годинника (заряд, ціна) — лише збережений світ.
+      const done = !wrote && stored ? { ...result, world: attach(stored, result.world.sessionId) } : result;
       // Лише події останнього запису документа (track скидає чергу перед кожним packDoc).
       await insertEvents(sql, pending);
       await insertOrigins(sql, pending, Date.now());

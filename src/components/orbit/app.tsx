@@ -1,8 +1,9 @@
 import { createPortal } from "react-dom";
-import { Avatar } from "@/components/orbit/ui/kit";
+import { Avatar, Segmented } from "@/components/orbit/ui/kit";
 import { Fund } from "@/components/orbit/fund";
+import { OrbitCards, ProfileStats, daysWith } from "@/components/orbit/person-extras";
 import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from "@/components/orbit/home";
-import { Clock3, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
+import { Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
@@ -876,31 +877,34 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
   const leave = useLeave(user.id, user.name);
   return (
     <div className="orbit-stack">
-      <section className="orbit-block">
-        <p className="orbit-kicker">Профіль</p>
+      <section className="orbit-block pr-hero" aria-labelledby="pr-name">
+        <div className="pr-hero-glow" aria-hidden />
         <div className="orbit-profile">
           <Face userId={user.id} letter={user.name.slice(0, 1).toUpperCase()} />
           <div>
-            <div className="orbit-h">{user.name}</div>
-            <p className="orbit-note">Стабільність {user.stability} · орбіт {mine.length}</p>
+            <h1 className="orbit-h pr-name" id="pr-name">{user.name}</h1>
+            <p className="orbit-note">В Орбітах {daysWith(user, world.now)} д · стабільність {user.stability} · орбіт {mine.length}</p>
+            {user.impulseUntil > world.now ? <span className="mn-tag" data-tone="ion">Імпульс ще {left(user.impulseUntil - world.now)}</span> : null}
           </div>
         </div>
-        {mine.map((orbit) => (
-          <div key={orbit.id} className="orbit-row">
-            <span>{no(orbit.id)}</span>
-            <span>твоя</span>
-          </div>
-        ))}
-        {user.impulseUntil > world.now ? <p className="orbit-note">Імпульс ще {left(user.impulseUntil - world.now)}.</p> : null}
         <SelfCard />
       </section>
-      <section className="orbit-block">
-        <p className="orbit-kicker">Баланс</p>
-        <p className="orbit-price">{hidden ? MASK : <CountUp value={user.balance} />}</p>
-        <p className="orbit-unit">{hidden ? "приховано" : `${sparkWord(user.balance)} ✦`}</p>
+      <ProfileStats world={world} user={user} />
+      <section className="orbit-block pr-bal" aria-labelledby="pr-bal-title">
+        <div className="hm-wallet-head">
+          <h2 id="pr-bal-title">Баланс</h2>
+          <span className="hm-test">Тест</span>
+        </div>
+        <p className="hm-bal">{hidden ? MASK : <CountUp value={user.balance} />}<span> ✦</span></p>
+        <p className="hm-bal-sub">{hidden ? "приховано" : `${sparkWord(user.balance)} ✦ · тестові одиниці`}</p>
+        <div className="pr-bal-links">
+          <button type="button" className="k-ghost" onClick={() => onOpen("history")}><HistoryIcon size={16} strokeWidth={1.8} aria-hidden /> Історія</button>
+          <button type="button" className="k-ghost" onClick={() => onOpen("assets")}><Wallet size={16} strokeWidth={1.8} aria-hidden /> Активи</button>
+        </div>
         <TopupRow />
-        <Soon />
       </section>
+      <OrbitCards world={world} user={user} onAll={() => onOpen("assets")} />
+      <Soon />
       <section className="orbit-block">
         <p className="orbit-kicker">Ключ</p>
         {ownKey ? (
@@ -996,19 +1000,16 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
 
 function TopupRow() {
   const [amount, setAmount] = useState(100);
+  const [busy, setBusy] = useState(false);
   return (
     <div className="grid gap-3">
-      <p className="orbit-kicker">Тест</p>
-      <div className="orbit-chips">
-        {[100, 500, 1000].map((value) => (
-          <button key={value} type="button" className="orbit-chip" data-on={amount === value ? "1" : "0"} onClick={() => setAmount(value)}>
-            {value}
-          </button>
-        ))}
-      </div>
-      <button type="button" className="orbit-go" onClick={() => useOrbits.getState().topup(amount)}>
-        Тест · {sparks(amount)}
+      <p className="orbit-kicker">Тестове поповнення</p>
+      <Segmented label="Сума поповнення" value={String(amount)} onChange={(id) => setAmount(Number(id))} options={[100, 500, 1000].map((value) => ({ id: String(value), label: `${value} ✦` }))} />
+      <button type="button" className="orbit-go k-go" disabled={busy} onClick={() => { setBusy(true); void useOrbits.getState().topup(amount).finally(() => setBusy(false)); }}>
+        {busy ? <span className="k-spin" aria-hidden /> : <CreditCard size={18} strokeWidth={2} aria-hidden />}
+        {busy ? "Відкриваємо оплату…" : `Поповнити на ${sparks(amount)}`}
       </button>
+      <p className="ex-hint">Stripe у тестовому режимі: справжні гроші не списуються.</p>
       <Notice />
     </div>
   );

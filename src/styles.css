@@ -2423,3 +2423,28 @@ a.h-11.bg-accent::after { display: none !important; }
 .fd-list { display: grid; gap: 12px; }
 .fd-plus { color: var(--aurora); }
 @media (prefers-reduced-motion: reduce) { .fd-ring-fill { transition: none; } }
+
+/* ── Я v8 ── */
+.pr-hero { position: relative; overflow: hidden; display: grid; gap: 12px; background: radial-gradient(100% 90% at 0% 0%, rgb(139 123 255 / .28), transparent 60%), radial-gradient(80% 80% at 100% 0%, rgb(242 196 109 / .14), transparent 60%), linear-gradient(180deg, #161a2c, var(--space-850)); }
+.pr-hero-glow { position: absolute; inset: -40% -20% auto auto; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgb(242 196 109 / .18), transparent 70%); pointer-events: none; }
+.pr-hero .orbit-profile { position: relative; }
+.pr-hero .orbit-profile > div { display: grid; justify-items: start; gap: 6px; min-width: 0; }
+.pr-name { margin: 0; font-size: 26px; line-height: 1.1; }
+.pr-hero .orbit-note { margin: 0; color: var(--text-2); font-size: 13px; }
+.pr-hero .orbit-face { box-shadow: 0 0 0 2px var(--sun), 0 0 24px rgb(242 196 109 / .35); }
+.pr-bal { display: grid; gap: 4px; }
+.pr-bal .hm-bal-sub { margin-bottom: 8px; }
+.pr-bal-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.pr-orbits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pr-orbits li { position: relative; display: grid; justify-items: start; gap: 4px; padding: 14px 12px 12px; border-radius: 18px; border: 1px solid var(--glass-line); background: radial-gradient(90% 70% at 100% 0%, rgb(242 196 109 / .14), transparent 60%), var(--glass); overflow: hidden; }
+.pr-orbits li[data-queued="1"] { background: radial-gradient(90% 70% at 100% 0%, rgb(139 123 255 / .18), transparent 60%), var(--glass); }
+.pr-orbit-art { position: relative; width: 44px; height: 44px; margin-bottom: 4px; }
+.pr-orbit-art i { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgb(242 196 109 / .45); transform: rotateX(64deg) rotateZ(-18deg); }
+.pr-orbit-art i + i { inset: 8px; border-color: rgb(242 196 109 / .25); }
+.pr-orbit-art b { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--sun-pale), var(--sun) 50%, var(--sun-deep)); box-shadow: 0 0 14px rgb(242 196 109 / .7); }
+.pr-orbit-no { font: 800 16px/1.1 var(--font-sans); font-variant-numeric: tabular-nums; color: var(--text-1); }
+.pr-orbits small { color: var(--text-3); font: 600 12px/1.2 var(--font-sans); }
+.pr-orbits .mn-tag { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; }
+.pr-hero .orbit-face { border-radius: 50%; border: 0; background: radial-gradient(120% 120% at 30% 20%, #7a6cff, #2a2160); color: #f1eeff; }
+.pr-hero .orbit-face span { font-weight: 800; }
+.pr-hero .orbit-face img { border-radius: 50%; }

@@ -69,6 +69,13 @@ export function packDoc(
   return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits });
 }
 
+/** Публічне ім’я: «Олена К.». Повне прізвище бачить лише сама людина. */
+export function shortName(given: string, family: string) {
+  const first = given.trim();
+  const initial = family.trim().slice(0, 1).toUpperCase();
+  return initial ? `${first} ${initial}.` : first;
+}
+
 export function readPerson(raw: {
   given?: unknown;
   family?: unknown;

@@ -27,9 +27,19 @@ export function humanize(text: string) {
     .replace(/\.$/, "");
 }
 
+/** Хто зробив подію. Імена не унікальні, тож це лише аватарка: беремо найдовший збіг на початку тексту. */
 function actor(world: World, text: string) {
+  let best: Account | null = null;
+  for (const row of world.accounts) {
+    if (row.name.length < 2 || !text.startsWith(row.name)) continue;
+    const next = text.charAt(row.name.length);
+    if (next && !/[\s.,·]/.test(next)) continue;
+    if (!best || row.name.length > best.name.length) best = row;
+  }
+  if (best) return best;
+  // Старі записи журналу містять лише ім’я («Марта»), а показуємо «Марта Т.».
   const first = text.split(/[\s.,]/)[0];
-  return world.accounts.find((row) => row.name === first) ?? null;
+  return world.accounts.find((row) => row.name.split(" ")[0] === first) ?? null;
 }
 
 /** Події без службового шуму («випустив код» повторюється — залишаємо лише важливе). */

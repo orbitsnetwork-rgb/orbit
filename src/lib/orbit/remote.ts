@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { forgive, keyMatches, limited, mailCode, markDevice, mintKey, namesLeft, packDoc, readPerson, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
+import { forgive, keyMatches, limited, mailCode, markDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
   adoptClock,
@@ -106,8 +106,24 @@ function attach(world: World, sessionId: string | null): World {
 }
 
 /** Що бачить клієнт: світ лише з власними приватними полями. */
-function reply(step: OrbitReply): OrbitReply {
-  return { ...step, world: project(step.world, step.world.sessionId) };
+function reply(step: OrbitReply, people: Identity[]): OrbitReply {
+  return { ...step, world: project(step.world, step.world.sessionId, people) };
+}
+
+/**
+ * Реєстрація без вимоги унікального імені. Рушій (його не змінюємо) відхиляє однакові імена,
+ * тому на час виклику підставляємо замість чужих імен їхні id (вони унікальні), а потім повертаємо імена.
+ * Унікальність людини тримають пошта й телефон (перевірка вище) і id акаунта.
+ */
+function registerAnyName(world: World, display: string): Step {
+  const names = new Map(world.accounts.map((account) => [account.id, account.name]));
+  const masked = { ...world, accounts: world.accounts.map((account) => ({ ...account, name: account.id })) };
+  const step = register(masked, display);
+  if (step.error) return { ...step, world };
+  return {
+    ...step,
+    world: { ...step.world, accounts: step.world.accounts.map((account) => ({ ...account, name: names.get(account.id) ?? account.name })) },
+  };
 }
 
 /**
@@ -115,14 +131,15 @@ function reply(step: OrbitReply): OrbitReply {
  * Про інших — тільки те, що потрібно для черги, оглядача, рейтингу й стрічки:
  * без балансів, денних лічильників і живих кодів підтвердження.
  */
-export function project(world: World, selfId: string | null): World {
+export function project(world: World, selfId: string | null, people: Identity[] = []): World {
+  const shown = new Map(people.map((row) => [row.userId, shortName(row.given, row.family)]));
   return {
     ...world,
     sessionId: selfId,
     accounts: world.accounts.map((account) =>
       account.id === selfId
         ? account
-        : { ...account, balance: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0 },
+        : { ...account, name: shown.get(account.id) ?? account.name, balance: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0 },
     ),
     creations: world.creations.map((item) =>
       item.userId === selfId ? item : { ...item, code: null, codeExpires: 0, codeDay: "", codesToday: 0 },
@@ -142,7 +159,6 @@ const SLOW = "Забагато спроб. Спробуй пізніше.";
 
 function run(world: World, action: OrbitAction): Step {
   if (action.type === "pull") return { world };
-  if (action.type === "register") return register(world, action.name);
   if (action.type === "enter") return enter(world, action.id);
   if (action.type === "start") return startCreation(world);
   if (action.type === "issue") return issueCode(world);
@@ -166,7 +182,9 @@ export const orbitAct = createServerFn({ method: "POST" })
   .inputValidator(clean)
   .handler(async ({ data }): Promise<OrbitReply> => {
     try {
-      return reply(await act(data));
+      const out: Seen = { people: [] };
+      const step = await act(data, out);
+      return reply(step, out.people);
     } catch (error) {
       // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
       console.error("orbitAct failed", error instanceof Error ? error.message : "unknown");
@@ -184,7 +202,7 @@ function sameWorld(a: World, b: World) {
  * Якщо годинник щось змінив (ціна доби, заряд, поділ фонду), повертаємо null —
  * тоді це зробить звичайний шлях під блокуванням, один раз і для всіх.
  */
-async function peek(data: Call): Promise<OrbitReply | null> {
+async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   const { getSql } = await import("@/lib/db");
   const sql = await getSql();
   const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
@@ -194,12 +212,16 @@ async function peek(data: Call): Promise<OrbitReply | null> {
   const clocked = adoptClock(stored);
   if (!sameWorld(stored, clocked)) return null;
   const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
+  out.people = bag.people;
   return { world: attach(clocked, self), self: own(bag.people, self) };
 }
 
-async function act(data: Call): Promise<OrbitReply> {
+/** Хто є хто — щоб показати іншим «Ім’я П.». Заповнює act. */
+type Seen = { people: Identity[] };
+
+async function act(data: Call, out: Seen): Promise<OrbitReply> {
     if (data.action.type === "pull") {
-      const quick = await peek(data);
+      const quick = await peek(data, out);
       if (quick) return quick;
     }
     const { withTransaction } = await import("@/lib/db");
@@ -209,6 +231,7 @@ async function act(data: Call): Promise<OrbitReply> {
       ]);
       const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world' for update`, []);
       const bag = unpackDoc(rows[0]?.doc);
+      out.people = bag.people;
       let limits: Record<string, Limit> = bag.limits;
       const clocked = adoptClock({ ...bag.world, sessionId: null });
       const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
@@ -256,7 +279,10 @@ async function act(data: Call): Promise<OrbitReply> {
       }
       if (data.action.type === "enterMail") {
         const email = data.action.email.trim().toLowerCase();
-        const person = bag.people.find((row) => row.email === email);
+        // Вхід за поштою й ключем; без пошти — за самим ключем (він випадковий і унікальний). Ім’я для входу не потрібне.
+        const person = email
+          ? bag.people.find((row) => row.email === email)
+          : bag.people.find((row) => keyMatches(bag.keys, row.userId, data.key));
         if (!person || !keyMatches(bag.keys, person.userId, data.key)) {
           miss(`k:${email}`, "key");
           miss(`kd:${data.device ?? "none"}`, "key");
@@ -387,7 +413,10 @@ async function act(data: Call): Promise<OrbitReply> {
         fresh = { userId: "", ...person, confirmed: false, mailCode: mailCode() };
       }
 
-      const step = run(data.action.type === "enter" ? attach(clocked, null) : base, data.action);
+      const step =
+        data.action.type === "register" && fresh
+          ? registerAnyName(base, shortName(fresh.given, fresh.family))
+          : run(data.action.type === "enter" ? attach(clocked, null) : base, data.action);
       if (data.action.type === "accept" && self) {
         // Лише невгаданий код рахується як спроба; помилки на кшталт «свій код» — ні.
         if (step.error === "Код недійсний або вже згас." || step.error === "Код — це 6 цифр.") {
@@ -408,6 +437,7 @@ async function act(data: Call): Promise<OrbitReply> {
         devices = markDevice(devices, data.device, day);
         fresh = { ...fresh, userId: step.world.sessionId };
         people = [...people, fresh];
+        out.people = people;
       }
       const shared = { ...step.world, sessionId: null };
       await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits)]);

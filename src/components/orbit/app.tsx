@@ -344,13 +344,11 @@ function Gate({
   const [family, setFamily] = useState("");
   const [birth, setBirth] = useState("");
   const [key, setKey] = useState("");
-  const [oldName, setOldName] = useState("");
   const nav = useStack();
   const [haveKey, setHaveKey] = useState(false);
-  const old = world.accounts.find((account) => account.name.toLowerCase() === oldName.trim().toLowerCase());
   const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const enteringOld = Boolean(old && key.trim().length >= 8);
-  const enteringMail = !enteringOld && key.trim().length >= 8 && mailOk;
+  // Вхід: ключ + пошта (або сам ключ). Імена не унікальні, тож за ім’ям не шукаємо.
+  const enteringMail = key.trim().length >= 8 && (mailOk || email.trim() === "");
   const [invited, setInvited] = useState(false);
   useEffect(() => {
     const read = () => setInvited(Boolean(readInvite()));
@@ -377,22 +375,29 @@ function Gate({
           onSubmit={(event) => {
             event.preventDefault();
             if (!ready) return;
-            if (enteringOld && old) onOld(old.id, key.trim());
-            else if (enteringMail) onMail(email.trim(), key.trim());
+            if (haveKey && enteringMail) onMail(email.trim(), key.trim());
             else onCreate({ name: given.trim(), family: family.trim(), birth, email: email.trim(), phone: phone.trim() });
           }}
         >
           <Field label={t(lang, "email")} value={email} autoComplete="email" inputMode="email" onChange={setEmail} />
-          <Field label={t(lang, "phone")} value={phone} autoComplete="tel" inputMode="tel" onChange={setPhone} />
-          <Field label={t(lang, "given")} value={given} autoComplete="given-name" onChange={setGiven} />
-          <Field label={t(lang, "family")} value={family} autoComplete="family-name" onChange={setFamily} />
-          <label className="grid gap-1.5">
-            <span className="orbit-kicker">{t(lang, "birth")}</span>
-            <input className="orbit-field" type="date" value={birth} onChange={(event) => setBirth(event.target.value)} />
-          </label>
-          {haveKey ? <Field label={t(lang, "key")} value={key} autoComplete="off" onChange={setKey} /> : null}
-          {haveKey ? <Field label={t(lang, "old")} value={oldName} autoComplete="nickname" onChange={setOldName} /> : null}
-          <button className="orbit-go" type="submit" disabled={!ready || !(enteringOld || enteringMail || (!haveKey && readyForm))}>
+          {haveKey ? (
+            <>
+              <Field label={t(lang, "key")} value={key} autoComplete="off" onChange={setKey} />
+              <p className="orbit-note">Пошту можна не вводити: ключ сам знаходить акаунт.</p>
+            </>
+          ) : (
+            <>
+              <Field label={t(lang, "phone")} value={phone} autoComplete="tel" inputMode="tel" onChange={setPhone} />
+              <Field label={t(lang, "given")} value={given} autoComplete="given-name" onChange={setGiven} />
+              <Field label={t(lang, "family")} value={family} autoComplete="family-name" onChange={setFamily} />
+              <label className="grid gap-1.5">
+                <span className="orbit-kicker">{t(lang, "birth")}</span>
+                <input className="orbit-field" type="date" value={birth} onChange={(event) => setBirth(event.target.value)} />
+              </label>
+              <p className="orbit-note">Іншим учасникам показуємо лише ім’я та першу літеру прізвища.</p>
+            </>
+          )}
+          <button className="orbit-go" type="submit" disabled={!ready || !(haveKey ? enteringMail : readyForm)}>
             {ready ? (haveKey ? t(lang, "enter") : t(lang, "create")) : "…"}
           </button>
           {flash ? <p className={bad ? "orbit-flash" : "orbit-ok"}>{flash}</p> : null}
@@ -922,7 +927,6 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
   const [other, setOther] = useState("");
   const [pass, setPass] = useState("");
   const mine = world.orbits.filter((orbit) => orbit.ownerId === user.id);
-  const known = world.accounts.find((account) => account.name.toLowerCase() === other.trim().toLowerCase());
   const held = deviceKeys();
   const [copied, setCopied] = useState(false);
   const ownKey = held[user.id];
@@ -1000,22 +1004,20 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
           className="grid gap-3"
           onSubmit={(event) => {
             event.preventDefault();
-            if (known) useOrbits.getState().enterId(known.id, held[known.id] || pass.trim());
+            if (pass.trim().length >= 8) useOrbits.getState().enterMail(other.trim(), pass.trim());
             setOther("");
             setPass("");
           }}
         >
           <label className="grid gap-1.5">
-            <span className="orbit-kicker">Інша людина</span>
-            <input className="orbit-field" value={other} maxLength={32} onChange={(event) => setOther(event.target.value)} />
+            <span className="orbit-kicker">Інша людина · пошта (можна без неї)</span>
+            <input className="orbit-field" value={other} maxLength={80} inputMode="email" autoComplete="off" onChange={(event) => setOther(event.target.value)} />
           </label>
-          {known && !held[known.id] ? (
-            <label className="grid gap-1.5">
-              <span className="orbit-kicker">Ключ</span>
-              <input className="orbit-field" value={pass} autoComplete="off" spellCheck={false} onChange={(event) => setPass(event.target.value)} />
-            </label>
-          ) : null}
-          <button className="orbit-go" type="submit" disabled={!known || Boolean(!held[known.id] && pass.trim().length < 8)}>
+          <label className="grid gap-1.5">
+            <span className="orbit-kicker">Ключ</span>
+            <input className="orbit-field" value={pass} autoComplete="off" spellCheck={false} onChange={(event) => setPass(event.target.value)} />
+          </label>
+          <button className="orbit-go" type="submit" disabled={pass.trim().length < 8}>
             {t(lang, "enter")}
           </button>
         </form>

@@ -28,18 +28,22 @@ export type EvType =
 /** Подія людини: тип, час, сума (зі знаком), орбіта, інша людина, заявка, номер підтвердження. */
 export type Ev = { t: EvType; at: number; amt?: number; orbit?: number; other?: string; cr?: string; n?: number };
 export type Days = { last: string; count: number; streak: number; best: number };
-export type Extra = { events: Record<string, Ev[]>; thanks: Record<string, string[]>; days: Record<string, Days> };
+/** origins: номер орбіти → заявка, з якої вона народилась (записуємо в момент заряду). */
+export type Extra = { events: Record<string, Ev[]>; thanks: Record<string, string[]>; days: Record<string, Days>; origins: Record<string, string> };
 
 export const EVENTS_PER_USER = 200;
 
 export function emptyExtra(): Extra {
-  return { events: {}, thanks: {}, days: {} };
+  return { events: {}, thanks: {}, days: {}, origins: {} };
 }
 
 export function asExtra(value: unknown): Extra {
   const out = emptyExtra();
   if (!value || typeof value !== "object") return out;
-  const raw = value as { events?: unknown; thanks?: unknown; days?: unknown };
+  const raw = value as { events?: unknown; thanks?: unknown; days?: unknown; origins?: unknown };
+  if (raw.origins && typeof raw.origins === "object") {
+    for (const [orbit, cr] of Object.entries(raw.origins as Record<string, unknown>)) if (/^\d+$/.test(orbit) && typeof cr === "string") out.origins[orbit] = cr;
+  }
   if (raw.events && typeof raw.events === "object") {
     for (const [id, list] of Object.entries(raw.events as Record<string, unknown>)) {
       if (!id.startsWith("u-") || !Array.isArray(list)) continue;
@@ -117,6 +121,15 @@ export function diffEvents(prev: World, next: World, prevTopups: Topup[] = [], n
   const paid = new Set(prevTopups.filter((row) => row.status === "paid").map((row) => row.id));
   for (const row of nextTopups) if (row.status === "paid" && !paid.has(row.id)) out.push([row.userId, { t: "topup", at: row.at, amt: row.amount }]);
   return out;
+}
+
+/** Нові орбіти з заряду → їхні заявки (для «Екіпажу» на картці орбіти). */
+export function addOrigins(origins: Record<string, string>, adds: [string, Ev][]): Record<string, string> {
+  const hits = adds.filter(([, ev]) => ev.t === "chargeOk" && ev.orbit !== undefined && ev.cr);
+  if (!hits.length) return origins;
+  const next = { ...origins };
+  for (const [, ev] of hits) next[String(ev.orbit)] = ev.cr as string;
+  return next;
 }
 
 /** «Дні на орбіті»: різні доби UTC, коли людина щось робила; серія — доби поспіль. */

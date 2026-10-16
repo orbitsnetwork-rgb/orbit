@@ -17,7 +17,7 @@ import {
   type World,
 } from "@/lib/orbit/engine";
 import { creditTopup, openCheckout, readCheckout } from "@/lib/orbit/stripe";
-import { addEvents, diffEvents, markDay, mineOf, type Extra, type Mine } from "@/lib/orbit/social";
+import { addEvents, addOrigins, diffEvents, markDay, mineOf, type Extra, type Mine } from "@/lib/orbit/social";
 
 export type OrbitAction =
   | { type: "pull" }
@@ -39,7 +39,7 @@ export type OrbitAction =
 type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
-export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine };
+export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string> };
 
 const LOCKED = "Це ім’я відкрите на іншому пристрої. Потрібен його ключ.";
 
@@ -117,7 +117,7 @@ function attach(world: World, sessionId: string | null): World {
 function reply(step: OrbitReply, people: Identity[], extra?: Extra): OrbitReply {
   if (!step.world.sessionId) return { ...step, world: guestWorld(step.world), pub: statsOf(step.world) };
   const mine = extra ? mineOf(extra, step.world, step.world.sessionId) : undefined;
-  return { ...step, world: project(step.world, step.world.sessionId, people), mine };
+  return { ...step, world: project(step.world, step.world.sessionId, people), mine, origins: extra?.origins };
 }
 
 export function statsOf(world: World): PublicStats {
@@ -294,7 +294,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       out.extra = extra;
       /** Перед кожним записом: додати особисті події з різниці «було → стало». */
       const track = (w: World, t: Topup[]) => {
-        const next = { ...extra, events: addEvents(extra.events, diffEvents(bag.world, w, bag.topups, t)) };
+        const adds = diffEvents(bag.world, w, bag.topups, t);
+        const next = { ...extra, events: addEvents(extra.events, adds), origins: addOrigins(extra.origins, adds) };
         out.extra = next;
         return next;
       };

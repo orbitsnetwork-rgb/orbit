@@ -1,3 +1,4 @@
+import { OrbitCrew } from "@/components/orbit/crew";
 import { ChevronRight, Hexagon, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Page } from "@/components/orbit/more";
@@ -136,6 +137,7 @@ function OrbitCard({ world, user, id, onGo, max }: { world: World; user: Account
         <div><dt>Угод</dt><dd>{trades.length}</dd></div>
         <div><dt>Остання ціна</dt><dd>{trades[0] ? spk(trades[0].amount) : "ще не продавалась"}</dd></div>
       </dl>
+      <OrbitCrew world={world} orbitId={id} me={user.id} />
       <section className="mo-group" aria-label="Події орбіти">
         <p className="mo-group-title">Події</p>
         <ol className="ox-time">

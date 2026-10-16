@@ -32,6 +32,8 @@ type OrbitState = {
   pub: PublicStats | null;
   /** Мої особисті події, подяки й дні (лише свої; приходять із кожною відповіддю). */
   mine: Mine | null;
+  /** Номер орбіти → заявка-джерело (для «Екіпажу»). */
+  origins: Record<string, string>;
   self: Identity | null;
   flash: string;
   bad: boolean;
@@ -195,6 +197,7 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
         world: step.world,
         pub: step.pub ?? null,
         mine: step.world.sessionId ? (step.mine ?? prior.mine) : null,
+        origins: step.origins ?? prior.origins,
         self: step.self === undefined ? prior.self : step.self,
         // Тиха відповідь означає, що зв’язок повернувся: прибираємо лише помилку зв’язку.
         flash: quiet ? (prior.bad && prior.flash !== OFFLINE ? prior.flash : "") : shown,
@@ -216,6 +219,7 @@ export const useOrbits = create<OrbitState>()(() => ({
   world: emptyWorld(),
   pub: null,
   mine: null,
+  origins: {},
   self: null,
   flash: "",
   bad: false,

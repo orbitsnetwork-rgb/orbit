@@ -4,6 +4,7 @@ import { Fund } from "@/components/orbit/fund";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, ThanksDue, daysWith } from "@/components/orbit/person-extras";
+import { MyCrews } from "@/components/orbit/crew";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
@@ -979,6 +980,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
         <TopupRow />
       </section>
       <OrbitCards world={world} user={user} onAll={() => onOpen("assets")} />
+      <MyCrews world={world} userId={user.id} />
       <Soon />
       <section className="orbit-block">
         <p className="orbit-kicker">Ключ</p>

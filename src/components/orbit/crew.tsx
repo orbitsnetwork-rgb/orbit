@@ -1,8 +1,9 @@
 /** «Дякую» підтверджувачам і «Екіпаж» запуску. Без іскор і без чату: лише люди, номер і спільна історія. */
 import { useState } from "react";
-import { Check, Heart } from "lucide-react";
+import { Check, Heart, Users } from "lucide-react";
 import type { Creation, World } from "@/lib/orbit/engine";
 import { useOrbits } from "@/lib/orbit/store";
+import { crewHistory, crewOfOrbit, myCrews, type Crew } from "@/lib/orbit/crew";
 import { Avatar } from "@/components/orbit/ui/kit";
 
 const nameOf = (world: World, id: string) => world.accounts.find((account) => account.id === id)?.name ?? "Учасник";
@@ -48,5 +49,72 @@ export function ThankList({ world, creation, compact = false }: { world: World; 
         })}
       </ul>
     </div>
+  );
+}
+
+const statusWord: Record<Creation["status"], string> = { collecting: "збирає підтвердження", charging: "заряд іде", done: "пройшов", failed: "зірвався" };
+const dateOf = (ms: number) => new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", timeZone: "UTC" }).format(ms);
+const no7 = (n: number) => `№${String(n).padStart(7, "0")}`;
+
+/** Картка екіпажу: номер, 9 людей (автор + 8), орбіта, спільна історія. */
+export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; crew: Crew; me?: string; showOrbit?: boolean }) {
+  const history = crewHistory(world, crew).slice(0, 4);
+  const people = [crew.author, ...crew.members];
+  return (
+    <article className="cw-card" aria-label={`Екіпаж №${crew.no}`}>
+      <header className="cw-head">
+        <span className="cw-badge" aria-hidden><Users size={18} strokeWidth={1.8} /></span>
+        <div>
+          <h3>Екіпаж №{crew.no}</h3>
+          <small>{showOrbit && crew.orbitId ? `Орбіта ${no7(crew.orbitId)} · ` : ""}запуск {dateOf(crew.at)}</small>
+        </div>
+        {me ? <span className="cw-role">{crew.author === me ? "автор" : "у екіпажі"}</span> : null}
+      </header>
+      <ul className="cw-ring" aria-label="Учасники екіпажу">
+        {people.map((id, i) => (
+          <li key={id} title={nameOf(world, id)} data-author={i === 0 ? "1" : "0"}>
+            <Avatar id={id} name={nameOf(world, id)} size={i === 0 ? 40 : 32} me={id === me} />
+            <span>{id === me ? "ти" : nameOf(world, id)}</span>
+          </li>
+        ))}
+      </ul>
+      {history.length ? (
+        <ol className="cw-hist" aria-label="Спільна історія екіпажу">
+          {history.map((row) => (
+            <li key={row.id} data-status={row.status}>
+              <b>{row.author === me ? "Твій запуск" : `Запуск ${nameOf(world, row.author)}`}</b>
+              <small>{statusWord[row.status]} · з екіпажу підтвердили {row.together}</small>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </article>
+  );
+}
+
+/** Профіль: мої екіпажі. */
+export function MyCrews({ world, userId }: { world: World; userId: string }) {
+  const origins = useOrbits((state) => state.origins);
+  const list = myCrews(world, userId, origins).reverse();
+  if (!list.length) return null;
+  return (
+    <section className="orbit-block cw-mine" aria-labelledby="cw-mine-title">
+      <h2 id="cw-mine-title" className="ex-h">Мої екіпажі · {list.length}</h2>
+      {list.slice(0, 3).map((crew) => <CrewCard key={crew.creation.id} world={world} crew={crew} me={userId} />)}
+      {list.length > 3 ? <p className="orbit-note">І ще {list.length - 3}. Екіпаж — це люди, з якими ви разом довели запуск до орбіти.</p> : null}
+    </section>
+  );
+}
+
+/** Картка орбіти: екіпаж, який її запустив. */
+export function OrbitCrew({ world, orbitId, me }: { world: World; orbitId: number; me?: string }) {
+  const origins = useOrbits((state) => state.origins);
+  const crew = crewOfOrbit(world, orbitId, origins);
+  if (!crew) return null;
+  return (
+    <section className="mo-group" aria-label="Екіпаж орбіти">
+      <p className="mo-group-title">Екіпаж</p>
+      <CrewCard world={world} crew={crew} me={me} showOrbit={false} />
+    </section>
   );
 }

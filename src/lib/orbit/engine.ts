@@ -254,7 +254,9 @@ function distribute(world: World): World {
 
 function amountsFor(world: World, extraHoldMs = 0, onlyId = ""): { id: string; amount: number }[] {
   if (world.fund <= 0) return [];
-  const active = world.accounts.filter((account) => world.now - account.lastActiveAt <= FUND_PERIOD_MS);
+  // Б1h: фонд ділиться лише між активними власниками орбіт (альт-акаунти без орбіт нічого не отримують).
+  const holders = new Set(world.orbits.map((orbit) => orbit.ownerId));
+  const active = world.accounts.filter((account) => world.now - account.lastActiveAt <= FUND_PERIOD_MS && holders.has(account.id));
   if (active.length === 0) return [];
   const equalPool = world.fund * 0.7;
   const weightPool = world.fund * 0.3;

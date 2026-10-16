@@ -51,8 +51,11 @@ export function Fund({ world, user }: { world: World; user: Account }) {
   const due = world.lastDistributionAt + FUND_PERIOD_MS;
   const passed = Math.min(1, Math.max(0, (world.now - world.lastDistributionAt) / FUND_PERIOD_MS));
   const share = previewShare(world, user.id);
-  const active = world.accounts.filter((account) => world.now - account.lastActiveAt <= FUND_PERIOD_MS);
+  // Б1h: у поділі лише активні власники орбіт.
+  const holders = new Set(world.orbits.map((orbit) => orbit.ownerId));
+  const active = world.accounts.filter((account) => world.now - account.lastActiveAt <= FUND_PERIOD_MS && holders.has(account.id));
   const inPool = active.some((account) => account.id === user.id);
+  const holder = holders.has(user.id);
   const mine = world.orbits.filter((orbit) => orbit.ownerId === user.id);
   const held = mine.reduce((best, orbit) => Math.max(best, world.now - orbit.createdAt), 0);
   const bonus = holdBonus(held);
@@ -89,10 +92,10 @@ export function Fund({ world, user }: { world: World; user: Account }) {
         <SectionHead id="fd-share-title" title="Твоя частка зараз" />
         <div className="fd-share-num">
           <b>≈ {fmt.format(share)} ✦</b>
-          <span className="mn-tag" data-tone={inPool ? "aurora" : "mars"}>{inPool ? "ти в поділі" : "неактивний 3+ дні"}</span>
+          <span className="mn-tag" data-tone={inPool ? "aurora" : "mars"}>{inPool ? "ти в поділі" : holder ? "неактивний 3+ дні" : "потрібна орбіта"}</span>
         </div>
         <ul className="fd-parts">
-          <li><Scale size={15} strokeWidth={2} aria-hidden /><span>70% фонду — порівну між {active.length} активними</span></li>
+          <li><Scale size={15} strokeWidth={2} aria-hidden /><span>70% фонду — порівну між {active.length} активними власниками орбіт</span></li>
           <li><Users size={15} strokeWidth={2} aria-hidden /><span>30% — за стабільність (у тебе {fmt.format(user.stability)}), удвічі більше, якщо був онлайн за добу</span></li>
           <li><Gift size={15} strokeWidth={2} aria-hidden /><span>Бонус тримання орбіти: {bonus ? `+${Math.round(bonus * 100)}%` : "поки 0%"}</span></li>
         </ul>
@@ -135,7 +138,7 @@ export function Fund({ world, user }: { world: World; user: Account }) {
         <h2 id="fd-list-title" className="visually-hidden">Виплати</h2>
         <Segmented label="Список виплат" value={list} onChange={setList} options={[{ id: "last", label: "Останній поділ" }, { id: "mine", label: `Мої · ${minePaid.length}` }]} />
         {rows.length === 0 ? (
-          <Empty icon={<Hourglass size={20} strokeWidth={1.6} />} title={list === "mine" ? "Твоїх виплат ще немає" : "Поділів ще не було"} text="Будь активним — фонд ділиться між тими, хто заходив за останні 3 дні." />
+          <Empty icon={<Hourglass size={20} strokeWidth={1.6} />} title={list === "mine" ? "Твоїх виплат ще немає" : "Поділів ще не було"} text="Фонд ділиться між власниками орбіт, які заходили за останні 3 дні." />
         ) : (
           <ul className="ex-trades">
             {rows.slice(0, 10).map((row, i) => {

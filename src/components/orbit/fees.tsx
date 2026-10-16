@@ -115,7 +115,7 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
             <div className="fe-table" role="table">
               <Tr name="Старт" value={`+${STARTER_OD} ✦`} note="Один раз" />
               <Tr name="Свідок заряду" value={`+${WITNESS_OD} ✦`} note="Коли заряд пройшов" />
-              <Tr name="Частка фонду" value="70% / 30%" note={`Раз на ${Math.round(FUND_PERIOD_MS / 86_400_000)} доби: порівну / за стабільністю`} />
+              <Tr name="Частка фонду" value="70% / 30%" note={`Раз на ${Math.round(FUND_PERIOD_MS / 86_400_000)} доби, лише власникам орбіт: порівну / за стабільністю`} />
             </div>
           </section>
         </div>

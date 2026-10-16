@@ -1,3 +1,6 @@
+import { createPortal } from "react-dom";
+import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from "@/components/orbit/home";
+import { Clock3, ListOrdered, Rocket, ShoppingCart, Tag } from "lucide-react";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
@@ -234,7 +237,7 @@ export function OrbitApp() {
           </div>
         </header>
         <div key={tab} className="tab-in">
-          {tab === "home" ? <Home world={world} user={user} onMine={() => setTab("mine")} onOpen={nav.open} /> : null}
+          {tab === "home" ? <Home world={world} user={user} onTab={setTab} onOpen={nav.open} /> : null}
           {tab === "market" ? <Exchange world={world} user={user} /> : null}
           {tab === "mine" ? <Mine world={world} user={user} /> : null}
           {tab === "flow" ? <Flow world={world} user={user} /> : null}
@@ -518,15 +521,18 @@ function LangRow({ lang }: { lang: Lang }) {
   );
 }
 
-function Home({ world, user, onMine, onOpen }: { world: World; user: Account; onMine: () => void; onOpen: (route: Route) => void }) {
+function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onTab: (tab: Tab) => void; onOpen: (route: Route) => void }) {
   const lang = useLang();
   const wall = useWall(world.now);
   const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
+  const [topup, setTopup] = useState(false);
   const oldest = world.queue[0];
   const loose = world.orbits.find((orbit) => orbit.ownerId === user.id && !world.queue.some((row) => row.orbitId === orbit.id));
   const canBuy = Boolean(oldest && oldest.userId !== user.id);
   const creation = activeCreation(world, user.id);
-  let label = "Відкрити заявку";
+  const onMine = () => onTab("mine");
+  let label = "Почати запуск";
+  let icon: ReactNode = <Rocket size={18} strokeWidth={2} aria-hidden />;
   let act = () => {
     if (!creation) useOrbits.getState().start();
     onMine();
@@ -534,50 +540,63 @@ function Home({ world, user, onMine, onOpen }: { world: World; user: Account; on
   let disabled = false;
   if (canBuy) {
     label = t(lang, "buy");
+    icon = <ShoppingCart size={18} strokeWidth={2} aria-hidden />;
     act = () => useOrbits.getState().buy();
   } else if (loose) {
     label = t(lang, "sell");
+    icon = <Tag size={18} strokeWidth={2} aria-hidden />;
     act = () => useOrbits.getState().list(loose.id);
   } else if (oldest?.userId === user.id) {
     label = "Перша в черзі твоя";
+    icon = <ListOrdered size={18} strokeWidth={2} aria-hidden />;
     disabled = true;
     act = () => undefined;
   } else if (creation) {
-    label = "До заявки";
+    label = "До мого запуску";
     act = onMine;
   }
   const chance = Math.round(chanceOf(world.orbits.length) * 100);
   const online = world.accounts.filter((account) => wall - account.lastActiveAt <= DAY_MS).length;
   const lastTrade = world.trades[world.trades.length - 1];
   return (
-    <section className="orbit-block">
-      <div className="hm-hero">
-        <OrbitRings />
-        <div className="hm-hero-num">
-          <p className="orbit-kicker">Ціна орбіти · {when(world.now)}</p>
-          <p className="orbit-price"><CountUp value={world.price} /></p>
-          <p className="orbit-unit">✦ за орбіту</p>
+    <div className="orbit-stack hm">
+      <WalletCard world={world} user={user} onTab={onTab} onTopup={() => setTopup(true)} />
+      <section className="orbit-block hm-price" aria-labelledby="hm-price-title">
+        <div className="hm-hero">
+          <OrbitRings />
+          <div className="hm-hero-num">
+            <p className="orbit-kicker" id="hm-price-title">Ціна орбіти · {when(world.now)}</p>
+            <p className="orbit-price"><CountUp value={world.price} /></p>
+            <p className="orbit-unit">✦ за орбіту · одна для всіх</p>
+          </div>
         </div>
-      </div>
-      <div className="orbit-stats">
-        <div><b>{online}</b><span>онлайн</span></div>
-        <div><b>{world.queue.length}</b><span>черга</span></div>
-        <div><b>{money.format(world.orbits.length)}</b><span>орбіт</span></div>
-        <div><b>{chance}%</b><span>шанс</span></div>
-      </div>
-      <p className="orbit-note">Нова ціна через {left(nextMidnight(world.now) - world.now)}</p>
-      {lastTrade ? <p className="orbit-note">Остання угода {spk(lastTrade.amount)} · {no(lastTrade.orbitId)}</p> : null}
-      {pendingMail ? (
-        <MailGate />
-      ) : (
-        <>
-          <button type="button" className="orbit-go" disabled={disabled} onClick={act}>
-            {label}
-          </button>
-          <Notice />
-        </>
-      )}
-      <nav className="hm-quick" aria-label="Швидкий доступ">
+        <PriceMini world={world} />
+        <div className="orbit-stats">
+          <div><b>{online}</b><span>онлайн</span></div>
+          <div><b>{world.queue.length}</b><span>черга</span></div>
+          <div><b>{money.format(world.orbits.length)}</b><span>орбіт</span></div>
+          <div><b>{chance}%</b><span>шанс</span></div>
+        </div>
+        <div className="hm-notes">
+          <span><Clock3 size={14} strokeWidth={1.8} aria-hidden /> Нова ціна через {left(nextMidnight(world.now) - world.now)}</span>
+          {lastTrade ? <span><ArrowLeftRight size={14} strokeWidth={1.8} aria-hidden /> Остання угода {spk(lastTrade.amount)} · {no(lastTrade.orbitId)}</span> : null}
+        </div>
+        {pendingMail ? (
+          <MailGate />
+        ) : (
+          <>
+            <button type="button" className="orbit-go k-go" disabled={disabled} onClick={act}>
+              {icon}
+              {label}
+            </button>
+            <Notice />
+          </>
+        )}
+      </section>
+      <Banners world={world} user={user} onTab={onTab} onOpen={onOpen} />
+      <MarketsCard world={world} onTab={onTab} />
+      <Activity world={world} user={user} onOpen={onOpen} />
+      <nav className="hm-quick orbit-block" aria-label="Швидкий доступ">
         {QUICK.map((item) => (
           <button key={item.route} type="button" onClick={() => onOpen(item.route)}>
             <span aria-hidden>{item.icon}</span>
@@ -585,7 +604,33 @@ function Home({ world, user, onMine, onOpen }: { world: World; user: Account; on
           </button>
         ))}
       </nav>
-    </section>
+      {topup ? <TopupSheet onClose={() => setTopup(false)} /> : null}
+    </div>
+  );
+}
+
+/** Шторка «Купити іскри ✦» з головної: та сама тестова оплата, що й у профілі. */
+function TopupSheet({ onClose }: { onClose: () => void }) {
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    title.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className="ky-scrim" onClick={onClose}>
+      <div className="ky-sheet hm-topup" role="dialog" aria-modal="true" aria-labelledby="hm-topup-title" onClick={(event) => event.stopPropagation()}>
+        <span className="ky-handle" aria-hidden />
+        <h2 id="hm-topup-title" ref={title} tabIndex={-1} className="ky-title">Купити іскри ✦</h2>
+        <p className="ky-body">Тестовий режим: оплата через Stripe у тестовому середовищі, справжні гроші не списуються. Іскри — тестові одиниці.</p>
+        <TopupRow />
+        <button type="button" className="cr-second" onClick={onClose}>Скасувати</button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

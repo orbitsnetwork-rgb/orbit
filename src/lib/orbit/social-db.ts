@@ -12,7 +12,7 @@ const g = globalThis as { __orbitSocialReady__?: Promise<void> };
 
 export function ensureSocial(sql: Sql): Promise<void> {
   g.__orbitSocialReady__ ??= (async () => {
-    for (const stmt of String(schema).split(";").map((s) => s.replace(/--.*$/gm, "").trim()).filter(Boolean)) await sql.query(stmt, []);
+    for (const stmt of String(schema).replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
   })().catch((error) => {
     g.__orbitSocialReady__ = undefined;
     throw error;

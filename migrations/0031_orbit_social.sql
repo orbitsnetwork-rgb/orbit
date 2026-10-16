@@ -22,3 +22,13 @@ create table if not exists orbit_origins (
   at bigint not null
 );
 create index if not exists orbit_origins_cr on orbit_origins (cr);
+-- Paid Stripe sessions whose account was not found (audit K4): kept for manual review; the webhook answers 500 so Stripe retries.
+create table if not exists orbit_orphans (
+  id bigserial primary key,
+  session_id text not null,
+  user_id text not null,
+  amount integer not null,
+  reason text not null,
+  at timestamptz not null default now()
+);
+create index if not exists orbit_orphans_session on orbit_orphans (session_id);

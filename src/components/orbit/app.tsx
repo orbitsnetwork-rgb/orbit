@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Hexagon, Orbit, UserRound, Waves } from "lucide-react";
+import { Exchange, Soon } from "@/components/orbit/exchange";
 import { useEffect, useRef, useState } from "react";
-import { readLang, t, writeLang, type Lang } from "@/lib/orbit/copy";
+import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
 import {
   activeCreation,
   chanceOf,
@@ -115,11 +116,11 @@ export function OrbitApp() {
             </div>
           </div>
           <div className="text-right">
-            <div className="orbit-od">{money.format(user.balance)} ОД</div>
+            <div className="orbit-od">{spk(user.balance)}</div>
           </div>
         </header>
         {tab === "home" ? <Home world={world} user={user} onMine={() => setTab("mine")} /> : null}
-        {tab === "market" ? <Market world={world} user={user} /> : null}
+        {tab === "market" ? <Exchange world={world} user={user} /> : null}
         {tab === "mine" ? <Mine world={world} user={user} /> : null}
         {tab === "flow" ? <Flow world={world} user={user} /> : null}
         {tab === "me" ? <Person world={world} user={user} onSheet={setSheet} /> : null}
@@ -258,14 +259,15 @@ function Docs({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: () => 
         "Фонд ділиться раз на 3 доби.",
         "70% активним за 3 доби. 30% за стабільністю.",
         "Утримання 7 / 14 / 30 діб додає 10% / 25% / 50%.",
-        "ОД — внутрішня одиниця. Не гроші.",
+        "Іскра ✦ — внутрішня одиниця світу. Не гроші.",
+        "Обмін: іскри на орбіти за ціною дня, всередині додатка.",
       ],
     },
     terms: {
       title: "Умови",
       lines: [
-        "Орбіти — закритий світ. ОД не виводяться і не переказуються як гроші.",
-        "Поповнення купує ОД у цього світу. 1 ОД = 1 цент США.",
+        "Орбіти — закритий світ. Іскри ✦ не виводяться і не переказуються як гроші.",
+        "Іскри — внутрішня одиниця для обміну на орбіти. Це не гроші і не валюта.",
         "Ключ лишається на телефоні. Втратив — напиши на пошту.",
         "Торгівля орбітами йде лише всередині додатка.",
         "Зараз тестовий режим.",
@@ -274,10 +276,10 @@ function Docs({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: () => 
     refund: {
       title: "Повернення",
       lines: [
-        "Невитрачені ОД можна повернути протягом 14 днів.",
-        "Вже витрачені на орбіту ОД не повертаються.",
-        "Напиши на orbits.network@gmail.com з поштою акаунта.",
-        "Повернення йде на ту саму картку.",
+        "Зараз тестовий режим: справжні гроші не списуються.",
+        "Тестові іскри ✦ не мають грошової вартості.",
+        "Правила повернення з’являться разом зі справжньою оплатою.",
+        "Питання — на orbits.network@gmail.com.",
       ],
     },
     contact: {
@@ -321,7 +323,7 @@ function Toast({ text, bad, event }: { text: string; bad: boolean; event: string
   if (!shown) return null;
   return (
     <div className="orbit-toast" data-bad={shown.bad ? "1" : "0"} role="status" onClick={() => setShown(null)}>
-      {shown.text}
+      {sparkText(shown.text)}
     </div>
   );
 }
@@ -332,7 +334,7 @@ function Notice({ inline = false }: { inline?: boolean }) {
   if (!flash || !inline) return null;
   return (
     <p className={bad ? "orbit-flash" : "orbit-ok"} role="status">
-      {flash}
+      {sparkText(flash)}
     </p>
   );
 }
@@ -425,7 +427,7 @@ function Home({ world, user, onMine }: { world: World; user: Account; onMine: ()
     <section className="orbit-block">
       <p className="orbit-kicker">Ціна · {when(world.now)}</p>
       <p className="orbit-price">{money.format(world.price)}</p>
-      <p className="orbit-unit">ОД</p>
+      <p className="orbit-unit">✦ за орбіту</p>
       <div className="orbit-stats">
         <div><b>{online}</b><span>онлайн</span></div>
         <div><b>{world.queue.length}</b><span>черга</span></div>
@@ -433,12 +435,12 @@ function Home({ world, user, onMine }: { world: World; user: Account; onMine: ()
         <div><b>{chance}%</b><span>шанс</span></div>
       </div>
       <p className="orbit-note">Нова ціна через {left(nextMidnight(world.now) - world.now)}</p>
-      {lastTrade ? <p className="orbit-note">Остання угода {money.format(lastTrade.amount)} ОД · {no(lastTrade.orbitId)}</p> : null}
+      {lastTrade ? <p className="orbit-note">Остання угода {spk(lastTrade.amount)} · {no(lastTrade.orbitId)}</p> : null}
       {fresh ? (
         <div className="orbit-tips">
           <p className="orbit-kicker">Перші кроки</p>
           <p className="orbit-note">Орбіта — рівна частка світу.</p>
-          <p className="orbit-note">ОД лишаються всередині. Це не гроші.</p>
+          <p className="orbit-note">Іскри ✦ лишаються всередині. Це не гроші.</p>
           <p className="orbit-note">Купи з черги або відкрий заявку.</p>
           <button
             type="button"
@@ -462,57 +464,6 @@ function Home({ world, user, onMine }: { world: World; user: Account; onMine: ()
           <Notice />
         </>
       )}
-    </section>
-  );
-}
-
-function Market({ world, user }: { world: World; user: Account }) {
-  const lang = useLang();
-  const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
-  const oldest = world.queue[0];
-  const canBuy = Boolean(oldest && oldest.userId !== user.id);
-  const loose = world.orbits.filter((orbit) => orbit.ownerId === user.id && !world.queue.some((row) => row.orbitId === orbit.id));
-  return (
-    <section className="orbit-block">
-      <p className="orbit-kicker">Черга</p>
-      <p className="orbit-price">{world.queue.length}</p>
-      <div className="orbit-stats">
-        <div><b>{world.queue.length}</b><span>черга</span></div>
-        <div><b>{loose.length}</b><span>твої вільні</span></div>
-        <div><b>{money.format(world.trades.length)}</b><span>угод</span></div>
-        <div><b>{money.format(world.price)}</b><span>ціна</span></div>
-      </div>
-      {world.queue.length === 0 ? <p className="orbit-empty">Черга 0 · стань першим</p> : null}
-      {world.queue.map((row, index) => {
-        const owner = world.accounts.find((account) => account.id === row.userId)?.name ?? "хтось";
-        return (
-          <div key={row.id} className="orbit-row">
-            <span>
-              {index === 0 ? "Перший. " : `${index + 1}. `}
-              {no(row.orbitId)} · {owner}
-            </span>
-            {row.userId === user.id && index > 0 ? (
-              <button type="button" className="orbit-quiet" onClick={() => useOrbits.getState().cancel(row.orbitId)}>
-                Зняти
-              </button>
-            ) : null}
-          </div>
-        );
-      })}
-      {pendingMail ? <p className="orbit-note">Спочатку код на Ціні.</p> : null}
-      {pendingMail
-        ? null
-        : loose.map((orbit) => (
-            <button key={orbit.id} type="button" className="orbit-quiet" onClick={() => useOrbits.getState().list(orbit.id)}>
-              {t(lang, "sell")} {no(orbit.id)}
-            </button>
-          ))}
-      {pendingMail ? null : (
-        <button type="button" className="orbit-go" disabled={!canBuy} onClick={() => useOrbits.getState().buy()}>
-          {canBuy ? t(lang, "buy") : "Немає чужої"}
-        </button>
-      )}
-      {pendingMail ? null : <Notice />}
     </section>
   );
 }
@@ -666,7 +617,7 @@ function Flow({ world, user }: { world: World; user: Account }) {
     <section className="orbit-block">
       <p className="orbit-kicker">Фонд</p>
       <p className="orbit-price">{money.format(world.fund)}</p>
-      <p className="orbit-unit">ОД</p>
+      <p className="orbit-unit">{sparkWord(world.fund)} ✦</p>
       <div className="orbit-stats">
         <div><b>{left(due - wall)}</b><span>поділ</span></div>
         <div><b>{money.format(nowShare)}</b><span>тобі</span></div>
@@ -680,7 +631,7 @@ function Flow({ world, user }: { world: World; user: Account }) {
         return (
           <div key={`${row.at}-${row.userId}-${index}`} className="orbit-row">
             <span>{name}</span>
-            <span>{money.format(row.amount)} ОД</span>
+            <span>{spk(row.amount)}</span>
           </div>
         );
       })}
@@ -721,8 +672,9 @@ function Person({ world, user, onSheet }: { world: World; user: Account; onSheet
       <section className="orbit-block">
         <p className="orbit-kicker">Баланс</p>
         <p className="orbit-price">{money.format(user.balance)}</p>
-        <p className="orbit-unit">ОД</p>
+        <p className="orbit-unit">{sparkWord(user.balance)} ✦</p>
         <TopupRow />
+        <Soon />
       </section>
       <section className="orbit-block">
         <p className="orbit-kicker">Ключ</p>
@@ -820,7 +772,7 @@ function TopupRow() {
         ))}
       </div>
       <button type="button" className="orbit-go" onClick={() => useOrbits.getState().topup(amount)}>
-        Тест · {amount} ОД
+        Тест · {sparks(amount)}
       </button>
       <Notice />
     </div>

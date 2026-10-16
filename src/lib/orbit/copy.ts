@@ -22,7 +22,7 @@ const rows = {
     buy: "Купити найстарішу",
     sell: "Поставити в чергу",
     home: "Ціна",
-    market: "Черга",
+    market: "Обмін",
     mine: "Заявка",
     flow: "Потік",
     me: "Я",
@@ -48,7 +48,7 @@ const rows = {
     buy: "Buy the oldest",
     sell: "Join the queue",
     home: "Price",
-    market: "Queue",
+    market: "Exchange",
     mine: "Request",
     flow: "Flow",
     me: "Me",
@@ -74,7 +74,7 @@ const rows = {
     buy: "Купить старейшую",
     sell: "Поставить в очередь",
     home: "Цена",
-    market: "Очередь",
+    market: "Обмен",
     mine: "Заявка",
     flow: "Поток",
     me: "Я",
@@ -100,7 +100,7 @@ const rows = {
     buy: "Kup najstarszą",
     sell: "Do kolejki",
     home: "Cena",
-    market: "Kolejka",
+    market: "Wymiana",
     mine: "Wniosek",
     flow: "Przepływ",
     me: "Ja",
@@ -126,7 +126,7 @@ const rows = {
     buy: "Die älteste kaufen",
     sell: "In die Reihe",
     home: "Preis",
-    market: "Reihe",
+    market: "Tausch",
     mine: "Antrag",
     flow: "Strom",
     me: "Ich",
@@ -149,4 +149,35 @@ export function writeLang(lang: Lang) {
 
 export function t(lang: Lang, key: CopyKey) {
   return rows[lang][key];
+}
+
+/** Українські форми: 1 іскра, 2 іскри, 5 іскор. Лише відображення. */
+export function sparkWord(n: number) {
+  const abs = Math.abs(Math.trunc(n));
+  const ten = abs % 10;
+  const hundred = abs % 100;
+  if (ten === 1 && hundred !== 11) return "іскра";
+  if (ten >= 2 && ten <= 4 && (hundred < 12 || hundred > 14)) return "іскри";
+  return "іскор";
+}
+
+const sparkFmt = new Intl.NumberFormat("uk-UA");
+
+/** «1 250 іскор» */
+export function sparks(n: number) {
+  return `${sparkFmt.format(n)} ${sparkWord(n)}`;
+}
+
+/** «1 250 ✦» — коротко для чисел у картках. */
+export function spk(n: number) {
+  return `${sparkFmt.format(n)} ✦`;
+}
+
+/** Повідомлення з сервера ще кажуть «ОД». Показуємо їх як іскри, нічого не міняючи в рушії. */
+export function sparkText(text: string) {
+  return text
+    .replace(/(\d[\d\u00a0\u202f ]*)\s?ОД(?!\p{L})/gu, (_match, num: string) => {
+      return `${num.trim()} ✦`;
+    })
+    .replace(/(?<!\p{L})ОД(?!\p{L})/gu, "іскор");
 }

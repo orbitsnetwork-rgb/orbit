@@ -1,9 +1,9 @@
-import { ChevronLeft, ChevronRight, FileText, Mail, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, History as HistoryIcon, Mail, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -102,9 +102,17 @@ const SOON_HUB = [
 ];
 
 /** Хаб «Ще». Нові розділи додаються сюди, нижнє меню не росте. */
-export function MoreHub({ onOpen, onBack }: { onOpen: (route: Route) => void; onBack: () => void }) {
+export function MoreHub({ onOpen, onBack, signedIn }: { onOpen: (route: Route) => void; onBack: () => void; signedIn: boolean }) {
   return (
     <Page title="Ще" kicker="Орбіти" onBack={onBack}>
+      {signedIn ? (
+        <section className="mo-group" aria-label="Мої іскри">
+          <p className="mo-group-title">Мої іскри</p>
+          <div className="mo-card">
+            <Row icon={<HistoryIcon size={18} strokeWidth={1.5} />} title="Історія" sub="Поповнення, купівлі, продажі, заряди, фонд" onClick={() => onOpen("history")} />
+          </div>
+        </section>
+      ) : null}
       <section className="mo-group" aria-label="Документи і підтримка">
         <p className="mo-group-title">Правила</p>
         <div className="mo-card">
@@ -245,30 +253,4 @@ export function DocView({ id, onBack, onClose, onOpen }: { id: DocId; onBack: ()
       ) : null}
     </Page>
   );
-}
-
-/** Рендер верхньої сторінки стеку. */
-export function Pages({
-  stack,
-  onPush,
-  onPop,
-  onReplace,
-  onClose,
-}: {
-  stack: Route[];
-  onPush: (route: Route) => void;
-  onPop: () => void;
-  onReplace: (route: Route) => void;
-  onClose: () => void;
-}) {
-  const top = stack[stack.length - 1];
-  if (!top) return null;
-  const closer = stack.length > 1 ? onClose : undefined;
-  if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} />;
-  if (top === "docs") return <DocList onOpen={(id) => onPush(`doc:${id}`)} onBack={onPop} onClose={closer} />;
-  if (isDoc(top)) {
-    const id = top.slice(4) as DocId;
-    return <DocView key={id} id={id} onBack={onPop} onClose={closer} onOpen={(next) => onReplace(`doc:${next}`)} />;
-  }
-  return null;
 }

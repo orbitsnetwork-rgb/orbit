@@ -1071,3 +1071,41 @@ a.h-11.bg-accent::after { display: none !important; }
 .mo-next small { color: #8a847a; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
 .mo-next b { font-size: 0.95rem; }
 @media (prefers-reduced-motion: reduce) { .mo-page { animation: none; } }
+
+/* Історія */
+.hi-offline { display: flex; align-items: center; gap: 0.45rem; margin: 0; padding: 0.55rem 0.75rem; border-radius: 12px; background: color-mix(in oklab, #e85d4c 12%, #0e0c0a); color: #f0a49a; font-size: 0.82rem; }
+.hi-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
+.hi-sum div { display: grid; gap: 0.2rem; padding: 0.65rem 0.6rem; border: 1px solid var(--color-orbit-line); border-radius: 12px; background: #0e0c0a; min-width: 0; }
+.hi-sum span { color: #8a847a; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.hi-sum b { font-size: 0.98rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hi-chips { display: flex; gap: 0.4rem; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; }
+.hi-chips::-webkit-scrollbar { display: none; }
+.hi-chips .orbit-chip { flex: none; display: inline-flex; align-items: center; gap: 0.35rem; }
+.hi-count { min-width: 1.15rem; padding: 0.1rem 0.3rem; border-radius: 999px; background: #1c1a17; color: #9a9286; font-size: 0.64rem; font-variant-numeric: tabular-nums; }
+.orbit-chip[data-on="1"] .hi-count { background: color-mix(in oklab, #d7a15a 30%, #0e0c0a); color: #f0c98a; }
+.hi-list { display: grid; gap: 14px; }
+.hi-day { display: grid; gap: 8px; animation: hi-in 220ms ease-out both; }
+@keyframes hi-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.hi-row { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.5rem; padding: 0.55rem 0.85rem; border: 0; border-top: 1px solid var(--color-orbit-line); background: transparent; color: #ebe6dc; text-align: left; }
+.mo-card > .hi-row:first-child { border-top: 0; }
+.hi-row:focus-visible { outline: 2px solid #d7a15a; outline-offset: -2px; }
+.hi-ico { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 999px; background: #1c1a17; color: #c9c1b4; }
+.hi-row[data-kind="buy"] .hi-ico { background: color-mix(in oklab, #e85d4c 14%, #0e0c0a); color: #f0a49a; }
+.hi-row[data-kind="sell"] .hi-ico, .hi-row[data-kind="fund"] .hi-ico, .hi-row[data-kind="topup"] .hi-ico { background: color-mix(in oklab, #3dd68c 12%, #0e0c0a); color: #8fe6b8; }
+.hi-row[data-kind="charge"] .hi-ico, .hi-row[data-kind="bonus"] .hi-ico { background: color-mix(in oklab, #d7a15a 14%, #0e0c0a); color: #f0c98a; }
+.hi-text { display: grid; gap: 0.12rem; min-width: 0; }
+.hi-text b { font-size: 0.93rem; font-weight: 650; }
+.hi-text small { color: #8a847a; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hi-amt { font-size: 0.93rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hi-amt[data-dir="up"], .hi-big[data-dir="up"], .hi-sum b[data-dir="up"] { color: #3dd68c; }
+.hi-amt[data-dir="down"], .hi-big[data-dir="down"], .hi-sum b[data-dir="down"] { color: #e85d4c; }
+.hi-amt[data-dir="flat"] { color: #8a847a; }
+.hi-amt[data-dir="wait"], .hi-big[data-dir="wait"] { color: #f0c98a; font-size: 0.8rem; }
+.hi-big[data-dir="wait"] { font-size: 1.85rem; }
+.hi-skel { height: 3.5rem; border-radius: 14px; background: linear-gradient(90deg, #12100e 0%, #1c1916 50%, #12100e 100%); background-size: 200% 100%; animation: hi-skel 1.2s linear infinite; }
+@keyframes hi-skel { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.hi-empty { display: grid; justify-items: center; gap: 0.6rem; padding: 1.6rem 1rem; border: 1px dashed var(--color-orbit-line); border-radius: 16px; color: #8a847a; text-align: center; }
+.hi-empty p { margin: 0; font-size: 0.88rem; }
+.hi-foot { font-size: 0.76rem; }
+@media (prefers-reduced-motion: reduce) { .hi-day, .hi-skel { animation: none; } }
+.hi-amt[data-dir="gold"], .hi-big[data-dir="gold"] { color: #f0c98a; }

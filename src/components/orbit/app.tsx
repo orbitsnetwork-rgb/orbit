@@ -1,6 +1,8 @@
-import { ArrowLeftRight, FileText, Hexagon, LayoutGrid, Orbit, UserRound, Waves } from "lucide-react";
+import { ArrowLeftRight, FileText, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
-import { Pages, Row, type Route } from "@/components/orbit/more";
+import { Row, type Route } from "@/components/orbit/more";
+import { Pages } from "@/components/orbit/pages";
+import { rememberTopup } from "@/lib/orbit/ledger";
 import type { DocId } from "@/lib/orbit/docs";
 import { useEffect, useRef, useState } from "react";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
@@ -94,7 +96,13 @@ export function OrbitApp() {
     const session = new URLSearchParams(window.location.search).get("topup");
     if (session?.startsWith("cs_")) {
       window.history.replaceState({}, "", "/");
-      void useOrbits.getState().confirmTopup(session);
+      void useOrbits.getState().confirmTopup(session).then(() => {
+        // Сервер не віддає список поповнень. Пам’ятаємо успішне на цьому телефоні для «Історії».
+        const state = useOrbits.getState();
+        const paid = /Зараховано (\d+)/.exec(state.flash);
+        const who = me(state.world);
+        if (!state.bad && paid && who) rememberTopup(who.id, Number(paid[1]));
+      });
     }
     const timer = window.setInterval(() => void useOrbits.getState().refresh(), 2000);
     return () => window.clearInterval(timer);
@@ -128,7 +136,7 @@ export function OrbitApp() {
         {tab === "mine" ? <Mine world={world} user={user} /> : null}
         {tab === "flow" ? <Flow world={world} user={user} /> : null}
         {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
-        <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} />
+        <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} world={world} user={user} onTab={setTab} />
       </div>
       <Toast text={flash} bad={bad} event={world.log[0]?.text ?? ""} />
       <nav className="orbit-nav" aria-label="Розділи">
@@ -711,6 +719,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
       <section className="orbit-block">
         <div className="mo-card">
           <Row icon={<LayoutGrid size={18} strokeWidth={1.5} />} title="Ще" sub="Усі розділи" onClick={() => onOpen("more")} />
+          <Row icon={<HistoryIcon size={18} strokeWidth={1.5} />} title="Історія" sub="Усі мої операції" onClick={() => onOpen("history")} />
           <Row icon={<FileText size={18} strokeWidth={1.5} />} title="Документи" sub="Правила, умови, приватність" onClick={() => onOpen("docs")} />
         </div>
       </section>

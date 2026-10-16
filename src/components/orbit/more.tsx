@@ -1,3 +1,5 @@
+import { BellRing, CreditCard, Download, KeyRound, Landmark, MonitorSmartphone, UserX, Users } from "lucide-react";
+import { Avatar } from "@/components/orbit/ui/kit";
 import { Activity, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
@@ -91,70 +93,117 @@ export function Row({ icon, title, sub, onClick, badge, badgeOn }: { icon: React
 }
 
 const SOON_HUB = [
-  { title: "Вхід з кодом (2FA)", text: "Другий крок при вході." },
-  { title: "Вийти на всіх пристроях", text: "Потрібна дія на сервері." },
-  { title: "Закрити акаунт кнопкою", text: "Зараз — листом." },
-  { title: "Ввід гривні", text: "Після юридичної перевірки." },
-  { title: "Вивід на картку", text: "Після юридичної перевірки." },
-  { title: "Обмін P2P", text: "Угоди між людьми." },
-  { title: "Сповіщення про ціну", text: "Push на телефон." },
-  { title: "Експорт історії", text: "Файл CSV." },
+  { title: "Вхід з кодом (2FA)", text: "Другий крок при вході.", icon: <KeyRound size={16} strokeWidth={1.8} /> },
+  { title: "Вийти на всіх пристроях", text: "Потрібна дія на сервері.", icon: <MonitorSmartphone size={16} strokeWidth={1.8} /> },
+  { title: "Закрити акаунт кнопкою", text: "Зараз — листом.", icon: <UserX size={16} strokeWidth={1.8} /> },
+  { title: "Ввід гривні", text: "Після юридичної перевірки.", icon: <Landmark size={16} strokeWidth={1.8} /> },
+  { title: "Вивід на картку", text: "Після юридичної перевірки.", icon: <CreditCard size={16} strokeWidth={1.8} /> },
+  { title: "Обмін P2P", text: "Угоди між людьми.", icon: <Users size={16} strokeWidth={1.8} /> },
+  { title: "Сповіщення про ціну", text: "Push на телефон.", icon: <BellRing size={16} strokeWidth={1.8} /> },
+  { title: "Експорт історії", text: "Файл CSV.", icon: <Download size={16} strokeWidth={1.8} /> },
 ];
 
-/** Хаб «Ще». Нові розділи додаються сюди, нижнє меню не росте. */
-export function MoreHub({ onOpen, onBack, signedIn, unread = 0 }: { onOpen: (route: Route) => void; onBack: () => void; signedIn: boolean; unread?: number }) {
+type Entry = { route: Route | "mail"; title: string; sub: string; icon: ReactNode; tone: "sun" | "ion" | "nebula" | "aurora" | "mars"; group: "mine" | "world" | "rules"; auth?: boolean; badge?: string };
+
+function entries(docs: number, unread: number): Entry[] {
+  return [
+    { route: "assets", title: "Активи", sub: "Баланс, мої орбіти, статуси", icon: <Wallet size={18} strokeWidth={1.7} />, tone: "sun", group: "mine", auth: true },
+    { route: "history", title: "Історія", sub: "Поповнення, купівлі, продажі, заряди, фонд", icon: <HistoryIcon size={18} strokeWidth={1.7} />, tone: "ion", group: "mine", auth: true },
+    { route: "inbox", title: "Сповіщення", sub: "Події світу і про мене", icon: <Bell size={18} strokeWidth={1.7} />, tone: "nebula", group: "mine", auth: true, badge: unread ? String(unread > 99 ? "99+" : unread) : undefined },
+    { route: "security", title: "Безпека", sub: "Ключ, пристрій, вихід", icon: <Shield size={18} strokeWidth={1.7} />, tone: "aurora", group: "mine", auth: true },
+    { route: "explorer", title: "Оглядач", sub: "Будь-яка орбіта за номером", icon: <Telescope size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
+    { route: "leaders", title: "Рейтинг", sub: "Стабільність, орбіти, тримання", icon: <Trophy size={18} strokeWidth={1.7} />, tone: "sun", group: "world", auth: true },
+    { route: "status", title: "Стан системи", sub: "Зв’язок, розклад ціни і фонду", icon: <Activity size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
+    { route: "fees", title: "Комісії і ліміти", sub: "Скільки і за що, мої ліміти на сьогодні", icon: <Percent size={18} strokeWidth={1.7} />, tone: "mars", group: "rules", auth: true },
+    { route: "docs", title: "Документи", sub: "Правила, умови, приватність, ризики", icon: <FileText size={18} strokeWidth={1.7} />, tone: "nebula", group: "rules", badge: String(docs) },
+    { route: "learn", title: "Навчання", sub: "5 уроків по хвилині", icon: <GraduationCap size={18} strokeWidth={1.7} />, tone: "ion", group: "rules" },
+    { route: "help", title: "Довідка", sub: "Відповіді на часті питання", icon: <CircleHelp size={18} strokeWidth={1.7} />, tone: "aurora", group: "rules" },
+    { route: "mail", title: "Написати нам", sub: SUPPORT_MAIL, icon: <Mail size={18} strokeWidth={1.7} />, tone: "sun", group: "rules" },
+  ];
+}
+
+const TILES: Route[] = ["assets", "history", "inbox", "security", "explorer", "leaders", "learn", "help"];
+const GROUPS: { id: Entry["group"]; title: string }[] = [
+  { id: "mine", title: "Мої іскри" },
+  { id: "world", title: "Світ" },
+  { id: "rules", title: "Правила і підтримка" },
+];
+
+/** Хаб «Ще». Плитки найчастішого, пошук по розділах, групи, «Скоро». Нижнє меню не росте. */
+export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onOpen: (route: Route) => void; onBack: () => void; signedIn: boolean; unread?: number; profile?: { name: string; id: string; line: string } }) {
+  const [query, setQuery] = useState("");
+  const all = entries(Object.keys(DOCS).length, unread).filter((row) => signedIn || !row.auth);
+  const go = (row: Entry) => {
+    if (row.route === "mail") window.location.href = `mailto:${SUPPORT_MAIL}?subject=${encodeURIComponent("Орбіти")}`;
+    else onOpen(row.route);
+  };
+  const q = query.trim().toLowerCase();
+  const hits = q ? all.filter((row) => `${row.title} ${row.sub}`.toLowerCase().includes(q)) : null;
+  const tiles = signedIn ? TILES.map((id) => all.find((row) => row.route === id)).filter((row): row is Entry => Boolean(row)) : [];
   return (
     <Page title="Ще" kicker="Орбіти" onBack={onBack}>
-      {signedIn ? (
-        <section className="mo-group" aria-label="Мої іскри">
-          <p className="mo-group-title">Мої іскри</p>
-          <div className="mo-card">
-            <Row icon={<Wallet size={18} strokeWidth={1.5} />} title="Активи" sub="Баланс, мої орбіти, статуси" onClick={() => onOpen("assets")} />
-            <Row icon={<HistoryIcon size={18} strokeWidth={1.5} />} title="Історія" sub="Поповнення, купівлі, продажі, заряди, фонд" onClick={() => onOpen("history")} />
-            <Row icon={<Shield size={18} strokeWidth={1.5} />} title="Безпека" sub="Ключ, пристрій, вихід" onClick={() => onOpen("security")} />
-            <Row icon={<Bell size={18} strokeWidth={1.5} />} title="Сповіщення" sub="Події світу і про мене" badge={unread ? String(unread) : undefined} badgeOn={Boolean(unread)} onClick={() => onOpen("inbox")} />
-          </div>
-        </section>
+      {profile ? (
+        <button type="button" className="mh-me" onClick={() => onOpen("assets")}>
+          <Avatar id={profile.id} name={profile.name} size={44} me />
+          <span><b>{profile.name}</b><small>{profile.line}</small></span>
+          <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
+        </button>
       ) : null}
-      {signedIn ? (
-        <section className="mo-group" aria-label="Світ">
-          <p className="mo-group-title">Світ</p>
-          <div className="mo-card">
-            <Row icon={<Telescope size={18} strokeWidth={1.5} />} title="Оглядач орбіт" sub="Будь-яка орбіта за номером" onClick={() => onOpen("explorer")} />
-            <Row icon={<Trophy size={18} strokeWidth={1.5} />} title="Рейтинг" sub="Стабільність, орбіти, тримання" onClick={() => onOpen("leaders")} />
-            <Row icon={<Activity size={18} strokeWidth={1.5} />} title="Стан системи" sub="Зв’язок, розклад ціни і фонду" onClick={() => onOpen("status")} />
-          </div>
-        </section>
-      ) : null}
-      <section className="mo-group" aria-label="Документи і підтримка">
-        <p className="mo-group-title">Правила</p>
-        <div className="mo-card">
-          {signedIn ? <Row icon={<Percent size={18} strokeWidth={1.5} />} title="Комісії і ліміти" sub="Скільки і за що, мої ліміти на сьогодні" onClick={() => onOpen("fees")} /> : null}
-          <Row icon={<FileText size={18} strokeWidth={1.5} />} title="Документи" sub="Правила, умови, приватність, ризики" badge={String(Object.keys(DOCS).length)} onClick={() => onOpen("docs")} />
-          <Row icon={<GraduationCap size={18} strokeWidth={1.5} />} title="Навчання" sub="5 уроків по хвилині" onClick={() => onOpen("learn")} />
-          <Row icon={<CircleHelp size={18} strokeWidth={1.5} />} title="Довідка" sub="Відповіді на часті питання" onClick={() => onOpen("help")} />
-          <Row
-            icon={<Mail size={18} strokeWidth={1.5} />}
-            title="Написати нам"
-            sub={SUPPORT_MAIL}
-            onClick={() => {
-              window.location.href = `mailto:${SUPPORT_MAIL}?subject=${encodeURIComponent("Орбіти")}`;
-            }}
-          />
-        </div>
-      </section>
-      <section className="ex-soon" aria-label="Скоро">
-        <p className="orbit-kicker">Скоро · без дат</p>
-        {SOON_HUB.map((item) => (
-          <div key={item.title} className="ex-soon-row">
-            <div>
-              <b>{item.title}</b>
-              <p className="orbit-note">{item.text}</p>
+      <label className="mo-search">
+        <Search size={16} strokeWidth={1.75} aria-hidden />
+        <input type="search" value={query} placeholder="Пошук розділу" aria-label="Пошук розділу" maxLength={40} onChange={(event) => setQuery(event.target.value)} />
+      </label>
+      {hits ? (
+        <section className="mo-group" aria-live="polite">
+          <p className="mo-group-title">Знайдено: {hits.length}</p>
+          {hits.length ? (
+            <div className="mo-card">
+              {hits.map((row) => <Row key={row.route} icon={row.icon} title={row.title} sub={row.sub} badge={row.badge} badgeOn={row.route === "inbox" && Boolean(unread)} onClick={() => go(row)} />)}
             </div>
-            <button type="button" className="ex-soon-btn" disabled aria-disabled="true">У розробці</button>
-          </div>
-        ))}
-      </section>
+          ) : (
+            <p className="orbit-empty">Нічого немає · спробуй інше слово</p>
+          )}
+        </section>
+      ) : (
+        <>
+          {tiles.length ? (
+            <nav className="mh-tiles" aria-label="Найчастіше">
+              {tiles.map((row) => (
+                <button key={row.route} type="button" data-tone={row.tone} onClick={() => go(row)} aria-label={row.badge && row.route === "inbox" ? `${row.title}, нових ${row.badge}` : row.title}>
+                  <span aria-hidden>{row.icon}{row.badge && row.route === "inbox" ? <b>{row.badge}</b> : null}</span>
+                  {row.title}
+                </button>
+              ))}
+            </nav>
+          ) : null}
+          {GROUPS.map((group) => {
+            const rows = all.filter((row) => row.group === group.id);
+            if (!rows.length) return null;
+            return (
+              <section key={group.id} className="mo-group" aria-label={group.title}>
+                <p className="mo-group-title">{group.title}</p>
+                <div className="mo-card">
+                  {rows.map((row) => (
+                    <Row key={row.route} icon={row.icon} title={row.route === "explorer" ? "Оглядач орбіт" : row.title} sub={row.sub} badge={row.badge} badgeOn={row.route === "inbox" && Boolean(unread)} onClick={() => go(row)} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+          <section className="mh-soon" aria-labelledby="mh-soon-title">
+            <h2 id="mh-soon-title">Скоро <small>без дат</small></h2>
+            <ul>
+              {SOON_HUB.map((item) => (
+                <li key={item.title}>
+                  <span aria-hidden>{item.icon}</span>
+                  <b>{item.title}</b>
+                  <small>{item.text}</small>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
     </Page>
   );
 }

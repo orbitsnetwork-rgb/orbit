@@ -2448,3 +2448,29 @@ a.h-11.bg-accent::after { display: none !important; }
 .pr-hero .orbit-face { border-radius: 50%; border: 0; background: radial-gradient(120% 120% at 30% 20%, #7a6cff, #2a2160); color: #f1eeff; }
 .pr-hero .orbit-face span { font-weight: 800; }
 .pr-hero .orbit-face img { border-radius: 50%; }
+
+/* ── Ще v8 ── */
+.mh-me { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; margin: 4px 0 12px; padding: 14px; border-radius: 20px; border: 1px solid var(--glass-line); background: radial-gradient(90% 120% at 0% 0%, rgb(139 123 255 / .22), transparent 60%), var(--glass); color: var(--text-1); text-align: left; }
+.mh-me span { display: grid; gap: 3px; min-width: 0; }
+.mh-me b { font: 700 16px/1.2 var(--font-sans); }
+.mh-me small { color: var(--text-3); font: 500 12.5px/1.2 var(--font-sans); }
+.mh-me > svg { color: var(--text-3); }
+.mh-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 6px; margin: 16px 0 6px; padding: 16px 8px; border-radius: 20px; border: 1px solid var(--glass-line); background: var(--glass); }
+.mh-tiles button { display: grid; justify-items: center; gap: 7px; border: 0; background: transparent; color: var(--text-2); font: 600 12px/1.15 var(--font-sans); text-align: center; }
+.mh-tiles button > span { position: relative; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: rgb(242 196 109 / .13); color: var(--sun); box-shadow: inset 0 1px 0 rgb(255 255 255 / .06); transition: transform var(--t-fast) var(--ease); }
+.mh-tiles button[data-tone="ion"] > span { background: rgb(111 214 236 / .12); color: var(--ion); }
+.mh-tiles button[data-tone="nebula"] > span { background: rgb(139 123 255 / .16); color: #b5aaff; }
+.mh-tiles button[data-tone="aurora"] > span { background: rgb(94 211 160 / .12); color: var(--aurora); }
+.mh-tiles button[data-tone="mars"] > span { background: rgb(240 124 124 / .12); color: var(--mars); }
+.mh-tiles button:active > span { transform: scale(.94); }
+.mh-tiles button:focus-visible { outline: none; }
+.mh-tiles button:focus-visible > span { outline: 2px solid var(--text-1); outline-offset: 3px; }
+.mh-tiles b { position: absolute; top: -5px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--mars); color: #fff; font: 800 10.5px/18px var(--font-sans); border: 2px solid var(--space-850); }
+.mh-soon { margin-top: 18px; }
+.mh-soon h2 { margin: 0 0 10px; font: 700 17px/22px var(--font-sans); color: var(--text-1); }
+.mh-soon h2 small { margin-left: 6px; color: var(--text-3); font-size: 12px; font-weight: 600; }
+.mh-soon ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mh-soon li { display: grid; gap: 4px; padding: 12px; border-radius: 16px; border: 1px dashed rgb(139 123 255 / .3); background: rgb(139 123 255 / .05); }
+.mh-soon li span { display: grid; place-items: center; width: 30px; height: 30px; margin-bottom: 4px; border-radius: 10px; background: rgb(139 123 255 / .14); color: #b5aaff; }
+.mh-soon li b { color: var(--text-1); font: 700 13.5px/1.25 var(--font-sans); }
+.mh-soon li small { color: var(--text-3); font: 500 12px/1.3 var(--font-sans); }

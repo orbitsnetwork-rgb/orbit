@@ -39,7 +39,7 @@ export function Pages({
   const top = stack[stack.length - 1];
   if (!top) return null;
   const closer = stack.length > 1 ? onClose : undefined;
-  if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} signedIn={Boolean(user)} unread={unread} />;
+  if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} signedIn={Boolean(user)} unread={unread} profile={user && world ? { id: user.id, name: user.name, line: `Стабільність ${user.stability} · орбіт ${world.orbits.filter((orbit) => orbit.ownerId === user.id).length}` } : undefined} />;
   if (top === "leaders" && world && user) return <Leaders world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
   if (top === "learn") return <Learn onBack={onPop} onClose={closer} />;

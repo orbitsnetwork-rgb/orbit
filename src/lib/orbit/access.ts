@@ -172,6 +172,7 @@ export function markDevice(devices: Record<string, DeviceSlot>, deviceId: string
   return { ...devices, [deviceId]: { day, count: count + 1 } };
 }
 
+/** Лише для текстових ключів; сервер перевіряє через key-hash.ts (scrypt). */
 export function keyMatches(keys: Record<string, string>, id: string | null, key: string | null) {
   if (!id || !key) return false;
   const have = keys[id];
@@ -290,7 +291,8 @@ function asKeys(raw: unknown): Record<string, string> {
   if (!raw || typeof raw !== "object") return {};
   const keys: Record<string, string> = {};
   for (const [id, key] of Object.entries(raw)) {
-    if (id.startsWith("u-") && typeof key === "string" && key.length >= 8 && key.length <= 64) keys[id] = key;
+    // Текстовий ключ (старий) або scrypt-хеш `s1$…` (11).
+    if (id.startsWith("u-") && typeof key === "string" && ((key.length >= 8 && key.length <= 64) || (key.startsWith("s1$") && key.length <= 160))) keys[id] = key;
   }
   return keys;
 }

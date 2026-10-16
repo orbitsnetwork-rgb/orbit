@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { forgive, keyMatches, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
+import { forgive, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
   adoptClock,
@@ -274,7 +274,8 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   const stored = { ...bag.world, sessionId: null };
   const clocked = adoptClock(stored);
   if (!sameWorld(stored, clocked)) return null;
-  const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
+  const K = await import("@/lib/orbit/key-hash");
+  const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
   out.people = bag.people;
   const world = attach(clocked, self);
   out.social = await loadSocial(sql, world, bag.extra);
@@ -313,7 +314,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const { getSql } = await import("@/lib/db");
       const rows = await (await getSql()).query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
       const pre = rows[0] ? unpackDoc(rows[0].doc) : null;
-      if (pre && keyMatches(pre.keys, data.sessionId, data.sessionKey)) {
+      const K = await import("@/lib/orbit/key-hash");
+      if (pre && K.verifyKey(pre.keys, data.sessionId, data.sessionKey)) {
         if (data.action.type === "topup") {
           const { getRequestUrl } = await import("@tanstack/react-start/server");
           // Адресу повернення беремо з налаштувань сайту, а не з заголовка Host.
@@ -355,7 +357,10 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         days = extra;
       };
       const clocked = adoptClock({ ...bag.world, sessionId: null });
-      const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
+      const K = await import("@/lib/orbit/key-hash");
+      const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
+      // 11: старий текстовий ключ при вдалій перевірці замінюється на scrypt-хеш (запишеться з найближчим записом).
+      bag.keys = K.upgradeKey(bag.keys, self, data.sessionKey);
       const base = attach(clocked, self);
       const wall = Date.now();
       const persist = (people = bag.people) =>
@@ -427,8 +432,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         // Без пошти шукаємо серед усіх ключів: так входять і старі акаунти, у яких немає запису з поштою.
         const userId = email
           ? (bag.people.find((row) => row.email === email)?.userId ?? null)
-          : (Object.keys(bag.keys).find((id) => keyMatches(bag.keys, id, data.key)) ?? null);
-        if (!userId || !keyMatches(bag.keys, userId, data.key) || !clocked.accounts.some((account) => account.id === userId)) {
+          : K.findByKey(bag.keys, data.key);
+        if (!userId || !K.verifyKey(bag.keys, userId, data.key) || !clocked.accounts.some((account) => account.id === userId)) {
           miss(`k:${email}`, "key");
           miss(`kd:${data.device ?? "none"}`, "key");
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
@@ -437,6 +442,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           return { world: base, error: LOCKED };
         }
         limits = forgive(limits, `k:${email}`);
+        bag.keys = K.upgradeKey(bag.keys, userId, data.key);
         seen = markSeen(seen, data.device, userId);
         daily(userId);
         const opened = enter(attach(clocked, null), userId);
@@ -446,7 +452,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         ]);
         return { ...opened, world: attach(sharedMail, userId), self: own(bag.people, userId) };
       }
-      if (data.action.type === "enter" && !keyMatches(bag.keys, data.action.id, data.key)) {
+      if (data.action.type === "enter") bag.keys = K.upgradeKey(bag.keys, data.action.id, data.key);
+      if (data.action.type === "enter" && !K.verifyKey(bag.keys, data.action.id, data.key)) {
         miss(`k:${data.action.id}`, "key");
         miss(`kd:${data.device ?? "none"}`, "key");
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
@@ -591,7 +598,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       let key: string | undefined;
       if (data.action.type === "register" && fresh && !step.error && step.world.sessionId && data.device) {
         key = mintKey();
-        keys = { ...keys, [step.world.sessionId]: key };
+        keys = { ...keys, [step.world.sessionId]: K.hashKey(key) };
         devices = markDevice(devices, data.device, day);
         fresh = { ...fresh, userId: step.world.sessionId };
         people = [...people, fresh];

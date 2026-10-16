@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import { Avatar } from "@/components/orbit/ui/kit";
+import { Fund } from "@/components/orbit/fund";
 import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from "@/components/orbit/home";
 import { Clock3, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
@@ -242,7 +243,7 @@ export function OrbitApp() {
           {tab === "home" ? <Home world={world} user={user} onTab={setTab} onOpen={nav.open} /> : null}
           {tab === "market" ? <Exchange world={world} user={user} /> : null}
           {tab === "mine" ? <Mine world={world} user={user} /> : null}
-          {tab === "flow" ? <Flow world={world} user={user} /> : null}
+          {tab === "flow" ? <Fund world={world} user={user} /> : null}
           {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
         </div>
         <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} world={world} user={user} onTab={setTab} unread={inbox.unread} />
@@ -858,36 +859,6 @@ function Witnesses({ world, creation, title }: { world: World; creation: { confi
         ))}
       </ul>
     </div>
-  );
-}
-
-function Flow({ world, user }: { world: World; user: Account }) {
-  const wall = useWall(world.now);
-  const due = world.lastDistributionAt + FUND_PERIOD_MS;
-  const nowShare = previewShare(world, user.id);
-  return (
-    <section className="orbit-block">
-      <p className="orbit-kicker">Фонд</p>
-      <p className="orbit-price"><CountUp value={world.fund} /></p>
-      <p className="orbit-unit">{sparkWord(world.fund)} ✦</p>
-      <div className="orbit-stats">
-        <div><b>{left(due - wall)}</b><span>поділ</span></div>
-        <div><b>{money.format(nowShare)}</b><span>тобі</span></div>
-        <div><b>{world.payouts.length}</b><span>виплат</span></div>
-        <div><b>{money.format(world.trades.length)}</b><span>угод</span></div>
-      </div>
-      {world.payouts.length === 0 ? <p className="orbit-empty">Виплат 0 · перший поділ через {left(due - wall)}</p> : null}
-      {world.payouts.length > 0 ? <p className="orbit-kicker">Світ</p> : null}
-      {world.payouts.slice(0, 4).map((row, index) => {
-        const name = world.accounts.find((account) => account.id === row.userId)?.name ?? "хтось";
-        return (
-          <div key={`${row.at}-${row.userId}-${index}`} className="orbit-row">
-            <span>{name}</span>
-            <span>{spk(row.amount)}</span>
-          </div>
-        );
-      })}
-    </section>
   );
 }
 

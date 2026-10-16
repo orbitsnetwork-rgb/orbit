@@ -2394,3 +2394,32 @@ a.h-11.bg-accent::after { display: none !important; }
 .mn-faces li { display: grid; justify-items: center; gap: 5px; flex: none; width: 52px; }
 .mn-faces li span:last-child { max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font: 600 11.5px/1 var(--font-sans); }
 .mn-faces .k-ava::after { content: ""; position: absolute; right: 0; bottom: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--aurora); border: 2px solid var(--space-850); }
+
+/* ── Фонд v8 ── */
+.fd-hero { display: grid; gap: 14px; background: radial-gradient(90% 80% at 100% 0%, rgb(94 211 160 / .16), transparent 60%), linear-gradient(180deg, #121c22, var(--space-850)); }
+.fd-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fd-hero-top > div:first-child { display: grid; justify-items: start; gap: 8px; }
+.fd-hero .orbit-kicker { margin: 0; }
+.fd-big { margin: 0; font: 800 46px/1 var(--font-sans); letter-spacing: -.04em; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, #d9fbe9, var(--aurora)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.fd-big span { font-size: 28px; }
+.fd-ring { position: relative; flex: none; width: 118px; height: 118px; }
+.fd-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.fd-ring-track { fill: none; stroke: rgb(255 255 255 / .07); stroke-width: 7; }
+.fd-ring-fill { fill: none; stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 0 6px rgb(94 211 160 / .5)); transition: stroke-dashoffset var(--t-slow) var(--ease); }
+.fd-ring > div { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 2px; }
+.fd-ring small { color: var(--text-3); font: 600 10.5px/1 var(--font-sans); }
+.fd-ring b { color: var(--text-1); font: 800 14px/1.15 var(--font-sans); font-variant-numeric: tabular-nums; max-width: 84px; }
+.fd-share { display: grid; gap: 12px; }
+.fd-share-num { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fd-share-num b { font: 800 28px/1 var(--font-sans); letter-spacing: -.02em; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.fd-parts { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.fd-parts li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; color: var(--text-2); font: 500 13px/18px var(--font-sans); }
+.fd-parts svg { margin-top: 2px; color: var(--aurora); }
+.fd-tier { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: rgb(255 255 255 / .035); }
+.fd-tier .ex-supply-row span { font-size: 12.5px; }
+.fd-bars { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); align-items: end; gap: 5px; height: 110px; margin-top: 6px; }
+.fd-bars span { display: block; border-radius: 6px 6px 3px 3px; background: rgb(255 255 255 / .07); }
+.fd-bars span[data-on="1"] { background: linear-gradient(180deg, var(--aurora), rgb(94 211 160 / .35)); box-shadow: 0 0 12px -2px rgb(94 211 160 / .5); }
+.fd-list { display: grid; gap: 12px; }
+.fd-plus { color: var(--aurora); }
+@media (prefers-reduced-motion: reduce) { .fd-ring-fill { transition: none; } }

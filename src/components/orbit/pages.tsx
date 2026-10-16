@@ -4,6 +4,7 @@ import { Fees } from "@/components/orbit/fees";
 import { Help } from "@/components/orbit/help";
 import { History } from "@/components/orbit/history";
 import { Leaders } from "@/components/orbit/leaders";
+import { Learn } from "@/components/orbit/learn";
 import { Security } from "@/components/orbit/security";
 import { Status } from "@/components/orbit/status";
 import { Inbox } from "@/components/orbit/inbox";
@@ -41,6 +42,7 @@ export function Pages({
   if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} signedIn={Boolean(user)} unread={unread} />;
   if (top === "leaders" && world && user) return <Leaders world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
+  if (top === "learn") return <Learn onBack={onPop} onClose={closer} />;
   if (top === "help") return <Help onBack={onPop} onClose={closer} onOpen={onPush} signedIn={Boolean(world && user)} />;
   if (top === "docs") return <DocList onOpen={(id) => onPush(`doc:${id}`)} onBack={onPop} onClose={closer} />;
   if (top === "history" && world && user) {

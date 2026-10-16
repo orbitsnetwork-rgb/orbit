@@ -1,9 +1,9 @@
-import { Activity, Bell, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
+import { Activity, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -131,6 +131,7 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0 }: { onOpen: (rou
         <div className="mo-card">
           {signedIn ? <Row icon={<Percent size={18} strokeWidth={1.5} />} title="Комісії і ліміти" sub="Скільки і за що, мої ліміти на сьогодні" onClick={() => onOpen("fees")} /> : null}
           <Row icon={<FileText size={18} strokeWidth={1.5} />} title="Документи" sub="Правила, умови, приватність, ризики" badge={String(Object.keys(DOCS).length)} onClick={() => onOpen("docs")} />
+          <Row icon={<GraduationCap size={18} strokeWidth={1.5} />} title="Навчання" sub="5 уроків по хвилині" onClick={() => onOpen("learn")} />
           <Row icon={<CircleHelp size={18} strokeWidth={1.5} />} title="Довідка" sub="Відповіді на часті питання" onClick={() => onOpen("help")} />
           <Row
             icon={<Mail size={18} strokeWidth={1.5} />}

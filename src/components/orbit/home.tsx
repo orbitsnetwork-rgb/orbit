@@ -1,6 +1,6 @@
 /** Головна v8: гаманець з діями, ціна з графіком-спарклайном, банери, «Ринок», «Активність». */
-import { useMemo, type ReactNode } from "react";
-import { ArrowLeftRight, Coins, Eye, EyeOff, GraduationCap, Hourglass, Landmark, ListOrdered, Orbit as OrbitIcon, Plus, QrCode, Rocket, Share2, Trophy } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ArrowLeftRight, Check, Coins, Eye, EyeOff, GraduationCap, Hourglass, Landmark, ListOrdered, Orbit as OrbitIcon, Plus, QrCode, Rocket, Share2, Trophy } from "lucide-react";
 import { DAY_MS, FUND_PERIOD_MS, activeCreation, type Account, type World } from "@/lib/orbit/engine";
 import { LESSONS } from "@/lib/orbit/learn";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
@@ -9,6 +9,7 @@ import { useCountUp } from "@/lib/orbit/count-up";
 import type { Route } from "@/components/orbit/more";
 import { ActionRow, Carousel, Change, SectionHead, Sparkline, type Banner } from "@/components/orbit/ui/kit";
 import { Feed } from "@/components/orbit/ui/feed";
+import { useOrbits } from "@/lib/orbit/store";
 
 const fmt = new Intl.NumberFormat("uk-UA");
 export type HomeTab = "home" | "market" | "mine" | "flow" | "me";
@@ -29,7 +30,6 @@ export function Wallet({ world, user, onTab, onTopup }: { world: World; user: Ac
   const mine = world.orbits.filter((orbit) => orbit.ownerId === user.id).length;
   const creation = activeCreation(world, user.id);
   const canShare = creation?.status === "collecting";
-  const worth = world.price > 0 ? Math.floor(user.balance / world.price) : 0;
   return (
     <section className="orbit-block hm-wallet" aria-labelledby="hm-wallet-title">
       <div className="hm-wallet-head">
@@ -44,7 +44,7 @@ export function Wallet({ world, user, onTab, onTopup }: { world: World; user: Ac
         <span> ✦</span>
       </p>
       <p className="hm-bal-sub">
-        {hidden ? "Баланс приховано на цьому телефоні" : <>≈ {fmt.format(worth)} {worth === 1 ? "орбіта" : worth >= 2 && worth <= 4 ? "орбіти" : "орбіт"} за ціною дня · у тебе {fmt.format(mine)}</>}
+        {hidden ? "Баланс приховано на цьому телефоні" : <>Тестові іскри · орбіт у тебе: {fmt.format(mine)} · стабільність {fmt.format(user.stability)}</>}
       </p>
       <ActionRow
         label="Швидкі дії"
@@ -55,6 +55,76 @@ export function Wallet({ world, user, onTab, onTopup }: { world: World; user: Ac
           { id: "act-share", label: "Код", icon: canShare ? <Share2 size={20} strokeWidth={1.8} /> : <QrCode size={20} strokeWidth={1.8} />, onClick: () => onTab("mine"), tone: "aurora", hint: canShare ? "Поділитися кодом підтвердження" : "Ввести чи створити код підтвердження" },
         ]}
       />
+    </section>
+  );
+}
+
+/** Чи людина ще нічого не почала: немає ні орбіти, ні запуску. */
+export function isNewcomer(world: World, user: Account) {
+  return !world.orbits.some((orbit) => orbit.ownerId === user.id) && !world.creations.some((item) => item.userId === user.id);
+}
+
+/**
+ * Перший крок новачка — над гаманцем. Дві дії, з яких починаються Орбіти:
+ * підтвердити запуск друга його кодом або почати власний запуск.
+ */
+export function FirstStep({ onTab, busy = false }: { onTab: (tab: HomeTab) => void; busy?: boolean }) {
+  const [code, setCode] = useState("");
+  const [sending, setSending] = useState(false);
+  const digits = code.replace(/\D/g, "").slice(0, 6);
+  return (
+    <section className="orbit-block hm-first" aria-labelledby="hm-first-title">
+      <div className="hm-first-head">
+        <p className="orbit-kicker">Перший крок</p>
+        <h2 id="hm-first-title">З чого почати</h2>
+        <p>Орбіти запускають люди разом: 8 підтверджень і 24 години заряду.</p>
+      </div>
+      <form
+        className="hm-first-step"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (digits.length !== 6 || sending) return;
+          setSending(true);
+          try {
+            await useOrbits.getState().accept(digits);
+            if (!useOrbits.getState().bad) setCode("");
+          } finally {
+            setSending(false);
+          }
+        }}
+      >
+        <b><span className="hm-first-num" aria-hidden>1</span>Підтвердь друга</b>
+        <small>Друг надіслав 6 цифр або посилання? Введи код — його запуск стане ближчим, а тобі +40 ✦.</small>
+        <div className="hm-first-code">
+          <input
+            className="orbit-field"
+            value={digits}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="000000"
+            aria-label="Код підтвердження з 6 цифр"
+            onChange={(event) => setCode(event.target.value)}
+          />
+          <button type="submit" className="orbit-go k-go" disabled={digits.length !== 6 || sending || busy}>
+            <Check size={18} strokeWidth={2.2} aria-hidden /> Підтвердити
+          </button>
+        </div>
+      </form>
+      <div className="hm-first-step">
+        <b><span className="hm-first-num" aria-hidden>2</span>Почни запуск</b>
+        <small>Відкрий власну заявку й поділися кодом з вісьмома людьми. Перша орбіта — приблизно за 4 дні.</small>
+        <button
+          type="button"
+          className="orbit-go k-go"
+          disabled={busy}
+          onClick={async () => {
+            await useOrbits.getState().start();
+            onTab("mine");
+          }}
+        >
+          <Rocket size={18} strokeWidth={2} aria-hidden /> Почати запуск
+        </button>
+      </div>
     </section>
   );
 }

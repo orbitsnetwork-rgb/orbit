@@ -4,7 +4,7 @@ import { Fund } from "@/components/orbit/fund";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, daysWith } from "@/components/orbit/person-extras";
-import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from "@/components/orbit/home";
+import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
@@ -627,6 +627,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
   const lastTrade = world.trades[world.trades.length - 1];
   return (
     <div className="orbit-stack hm">
+      {isNewcomer(world, user) && !pendingMail ? <FirstStep onTab={onTab} /> : null}
       <WalletCard world={world} user={user} onTab={onTab} onTopup={() => setTopup(true)} />
       <section className="orbit-block hm-price" aria-labelledby="hm-price-title">
         <div className="hm-hero">

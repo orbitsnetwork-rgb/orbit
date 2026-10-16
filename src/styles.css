@@ -2606,3 +2606,22 @@ h2.orbit-h { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-he
 /* Кнопки-іконки всередині картки — 36 px з іконкою 18, у шапці — 40 з іконкою 20. */
 .mo-icon.as-eye, .se-key-line .mo-icon { width: 36px; height: 36px; min-width: 36px; border-radius: 11px; }
 .mo-icon.as-eye svg, .se-key-line .mo-icon svg { width: 18px; height: 18px; }
+
+/* v10: спокійніший вигляд обміну — без «біржових» зелено-червоних кнопок. */
+.ex-buy { background: linear-gradient(180deg, #f3f1ea, #d9d6cc); color: #12141f; box-shadow: inset 0 1px 0 rgb(255 255 255 / .6), 0 10px 22px -14px rgb(0 0 0 / .8); }
+.ex-sell { background: var(--space-700); color: var(--text-1); border: 1px solid var(--line-strong); box-shadow: none; }
+.ex-buy:disabled, .ex-sell:disabled { opacity: 1; background: var(--space-700); color: var(--text-3); box-shadow: none; border: 1px solid transparent; }
+.ex-px { color: var(--text-1); }
+
+/* v10: перший крок новачка на головній. */
+.hm-first { display: grid; gap: 12px; background: radial-gradient(100% 120% at 0% 0%, rgb(139 123 255 / .18), transparent 60%), linear-gradient(180deg, #151a2b, var(--space-850)); }
+.hm-first-head { display: grid; gap: 4px; }
+.hm-first-head h2 { margin: 0; font: 800 22px/28px var(--font-sans); color: var(--text-1); }
+.hm-first-head p { margin: 0; color: var(--text-2); font: 500 14px/20px var(--font-sans); }
+.hm-first-step { display: grid; gap: 8px; padding: 12px; border-radius: 16px; background: rgb(255 255 255 / .04); border: 1px solid var(--line-strong); }
+.hm-first-step b { display: flex; align-items: center; gap: 8px; color: var(--text-1); font: 700 16px/20px var(--font-sans); }
+.hm-first-step small { color: var(--text-3); font: 500 13px/18px var(--font-sans); }
+.hm-first-num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--space-700); color: var(--text-1); font: 800 13px/1 var(--font-sans); }
+.hm-first-code { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.hm-first-code .orbit-field { letter-spacing: .3em; text-align: center; font-variant-numeric: tabular-nums; }
+.hm-first-code .orbit-go { min-height: 48px; padding: 0 16px; width: auto; }

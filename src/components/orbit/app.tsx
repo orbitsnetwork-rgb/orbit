@@ -27,6 +27,8 @@ import {
 import { bootOrbits, deviceKeys, pendingKeyScreen, useOrbits } from "@/lib/orbit/store";
 import { KeyScreen, useLeave } from "@/components/orbit/key";
 import { CodeShare } from "@/components/orbit/code-share";
+import { ChargeResult, markSeen, unseenOutcome } from "@/components/orbit/charge-result";
+import { Satellites } from "@/components/orbit/space/satellites";
 import { catchInvite, dropInvite, INVITE_EVENT, readInvite } from "@/lib/orbit/invite";
 import { buzz } from "@/lib/orbit/feel";
 
@@ -101,6 +103,7 @@ export function OrbitApp() {
   const [tab, setTab] = useState<Tab>("home");
   const nav = useStack();
   const [hidden] = useHidden();
+  const [, bumpSeen] = useState(0);
 
   useEffect(() => {
     catchInvite();
@@ -161,8 +164,30 @@ export function OrbitApp() {
     );
   }
 
+  const outcome = unseenOutcome(world, user.id);
+  const closeOutcome = () => {
+    if (outcome) markSeen(outcome.creation.id);
+    bumpSeen((n) => n + 1);
+  };
+
   return (
     <div className="orbit-app">
+      {outcome ? (
+        <ChargeResult
+          key={outcome.creation.id}
+          outcome={outcome}
+          onClose={closeOutcome}
+          onView={() => {
+            closeOutcome();
+            nav.open("assets");
+          }}
+          onRestart={() => {
+            closeOutcome();
+            setTab("mine");
+            void useOrbits.getState().start();
+          }}
+        />
+      ) : null}
       <div className="orbit-shell">
         <header className="orbit-top">
           <div className="flex items-center gap-2.5">
@@ -536,61 +561,23 @@ const QUICK: { route: Route; label: string; icon: ReactNode }[] = [
 function Mine({ world, user }: { world: World; user: Account }) {
   const creation = activeCreation(world, user.id);
   const wall = useWall(world.now);
-  const result = world.creations
-    .filter((item) => item.userId === user.id && (item.status === "done" || item.status === "failed"))
-    .at(-1);
-  const resultKey = result ? `orbits-result-${result.id}` : "";
-  const [showResult, setShowResult] = useState(false);
-  useEffect(() => {
-    if (!resultKey) return;
-    try {
-      setShowResult(localStorage.getItem(resultKey) !== "1");
-    } catch {
-      setShowResult(true);
-    }
-  }, [resultKey]);
-
-  if (showResult && result && !creation) {
-    const passed = result.status === "done";
-    return (
-      <div className="orbit-stack">
-      <section className="orbit-block orbit-result" data-on={passed ? "1" : "0"}>
-        <p className="orbit-kicker">Заряд</p>
-        <h1 className="orbit-h">{passed ? "Пройшов" : "Зірвався"}</h1>
-        <p className="orbit-note">{passed ? "Орбіта твоя." : "Підтвердження згоріли."}</p>
-        <button
-          type="button"
-          className="orbit-go"
-          onClick={() => {
-            try { localStorage.setItem(resultKey, "1"); } catch { /* приватний режим */ }
-            setShowResult(false);
-          }}
-        >
-          Далі
-        </button>
-      </section>
-      <ConfirmCard userId={user.id} ownCode={null} />
-      </div>
-    );
-  }
-
   if (creation?.status === "charging" && creation.chargeStartedAt) {
     const readyAt = creation.chargeStartedAt + CHARGE_MS;
     const chance = Math.round(chanceOf(world.orbits.length) * 100);
+    const elapsed = Math.min(1, Math.max(0, (wall - creation.chargeStartedAt) / CHARGE_MS));
+    const leftMs = readyAt - wall;
     return (
       <div className="orbit-stack">
-      <section className="orbit-block">
-        <p className="orbit-kicker">Заряд</p>
-        <h1 className="orbit-h">{chance}%</h1>
-        <div className="orbit-dots" aria-hidden>
-          {Array.from({ length: 8 }, (_, index) => (
-            <span key={index} data-on="1">{index + 1}</span>
-          ))}
-        </div>
-        <p className="orbit-timer-big">{left(readyAt - wall)}</p>
-        <p className="orbit-note">Чекаємо результат.</p>
-      </section>
-      <ConfirmCard userId={user.id} ownCode={null} />
+        <section className="orbit-block ch-hero ch-live">
+          <p className="orbit-kicker">Заряд</p>
+          <Satellites trackId={creation.id} lit={8} charge={elapsed} state="charge" label={`Усі 8 супутників на місці. Заряджено ${Math.round(elapsed * 100)}%, залишилось ${left(leftMs)}.`}>
+            <b className="ch-big">Шанс {chance}%</b>
+            <small className="ch-small">{leftMs > 0 ? `Залишилось ${left(leftMs)}` : "Ось-ось буде результат"}</small>
+          </Satellites>
+          <p className="orbit-note ch-center">Орбіта набирає заряд. Результат з’явиться тут сам — застосунок можна закрити.</p>
+          <Witnesses world={world} creation={creation} title="Тебе запускають" />
+        </section>
+        <ConfirmCard userId={user.id} ownCode={null} />
       </div>
     );
   }
@@ -601,28 +588,26 @@ function Mine({ world, user }: { world: World; user: Account }) {
     const live = Boolean(creation.code && wall < creation.codeExpires);
     return (
       <div className="orbit-stack">
-      <section className="orbit-block">
-        <p className="orbit-kicker">Заявка · крок {Math.min(creation.confirms.length + 1, 8)} з 8</p>
-        <h1 className="orbit-h">{creation.confirms.length} / 8</h1>
-        <div className="orbit-dots" aria-hidden>
-          {Array.from({ length: 8 }, (_, index) => (
-            <span key={index} data-on={index < creation.confirms.length ? "1" : index === creation.confirms.length ? "cur" : "0"}>
-              {index + 1}
-            </span>
-          ))}
-        </div>
+      <section className="orbit-block ch-hero">
+        <p className="orbit-kicker">Запуск · підтвердження</p>
+        <Satellites trackId={creation.id} lit={creation.confirms.length} state="collect" label={`${creation.confirms.length} з 8 супутників світяться`}>
+          <b className="ch-big">{creation.confirms.length} з 8</b>
+          <small className="ch-small">підтверджень</small>
+        </Satellites>
+        <Witnesses world={world} creation={creation} title="Підтвердили" />
         {live && creation.code ? (
           <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} />
         ) : (
           <>
-            <button type="button" className="orbit-go" onClick={() => useOrbits.getState().issue()}>
-              Випустити код
+            {creation.code ? <p className="orbit-note ch-center">Код згас. Створи новий — він діятиме 10 хвилин.</p> : null}
+            <button type="button" className="orbit-go" disabled={used >= CODES_PER_DAY} onClick={() => useOrbits.getState().issue()}>
+              Створити код підтвердження
             </button>
             <Notice />
           </>
         )}
         <p className="orbit-note">
-          Сьогодні {used} з {CODES_PER_DAY}.
+          Кодів сьогодні: {used} з {CODES_PER_DAY}{used >= CODES_PER_DAY ? ". Нові — після 00:00 UTC." : ""}
         </p>
         <Names world={world} userId={user.id} />
       </section>
@@ -751,6 +736,21 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
         Якщо запуск пройде, ти отримаєш {WITNESS_OD} іскор ✦ і +{STABILITY_CONFIRM} до стабільності. Якщо ні — −{STABILITY_FAIL} стабільності.
       </p>
     </section>
+  );
+}
+
+function Witnesses({ world, creation, title }: { world: World; creation: { confirms: { witnessId: string }[] }; title: string }) {
+  if (!creation.confirms.length) return null;
+  const names = creation.confirms.map((row) => world.accounts.find((account) => account.id === row.witnessId)?.name ?? "Учасник");
+  return (
+    <div className="ch-who">
+      <span>{title}</span>
+      <ul>
+        {names.map((name, i) => (
+          <li key={`${name}-${i}`}>{name}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

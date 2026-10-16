@@ -92,3 +92,35 @@ export function saveTextFile(name: string, text: string) {
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
+
+/** Тихий звук (синус, атака 5 мс, спад 180 мс, гучність ≤ 0.04). Лише якщо «Звук» увімкнено. */
+export function chime(freqs: number[], gap = 0.08) {
+  if (typeof window === "undefined") return;
+  try {
+    if (localStorage.getItem("orbits-sound") !== "1") return;
+  } catch {
+    return;
+  }
+  const Ctx = window.AudioContext;
+  if (!Ctx) return;
+  try {
+    const ctx = new Ctx();
+    freqs.forEach((freq, i) => {
+      const at = ctx.currentTime + i * gap;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, at);
+      gain.gain.linearRampToValueAtTime(0.035, at + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.19);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 0.2);
+    });
+    window.setTimeout(() => void ctx.close(), (freqs.length * gap + 0.4) * 1000);
+  } catch {
+    /* звук не обов’язковий */
+  }
+}

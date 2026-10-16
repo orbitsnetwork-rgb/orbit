@@ -1,3 +1,4 @@
+import { useRouterState } from "@tanstack/react-router";
 import { orbitNo } from "@/lib/orbit/traits";
 import { createPortal } from "react-dom";
 import { Avatar, Segmented } from "@/components/orbit/ui/kit";
@@ -371,6 +372,8 @@ function Gate({
   // Вхід: ключ + пошта (або сам ключ). Імена не унікальні, тож за ім’ям не шукаємо.
   const enteringMail = key.trim().length >= 8 && (mailOk || email.trim() === "");
   const [invited, setInvited] = useState(false);
+  // 14c: хто запрошує — з прев’ю посилання (той самий сервер, що й для Telegram-картки).
+  const host = useRouterState({ select: (state) => state.matches.find((m) => m.routeId === "/")?.loaderData as { who: string | null; n: number } | undefined });
   useEffect(() => {
     const read = () => setInvited(Boolean(readInvite()));
     read();
@@ -388,7 +391,7 @@ function Gate({
         <GuestStats />
         {invited ? (
           <p className="cs-invite" role="status">
-            Тебе запросили підтвердити запуск орбіти. Увійди або створи акаунт — код уже чекатиме у вкладці «Заявка».
+            {host?.who ? `${host.who} запрошує тебе підтвердити запуск орбіти · зараз ${host.n} з 8.` : "Тебе запросили підтвердити запуск орбіти."} Увійди або створи акаунт — код уже чекатиме у вкладці «Заявка».
           </p>
         ) : null}
         <LangRow lang={lang} />
@@ -801,7 +804,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
           </>
         )}
         <p className="orbit-note ch-center">
-          Кодів сьогодні: {used} з {CODES_PER_DAY}{used >= CODES_PER_DAY ? ". Нові — після 00:00 UTC." : ""}
+          Кодів сьогодні: {used} з {CODES_PER_DAY}{used >= CODES_PER_DAY ? `. Нові коди — о ${new Date(Date.UTC(2026, 0, 1)).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })} за твоїм часом.` : ""}
         </p>
       </section>
       <NudgeButton world={world} creation={creation} userId={user.id} now={wall} />

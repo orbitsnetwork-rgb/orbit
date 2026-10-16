@@ -54,7 +54,7 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
         </div>
         <div className="as-split as-wallet" aria-label="Склад балансу">
           <div><span>Поповнено</span><b>{show(spk(split.toppedUp))}</b></div>
-          <div><span>Зароблено</span><b>{show(spk(split.earned))}</b></div>
+          <div><span>Отримано</span><b>{show(spk(split.earned))}</b></div>
         </div>
         <p className="orbit-note as-small">«Поповнено» — частина балансу з тестових поповнень; купівля списує спершу її. Виводу немає.</p>
         {user.starterPending ? <p className="orbit-note as-small as-pending">Ще {fmt.format(user.starterPending)} ✦ стартових — після першого внеску: успішного підтвердження або власної орбіти.</p> : null}
@@ -116,7 +116,7 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
                     </span>
                   </div>
                   {pendingMail ? null : status === "free" ? (
-                    <button type="button" className="orbit-quiet as-act" onClick={() => onGo("market")}>Продати на обміні</button>
+                    <button type="button" className="orbit-quiet as-act" onClick={() => onGo("market")}>Поставити в чергу на продаж</button>
                   ) : status === "queued" ? (
                     <button
                       type="button"

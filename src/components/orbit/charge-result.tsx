@@ -159,7 +159,7 @@ export function ChargeResult({ outcome, onView, onRestart, onClose }: { outcome:
           {passed ? (
             <>
               <button type="button" className="ky-go" onClick={onView}>
-                Переглянути орбіту
+                До моїх орбіт
               </button>
               <button type="button" className="cr-second" onClick={onClose}>
                 Готово

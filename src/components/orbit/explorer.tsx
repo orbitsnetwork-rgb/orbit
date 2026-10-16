@@ -150,7 +150,7 @@ function OrbitCard({ world, user, id, onGo, max }: { world: World; user: Account
         </ol>
       </section>
       {mine && place < 0 ? (
-        <button type="button" className="orbit-quiet as-act" onClick={() => onGo("market")}>Продати на обміні</button>
+        <button type="button" className="orbit-quiet as-act" onClick={() => onGo("market")}>Поставити в чергу на продаж</button>
       ) : !mine ? (
         <p className="orbit-note as-small">Купити саме цю орбіту не можна: обмін віддає першу в черзі за ціною дня.</p>
       ) : null}

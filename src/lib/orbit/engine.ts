@@ -2,6 +2,9 @@ export const ORBIT_CAP = 8_000_000;
 export const MIN_PRICE = 100;
 export const PRICE_FACTOR = 15;
 export const PRICE_FLOOR_UNTIL = 1000;
+/** Б3: ціна дня рахується із середнього обороту за 7 попередніх діб і змінюється не більше ніж на ±10% за добу. */
+export const PRICE_WINDOW_DAYS = 7;
+export const PRICE_DAILY_CAP = 0.1;
 export const CHARGE_MS = 24 * 60 * 60 * 1000;
 export const CODE_MS = 10 * 60 * 1000;
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -218,9 +221,14 @@ function rollPrice(world: World): World {
   const day = utcDay(world.now);
   if (day === world.priceDay) return world;
   const end = Date.parse(`${day}T00:00:00.000Z`);
-  const start = end - DAY_MS;
+  const start = end - PRICE_WINDOW_DAYS * DAY_MS;
   const turnover = world.trades.filter((trade) => trade.at >= start && trade.at < end).reduce((sum, trade) => sum + trade.amount, 0);
-  const price = priceOf(world.orbits.length, turnover);
+  const target = priceOf(world.orbits.length, turnover / PRICE_WINDOW_DAYS);
+  const prev = world.price;
+  const price =
+    world.orbits.length < PRICE_FLOOR_UNTIL
+      ? MIN_PRICE
+      : Math.max(MIN_PRICE, Math.min(Math.round(prev * (1 + PRICE_DAILY_CAP)), Math.max(Math.round(prev * (1 - PRICE_DAILY_CAP)), target)));
   return note({ ...world, price, priceDay: day }, `Ціна на добу ${day}: ${price} ОД.`);
 }
 
@@ -467,8 +475,13 @@ export function skip(world: World, ms: number): World {
   return note(settle({ ...world, now: world.now + ms }), `Годинник перевірки: +${days} ${word}.`);
 }
 
+/** Середній добовий оборот за вікно ціни (7 попередніх діб). */
 export function turnoverPrev(world: World) {
+  return Math.round(turnoverWindow(world) / PRICE_WINDOW_DAYS);
+}
+
+export function turnoverWindow(world: World) {
   const end = Date.parse(`${utcDay(world.now)}T00:00:00.000Z`);
-  const start = end - DAY_MS;
+  const start = end - PRICE_WINDOW_DAYS * DAY_MS;
   return world.trades.filter((trade) => trade.at >= start && trade.at < end).reduce((sum, trade) => sum + trade.amount, 0);
 }

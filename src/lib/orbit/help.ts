@@ -7,6 +7,8 @@ import {
   FUND_PERIOD_MS,
   FUND_SHARE,
   MIN_PRICE,
+  PRICE_DAILY_CAP,
+  PRICE_WINDOW_DAYS,
   NOVICE_CODES_PER_DAY,
   PRICE_FLOOR_UNTIL,
   SELLER_SHARE,
@@ -127,7 +129,7 @@ export const TOPICS: Topic[] = [
       {
         q: "Як рахується ціна дня?",
         a: [
-          `Поки орбіт менше ${PRICE_FLOOR_UNTIL}, ціна — ${MIN_PRICE} ✦. Далі вона залежить від обороту вчорашньої доби і кількості орбіт, але не нижче ${MIN_PRICE} ✦. Нова ціна — опівночі за UTC.`,
+          `Поки орбіт менше ${PRICE_FLOOR_UNTIL}, ціна — ${MIN_PRICE} ✦. Далі вона залежить від середнього обороту за ${PRICE_WINDOW_DAYS} попередніх діб і кількості орбіт, змінюється не більше ніж на ${Math.round(PRICE_DAILY_CAP * 100)}% за добу і не буває нижчою за ${MIN_PRICE} ✦. Нова ціна — опівночі за UTC.`,
         ],
         link: { label: "Фінансові правила", doc: "finance" },
       },

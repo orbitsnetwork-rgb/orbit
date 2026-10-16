@@ -86,7 +86,7 @@ export function Status({ world, onBack, onClose }: { world: World; onBack: () =>
             <span className="st-time" aria-label={`Зараз ${utc(now)} UTC`}>{utc(now)}</span>
           </div>
           <div className="st-row">
-            <span className="mo-row-text"><b>Нова ціна дня</b><small>Опівночі UTC, з обороту доби</small></span>
+            <span className="mo-row-text"><b>Нова ціна дня</b><small>Опівночі UTC, із середнього обороту за 7 діб, не більше ±10%</small></span>
             <span className="st-time">{span(nextPrice - now)}</span>
           </div>
           <div className="st-row">

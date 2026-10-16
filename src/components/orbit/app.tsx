@@ -1,9 +1,10 @@
-import { ArrowLeftRight, FileText, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
+import { ArrowLeftRight, Bell, FileText, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
 import { Pages } from "@/components/orbit/pages";
 import { rememberTopup } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
+import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
 import { useEffect, useRef, useState } from "react";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
@@ -111,6 +112,7 @@ export function OrbitApp() {
   }, []);
 
   const user = me(world);
+  const inbox = useInbox(world, user);
   if (!user) {
     return <Gate world={world} flash={flash} bad={bad} ready={ready} lang={lang} onCreate={registerPerson} onMail={enterMail} onOld={enterId} />;
   }
@@ -130,6 +132,10 @@ export function OrbitApp() {
             <button type="button" className="orbit-od" aria-label={hidden ? "Баланс приховано. Відкрити активи" : `Баланс ${spk(user.balance)}. Відкрити активи`} onClick={() => nav.open("assets")}>
               {hidden ? `${MASK} ✦` : spk(user.balance)}
             </button>
+            <button type="button" className="mo-icon mo-bell" aria-label={inbox.unread ? `Сповіщення, нових ${inbox.unread}` : "Сповіщення"} aria-haspopup="dialog" onClick={() => nav.open("inbox")}>
+              <Bell size={18} strokeWidth={1.5} />
+              {inbox.unread ? <b aria-hidden>{inbox.unread > 9 ? "9+" : inbox.unread}</b> : null}
+            </button>
             <button type="button" className="mo-icon" aria-label="Ще" aria-haspopup="dialog" onClick={() => nav.open("more")}>
               <LayoutGrid size={18} strokeWidth={1.5} />
             </button>
@@ -140,7 +146,7 @@ export function OrbitApp() {
         {tab === "mine" ? <Mine world={world} user={user} /> : null}
         {tab === "flow" ? <Flow world={world} user={user} /> : null}
         {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
-        <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} world={world} user={user} onTab={setTab} />
+        <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} world={world} user={user} onTab={setTab} unread={inbox.unread} />
       </div>
       <Toast text={flash} bad={bad} event={world.log[0]?.text ?? ""} />
       <nav className="orbit-nav" aria-label="Розділи">
@@ -299,6 +305,7 @@ function Toast({ text, bad, event }: { text: string; bad: boolean; event: string
   useEffect(() => {
     if (!event || event === firstEvent.current) return;
     firstEvent.current = event;
+    if (!toastsOn()) return;
     setShown({ text: event, bad: false });
     const timer = window.setTimeout(() => setShown(null), 2600);
     return () => window.clearTimeout(timer);

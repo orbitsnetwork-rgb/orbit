@@ -1,9 +1,9 @@
-import { ChevronLeft, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | "assets" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | "inbox" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -76,7 +76,7 @@ export function Page({
 }
 
 /** Рядок меню: іконка, назва, підпис, стрілка. */
-export function Row({ icon, title, sub, onClick, badge }: { icon: ReactNode; title: string; sub?: string; onClick: () => void; badge?: string }) {
+export function Row({ icon, title, sub, onClick, badge, badgeOn }: { icon: ReactNode; title: string; sub?: string; onClick: () => void; badge?: string; badgeOn?: boolean }) {
   return (
     <button type="button" className="mo-row" onClick={onClick}>
       <span className="mo-row-ico" aria-hidden>{icon}</span>
@@ -84,7 +84,7 @@ export function Row({ icon, title, sub, onClick, badge }: { icon: ReactNode; tit
         <b>{title}</b>
         {sub ? <small>{sub}</small> : null}
       </span>
-      {badge ? <span className="mo-badge">{badge}</span> : null}
+      {badge ? <span className="mo-badge" data-on={badgeOn ? "1" : "0"}>{badge}</span> : null}
       <ChevronRight size={16} strokeWidth={1.75} className="mo-row-go" aria-hidden />
     </button>
   );
@@ -102,7 +102,7 @@ const SOON_HUB = [
 ];
 
 /** Хаб «Ще». Нові розділи додаються сюди, нижнє меню не росте. */
-export function MoreHub({ onOpen, onBack, signedIn }: { onOpen: (route: Route) => void; onBack: () => void; signedIn: boolean }) {
+export function MoreHub({ onOpen, onBack, signedIn, unread = 0 }: { onOpen: (route: Route) => void; onBack: () => void; signedIn: boolean; unread?: number }) {
   return (
     <Page title="Ще" kicker="Орбіти" onBack={onBack}>
       {signedIn ? (
@@ -111,6 +111,7 @@ export function MoreHub({ onOpen, onBack, signedIn }: { onOpen: (route: Route) =
           <div className="mo-card">
             <Row icon={<Wallet size={18} strokeWidth={1.5} />} title="Активи" sub="Баланс, мої орбіти, статуси" onClick={() => onOpen("assets")} />
             <Row icon={<HistoryIcon size={18} strokeWidth={1.5} />} title="Історія" sub="Поповнення, купівлі, продажі, заряди, фонд" onClick={() => onOpen("history")} />
+            <Row icon={<Bell size={18} strokeWidth={1.5} />} title="Сповіщення" sub="Події світу і про мене" badge={unread ? String(unread) : undefined} badgeOn={Boolean(unread)} onClick={() => onOpen("inbox")} />
           </div>
         </section>
       ) : null}

@@ -1,5 +1,6 @@
 import { Assets } from "@/components/orbit/assets";
 import { History } from "@/components/orbit/history";
+import { Inbox } from "@/components/orbit/inbox";
 import { DocList, DocView, isDoc, MoreHub, type Route } from "@/components/orbit/more";
 import type { DocId } from "@/lib/orbit/docs";
 import type { Account, World } from "@/lib/orbit/engine";
@@ -16,6 +17,7 @@ export function Pages({
   world,
   user,
   onTab,
+  unread,
 }: {
   stack: Route[];
   onPush: (route: Route) => void;
@@ -25,11 +27,12 @@ export function Pages({
   world?: World;
   user?: Account | null;
   onTab?: (tab: Tab) => void;
+  unread?: number;
 }) {
   const top = stack[stack.length - 1];
   if (!top) return null;
   const closer = stack.length > 1 ? onClose : undefined;
-  if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} signedIn={Boolean(user)} />;
+  if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} signedIn={Boolean(user)} unread={unread} />;
   if (top === "docs") return <DocList onOpen={(id) => onPush(`doc:${id}`)} onBack={onPop} onClose={closer} />;
   if (top === "history" && world && user) {
     return (
@@ -45,6 +48,7 @@ export function Pages({
       />
     );
   }
+  if (top === "inbox" && world && user) return <Inbox world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "assets" && world && user) {
     return (
       <Assets

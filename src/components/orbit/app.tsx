@@ -1,5 +1,5 @@
 import { ArrowLeftRight, Hexagon, Orbit, UserRound, Waves } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { readLang, t, writeLang, type Lang } from "@/lib/orbit/copy";
 import {
   activeCreation,
@@ -124,8 +124,8 @@ export function OrbitApp() {
         {tab === "flow" ? <Flow world={world} user={user} /> : null}
         {tab === "me" ? <Person world={world} user={user} onSheet={setSheet} /> : null}
         {sheet ? <Docs sheet={sheet} onClose={() => setSheet(null)} /> : null}
-        {world.log[0] && tab !== "me" && !flash ? <p className="orbit-log">Сталося. {world.log[0].text}</p> : null}
       </div>
+      <Toast text={flash} bad={bad} event={world.log[0]?.text ?? ""} />
       <nav className="orbit-nav" aria-label="Розділи">
         {TABS.map((item) => {
           const Icon = item.icon;
@@ -169,6 +169,7 @@ function Gate({
   const [key, setKey] = useState("");
   const [oldName, setOldName] = useState("");
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [haveKey, setHaveKey] = useState(false);
   const old = world.accounts.find((account) => account.name.toLowerCase() === oldName.trim().toLowerCase());
   const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const enteringOld = Boolean(old && key.trim().length >= 8);
@@ -199,12 +200,15 @@ function Gate({
             <span className="orbit-kicker">{t(lang, "birth")}</span>
             <input className="orbit-field" type="date" value={birth} onChange={(event) => setBirth(event.target.value)} />
           </label>
-          <Field label={t(lang, "key")} value={key} autoComplete="off" onChange={setKey} />
-          <Field label={t(lang, "old")} value={oldName} autoComplete="nickname" onChange={setOldName} />
-          <button className="orbit-go" type="submit" disabled={!ready || !(enteringOld || enteringMail || readyForm)}>
-            {ready ? (key.trim().length >= 8 ? t(lang, "enter") : t(lang, "create")) : "…"}
+          {haveKey ? <Field label={t(lang, "key")} value={key} autoComplete="off" onChange={setKey} /> : null}
+          {haveKey ? <Field label={t(lang, "old")} value={oldName} autoComplete="nickname" onChange={setOldName} /> : null}
+          <button className="orbit-go" type="submit" disabled={!ready || !(enteringOld || enteringMail || (!haveKey && readyForm))}>
+            {ready ? (haveKey ? t(lang, "enter") : t(lang, "create")) : "…"}
           </button>
           {flash ? <p className={bad ? "orbit-flash" : "orbit-ok"}>{flash}</p> : null}
+          <button type="button" className="orbit-quiet" onClick={() => setHaveKey((value) => !value)}>
+            {haveKey ? "Нова людина" : "Вже є ключ"}
+          </button>
         </form>
         <DocsRow onSheet={setSheet} />
         {sheet ? <Docs sheet={sheet} onClose={() => setSheet(null)} /> : null}
@@ -220,7 +224,7 @@ function MailGate() {
   const typed = code.replace(/\D/g, "").slice(0, 6);
   return (
     <>
-      <p className="orbit-note">Код {self.mailCode}</p>
+      <p className="orbit-note">{self.mailCode ? `Код: ${self.mailCode}` : "Код на пошті."}</p>
       <label className="grid gap-1.5">
         <span className="orbit-kicker">Код з пошти</span>
         <input className="orbit-field" inputMode="numeric" maxLength={6} value={typed} onChange={(event) => setCode(event.target.value)} />
@@ -228,7 +232,7 @@ function MailGate() {
       <button type="button" className="orbit-go" disabled={typed.length < 6} onClick={() => useOrbits.getState().confirmMail(typed)}>
         Підтвердити
       </button>
-      <Notice />
+      <Notice inline />
     </>
   );
 }
@@ -262,9 +266,9 @@ function Docs({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: () => 
       lines: [
         "Орбіти — закритий світ. ОД не виводяться і не переказуються як гроші.",
         "Поповнення купує ОД у цього світу. 1 ОД = 1 цент США.",
-        "Ключ лишається на телефоні. Втрачений ключ не відновлюється.",
+        "Ключ лишається на телефоні. Втратив — напиши на пошту.",
         "Торгівля орбітами йде лише всередині додатка.",
-        "Зараз тестовий режим. Бойові платежі не підключені.",
+        "Зараз тестовий режим.",
       ],
     },
     refund: {
@@ -283,20 +287,49 @@ function Docs({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: () => 
   } as const;
   const page = pages[sheet];
   return (
-    <section className="orbit-block orbit-sheet">
-      <p className="orbit-kicker">{page.title}</p>
-      {page.lines.map((line) => (
-        <p key={line} className="orbit-note">{line}</p>
-      ))}
+    <div className="orbit-sheet" role="dialog" aria-modal="true" aria-label={page.title}>
+      <header className="orbit-sheet-top">
+        <button type="button" className="orbit-quiet" onClick={onClose}>← Назад</button>
+      </header>
+      <div className="orbit-sheet-body">
+        <h1 className="orbit-h">{page.title}</h1>
+        {page.lines.map((line) => (
+          <p key={line} className="orbit-sheet-line">{line}</p>
+        ))}
+      </div>
       <button type="button" className="orbit-go" onClick={onClose}>Закрити</button>
-    </section>
+    </div>
   );
 }
 
-function Notice() {
+function Toast({ text, bad, event }: { text: string; bad: boolean; event: string }) {
+  const [shown, setShown] = useState<{ text: string; bad: boolean } | null>(null);
+  const firstEvent = useRef(event);
+  useEffect(() => {
+    if (!text) return;
+    setShown({ text, bad });
+    const timer = window.setTimeout(() => setShown(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [text, bad]);
+  useEffect(() => {
+    if (!event || event === firstEvent.current) return;
+    firstEvent.current = event;
+    setShown({ text: event, bad: false });
+    const timer = window.setTimeout(() => setShown(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [event]);
+  if (!shown) return null;
+  return (
+    <div className="orbit-toast" data-bad={shown.bad ? "1" : "0"} role="status" onClick={() => setShown(null)}>
+      {shown.text}
+    </div>
+  );
+}
+
+function Notice({ inline = false }: { inline?: boolean }) {
   const flash = useOrbits((state) => state.flash);
   const bad = useOrbits((state) => state.bad);
-  if (!flash) return null;
+  if (!flash || !inline) return null;
   return (
     <p className={bad ? "orbit-flash" : "orbit-ok"} role="status">
       {flash}
@@ -350,6 +383,7 @@ function LangRow({ lang }: { lang: Lang }) {
 
 function Home({ world, user, onMine }: { world: World; user: Account; onMine: () => void }) {
   const lang = useLang();
+  const wall = useWall(world.now);
   const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
   const oldest = world.queue[0];
   const loose = world.orbits.find((orbit) => orbit.ownerId === user.id && !world.queue.some((row) => row.orbitId === orbit.id));
@@ -376,13 +410,48 @@ function Home({ world, user, onMine }: { world: World; user: Account; onMine: ()
     act = onMine;
   }
   const chance = Math.round(chanceOf(world.orbits.length) * 100);
+  const online = world.accounts.filter((account) => wall - account.lastActiveAt <= DAY_MS).length;
+  const lastTrade = world.trades[world.trades.length - 1];
+  const seenKey = `orbits-seen-${user.id}`;
+  const [fresh, setFresh] = useState(false);
+  useEffect(() => {
+    try {
+      setFresh(localStorage.getItem(seenKey) !== "1");
+    } catch {
+      setFresh(false);
+    }
+  }, [seenKey]);
   return (
     <section className="orbit-block">
       <p className="orbit-kicker">Ціна · {when(world.now)}</p>
       <p className="orbit-price">{money.format(world.price)}</p>
-      <p className="orbit-note">
-        Черга {world.queue.length} · орбіт {money.format(world.orbits.length)} · шанс {chance}% · нова ціна через {left(nextMidnight(world.now) - world.now)}
-      </p>
+      <p className="orbit-unit">ОД</p>
+      <div className="orbit-stats">
+        <div><b>{online}</b><span>онлайн</span></div>
+        <div><b>{world.queue.length}</b><span>черга</span></div>
+        <div><b>{money.format(world.orbits.length)}</b><span>орбіт</span></div>
+        <div><b>{chance}%</b><span>шанс</span></div>
+      </div>
+      <p className="orbit-note">Нова ціна через {left(nextMidnight(world.now) - world.now)}</p>
+      {lastTrade ? <p className="orbit-note">Остання угода {money.format(lastTrade.amount)} ОД · {no(lastTrade.orbitId)}</p> : null}
+      {fresh ? (
+        <div className="orbit-tips">
+          <p className="orbit-kicker">Перші кроки</p>
+          <p className="orbit-note">Орбіта — рівна частка світу.</p>
+          <p className="orbit-note">ОД лишаються всередині. Це не гроші.</p>
+          <p className="orbit-note">Купи з черги або відкрий заявку.</p>
+          <button
+            type="button"
+            className="orbit-quiet"
+            onClick={() => {
+              try { localStorage.setItem(seenKey, "1"); } catch { /* приватний режим */ }
+              setFresh(false);
+            }}
+          >
+            Зрозуміло
+          </button>
+        </div>
+      ) : null}
       {pendingMail ? (
         <MailGate />
       ) : (
@@ -406,7 +475,14 @@ function Market({ world, user }: { world: World; user: Account }) {
   return (
     <section className="orbit-block">
       <p className="orbit-kicker">Черга</p>
-      {world.queue.length === 0 ? <p className="orbit-note">Порожньо.</p> : null}
+      <p className="orbit-price">{world.queue.length}</p>
+      <div className="orbit-stats">
+        <div><b>{world.queue.length}</b><span>черга</span></div>
+        <div><b>{loose.length}</b><span>твої вільні</span></div>
+        <div><b>{money.format(world.trades.length)}</b><span>угод</span></div>
+        <div><b>{money.format(world.price)}</b><span>ціна</span></div>
+      </div>
+      {world.queue.length === 0 ? <p className="orbit-empty">Черга 0 · стань першим</p> : null}
       {world.queue.map((row, index) => {
         const owner = world.accounts.find((account) => account.id === row.userId)?.name ?? "хтось";
         return (
@@ -445,9 +521,43 @@ function Mine({ world, user }: { world: World; user: Account }) {
   const creation = activeCreation(world, user.id);
   const [digits, setDigits] = useState("");
   const wall = useWall(world.now);
+  const result = world.creations
+    .filter((item) => item.userId === user.id && (item.status === "done" || item.status === "failed"))
+    .at(-1);
+  const resultKey = result ? `orbits-result-${result.id}` : "";
+  const [showResult, setShowResult] = useState(false);
   useEffect(() => {
     setDigits("");
   }, [user.id]);
+  useEffect(() => {
+    if (!resultKey) return;
+    try {
+      setShowResult(localStorage.getItem(resultKey) !== "1");
+    } catch {
+      setShowResult(true);
+    }
+  }, [resultKey]);
+
+  if (showResult && result && !creation) {
+    const passed = result.status === "done";
+    return (
+      <section className="orbit-block orbit-result" data-on={passed ? "1" : "0"}>
+        <p className="orbit-kicker">Заряд</p>
+        <h1 className="orbit-h">{passed ? "Пройшов" : "Зірвався"}</h1>
+        <p className="orbit-note">{passed ? "Орбіта твоя." : "Підтвердження згоріли."}</p>
+        <button
+          type="button"
+          className="orbit-go"
+          onClick={() => {
+            try { localStorage.setItem(resultKey, "1"); } catch { /* приватний режим */ }
+            setShowResult(false);
+          }}
+        >
+          Далі
+        </button>
+      </section>
+    );
+  }
 
   if (creation?.status === "charging" && creation.chargeStartedAt) {
     const readyAt = creation.chargeStartedAt + CHARGE_MS;
@@ -456,7 +566,13 @@ function Mine({ world, user }: { world: World; user: Account }) {
       <section className="orbit-block">
         <p className="orbit-kicker">Заряд</p>
         <h1 className="orbit-h">{chance}%</h1>
-        <p className="orbit-note">Результат через {left(readyAt - wall)}.</p>
+        <div className="orbit-dots" aria-hidden>
+          {Array.from({ length: 8 }, (_, index) => (
+            <span key={index} data-on="1">{index + 1}</span>
+          ))}
+        </div>
+        <p className="orbit-timer-big">{left(readyAt - wall)}</p>
+        <p className="orbit-note">Чекаємо результат.</p>
       </section>
     );
   }
@@ -467,17 +583,19 @@ function Mine({ world, user }: { world: World; user: Account }) {
     const live = Boolean(creation.code && world.now < creation.codeExpires);
     return (
       <section className="orbit-block">
-        <p className="orbit-kicker">Підтвердження</p>
+        <p className="orbit-kicker">Заявка · крок {Math.min(creation.confirms.length + 1, 8)} з 8</p>
         <h1 className="orbit-h">{creation.confirms.length} / 8</h1>
         <div className="orbit-dots" aria-hidden>
           {Array.from({ length: 8 }, (_, index) => (
-            <span key={index} data-on={index < creation.confirms.length ? "1" : "0"} />
+            <span key={index} data-on={index < creation.confirms.length ? "1" : index === creation.confirms.length ? "cur" : "0"}>
+              {index + 1}
+            </span>
           ))}
         </div>
         {live ? (
           <>
             <p className="orbit-code">{creation.code}</p>
-            <p className="orbit-note">Згорає за {left(creation.codeExpires - wall)}.</p>
+            <p className="orbit-timer-big">{left(creation.codeExpires - wall)}</p>
           </>
         ) : (
           <>
@@ -536,7 +654,7 @@ function Names({ world, userId }: { world: World; userId: string }) {
     .filter((account) => account.id !== userId && world.now - account.lastActiveAt <= DAY_MS)
     .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
     .slice(0, 8);
-  if (names.length === 0) return null;
+  if (names.length === 0) return <p className="orbit-note">Зараз онлайн 0</p>;
   return <p className="orbit-note">Зараз: {names.map((account) => account.name).join(", ")}</p>;
 }
 
@@ -548,9 +666,15 @@ function Flow({ world, user }: { world: World; user: Account }) {
     <section className="orbit-block">
       <p className="orbit-kicker">Фонд</p>
       <p className="orbit-price">{money.format(world.fund)}</p>
-      {world.fund === 0 ? <p className="orbit-note">Поки немає угод.</p> : null}
-      <p className="orbit-note">Поділ через {left(due - wall)} · тобі близько {money.format(nowShare)} ОД</p>
-      <p className="orbit-kicker">Світ</p>
+      <p className="orbit-unit">ОД</p>
+      <div className="orbit-stats">
+        <div><b>{left(due - wall)}</b><span>поділ</span></div>
+        <div><b>{money.format(nowShare)}</b><span>тобі</span></div>
+        <div><b>{world.payouts.length}</b><span>виплат</span></div>
+        <div><b>{money.format(world.trades.length)}</b><span>угод</span></div>
+      </div>
+      {world.payouts.length === 0 ? <p className="orbit-empty">Виплат 0 · перший поділ через {left(due - wall)}</p> : null}
+      {world.payouts.length > 0 ? <p className="orbit-kicker">Світ</p> : null}
       {world.payouts.slice(0, 4).map((row, index) => {
         const name = world.accounts.find((account) => account.id === row.userId)?.name ?? "хтось";
         return (
@@ -571,86 +695,115 @@ function Person({ world, user, onSheet }: { world: World; user: Account; onSheet
   const mine = world.orbits.filter((orbit) => orbit.ownerId === user.id);
   const known = world.accounts.find((account) => account.name.toLowerCase() === other.trim().toLowerCase());
   const held = deviceKeys();
+  const [copied, setCopied] = useState(false);
   const ownKey = held[user.id];
   const local = world.accounts.filter((account) => held[account.id]);
   return (
-    <section className="orbit-block">
-      <p className="orbit-kicker">Стабільність</p>
-      <p className="orbit-price">{user.stability}</p>
-      <p className="orbit-note">Баланс {money.format(user.balance)} ОД · орбіт {mine.length}</p>
-      <Face userId={user.id} letter={user.name.slice(0, 1).toUpperCase()} />
-      {mine.map((orbit) => (
-        <div key={orbit.id} className="orbit-row">
-          <span>{no(orbit.id)}</span>
-          <span>твоя</span>
+    <div className="orbit-stack">
+      <section className="orbit-block">
+        <p className="orbit-kicker">Профіль</p>
+        <div className="orbit-profile">
+          <Face userId={user.id} letter={user.name.slice(0, 1).toUpperCase()} />
+          <div>
+            <div className="orbit-h">{user.name}</div>
+            <p className="orbit-note">Стабільність {user.stability} · орбіт {mine.length}</p>
+          </div>
         </div>
-      ))}
-      {user.impulseUntil > world.now ? <p className="orbit-note">Імпульс ще {left(user.impulseUntil - world.now)}. На ціну не впливає.</p> : null}
-      <SelfCard />
-      <TopupRow />
-      {ownKey ? (
-        <p className="orbit-key">
-          <span>{ownKey}</span>
-          <button
-            type="button"
-            className="orbit-quiet"
-            onClick={() => {
-              void navigator.clipboard.writeText(ownKey);
-            }}
-          >
-            Копіювати
-          </button>
-        </p>
-      ) : (
-        <p className="orbit-note">У цього імені немає ключа на цьому телефоні.</p>
-      )}
-      <p className="orbit-note">Ключ лишається на цьому телефоні.</p>
-      <DocsRow onSheet={onSheet} />
-      <div>
-        {local.map((account) => (
-          <button
-            key={account.id}
-            type="button"
-            className="orbit-line"
-            data-on={account.id === user.id ? "1" : "0"}
-            onClick={() => useOrbits.getState().enterId(account.id, held[account.id])}
-          >
-            <span>{account.name}</span>
-            <span>{account.stability}</span>
-          </button>
+        {mine.map((orbit) => (
+          <div key={orbit.id} className="orbit-row">
+            <span>{no(orbit.id)}</span>
+            <span>твоя</span>
+          </div>
         ))}
-      </div>
-      <form
-        className="grid gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (known) useOrbits.getState().enterId(known.id, held[known.id] || pass.trim());
-          setOther("");
-          setPass("");
-        }}
-      >
-        <label className="grid gap-1.5">
-          <span className="orbit-kicker">Інша людина</span>
-          <input className="orbit-field" value={other} maxLength={32} onChange={(event) => setOther(event.target.value)} />
-        </label>
-        {known && !held[known.id] ? (
-          <label className="grid gap-1.5">
-            <span className="orbit-kicker">Ключ</span>
-            <input className="orbit-field" value={pass} autoComplete="off" spellCheck={false} onChange={(event) => setPass(event.target.value)} />
-          </label>
+        {user.impulseUntil > world.now ? <p className="orbit-note">Імпульс ще {left(user.impulseUntil - world.now)}.</p> : null}
+        <SelfCard />
+      </section>
+      <section className="orbit-block">
+        <p className="orbit-kicker">Баланс</p>
+        <p className="orbit-price">{money.format(user.balance)}</p>
+        <p className="orbit-unit">ОД</p>
+        <TopupRow />
+      </section>
+      <section className="orbit-block">
+        <p className="orbit-kicker">Ключ</p>
+        {ownKey ? (
+          <p className="orbit-key">
+            <span>{ownKey}</span>
+            <button
+              type="button"
+              className="orbit-quiet"
+              onClick={() => {
+                void navigator.clipboard.writeText(ownKey).then(() => {
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1500);
+                });
+              }}
+            >
+              {copied ? "Скопійовано" : "Копіювати"}
+            </button>
+          </p>
+        ) : (
+          <p className="orbit-note">Ключ не на цьому телефоні.</p>
+        )}
+        {local.length > 1 ? (
+          <div>
+            {local.map((account) => (
+              <button
+                key={account.id}
+                type="button"
+                className="orbit-line"
+                data-on={account.id === user.id ? "1" : "0"}
+                onClick={() => useOrbits.getState().enterId(account.id, held[account.id])}
+              >
+                <span>{account.name}</span>
+                <span>{account.stability}</span>
+              </button>
+            ))}
+          </div>
         ) : null}
-        <button className="orbit-go" type="submit" disabled={!known || Boolean(!held[known.id] && pass.trim().length < 8)}>
-          {t(lang, "enter")}
+        <form
+          className="grid gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (known) useOrbits.getState().enterId(known.id, held[known.id] || pass.trim());
+            setOther("");
+            setPass("");
+          }}
+        >
+          <label className="grid gap-1.5">
+            <span className="orbit-kicker">Інша людина</span>
+            <input className="orbit-field" value={other} maxLength={32} onChange={(event) => setOther(event.target.value)} />
+          </label>
+          {known && !held[known.id] ? (
+            <label className="grid gap-1.5">
+              <span className="orbit-kicker">Ключ</span>
+              <input className="orbit-field" value={pass} autoComplete="off" spellCheck={false} onChange={(event) => setPass(event.target.value)} />
+            </label>
+          ) : null}
+          <button className="orbit-go" type="submit" disabled={!known || Boolean(!held[known.id] && pass.trim().length < 8)}>
+            {t(lang, "enter")}
+          </button>
+        </form>
+      </section>
+      <section className="orbit-block">
+        <p className="orbit-kicker">Налаштування</p>
+        <LangRow lang={lang} />
+        <SoundRow lang={lang} />
+        <DocsRow onSheet={onSheet} />
+        <button
+          type="button"
+          className="orbit-quiet"
+          onClick={() => {
+            window.location.href = "mailto:orbits.network@gmail.com?subject=Відновити%20ключ";
+          }}
+        >
+          Відновити ключ
         </button>
-        <Notice />
-      </form>
-      <p className="orbit-kicker">Налаштування</p>
-      <LangRow lang={lang} />
-      <SoundRow lang={lang} />
-      <button type="button" className="orbit-quiet" onClick={() => useOrbits.getState().leave()}>
-        {t(lang, "leave")}
-      </button>
-    </section>
+        <button type="button" className="orbit-quiet" onClick={() => useOrbits.getState().leave()}>
+          {t(lang, "leave")}
+        </button>
+      </section>
+    </div>
   );
 }
 
@@ -658,8 +811,7 @@ function TopupRow() {
   const [amount, setAmount] = useState(100);
   return (
     <div className="grid gap-3">
-      <p className="orbit-kicker">Поповнити</p>
-      <p className="orbit-note">Тест. 1 ОД = 1 цент. Картка не зберігається.</p>
+      <p className="orbit-kicker">Тест</p>
       <div className="orbit-chips">
         {[100, 500, 1000].map((value) => (
           <button key={value} type="button" className="orbit-chip" data-on={amount === value ? "1" : "0"} onClick={() => setAmount(value)}>
@@ -668,7 +820,7 @@ function TopupRow() {
         ))}
       </div>
       <button type="button" className="orbit-go" onClick={() => useOrbits.getState().topup(amount)}>
-        Поповнити {amount}
+        Тест · {amount} ОД
       </button>
       <Notice />
     </div>
@@ -741,7 +893,7 @@ function shrink(file: File): Promise<string | null> {
 
 function SelfCard() {
   const self = useOrbits((state) => state.self);
-  if (!self) return <p className="orbit-note">Старе ім’я без пошти. Нові люди заходять через пошту.</p>;
+  if (!self) return null;
   return (
     <p className="orbit-note">
       {self.given} {self.family}. {self.email}. {self.phone}. {self.birth}.
@@ -765,9 +917,8 @@ function SoundRow({ lang }: { lang: Lang }) {
           setSound(next);
         }}
       >
-        {t(lang, "sound")}: {sound ? "1" : "0"}
+        {t(lang, "sound")}: {sound ? "увімк" : "вимк"}
       </button>
-      <span className="orbit-note">{t(lang, "music")}</span>
     </div>
   );
 }

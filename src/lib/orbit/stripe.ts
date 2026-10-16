@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { Topup } from "@/lib/orbit/access";
+import { trimTopups, type Topup } from "@/lib/orbit/access";
 import type { World } from "@/lib/orbit/engine";
 
 export const TOPUP_AMOUNTS = [100, 500, 1000] as const;
@@ -75,9 +75,9 @@ export function creditTopup(world: World, topups: Topup[], paid: { id: string; u
   const next = [
     ...topups.filter((row) => row.id !== paid.id),
     { id: paid.id, userId: paid.userId, amount: paid.amount, status: "paid" as const, at: Date.now() },
-  ].slice(-200);
+  ];
   const log = [{ at: Date.now(), text: `Поповнення ${paid.amount} ОД.` }, ...world.log].slice(0, 12);
-  return { world: { ...world, accounts, log }, topups: next, notice: `Зараховано ${paid.amount} ОД.` };
+  return { world: { ...world, accounts, log }, topups: trimTopups(next), notice: `Зараховано ${paid.amount} ОД.` };
 }
 
 export function signedEvent(raw: string, header: string | null) {

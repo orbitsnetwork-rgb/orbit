@@ -31,6 +31,9 @@ type OrbitState = {
   flash: string;
   bad: boolean;
   ready: boolean;
+  /** Щойно створений ключ: показуємо окремим екраном, а не в тості. */
+  fresh: { id: string; key: string } | null;
+  dismissKey: () => void;
   refresh: () => Promise<void>;
   probe: (email: string) => Promise<boolean>;
   registerPerson: (input: { name: string; family: string; birth: string; email: string; phone: string }) => Promise<void>;
@@ -109,6 +112,33 @@ function blip() {
   osc.onended = () => void ctx.close();
 }
 
+const KEY_SCREEN = "orbits-keyscreen";
+const WELCOME = "Вітаємо в Орбітах. На рахунку 200 стартових іскор ✦.";
+
+/** Екран ключа переживає перезавантаження вкладки, поки людина не підтвердить збереження. */
+function holdKeyScreen(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (id) sessionStorage.setItem(KEY_SCREEN, id);
+    else sessionStorage.removeItem(KEY_SCREEN);
+  } catch {
+    /* приватний режим */
+  }
+}
+
+/** Після перезавантаження: чи треба знову показати екран ключа цьому акаунту. */
+export function pendingKeyScreen(id: string): { id: string; key: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (sessionStorage.getItem(KEY_SCREEN) !== id) return null;
+    if (localStorage.getItem(`orbits-keysaved-${id}`) === "1") return null;
+  } catch {
+    return null;
+  }
+  const key = deviceKeys()[id];
+  return key ? { id, key } : null;
+}
+
 export const OFFLINE = "Спільний світ не відповідає.";
 
 let tail: Promise<unknown> = Promise.resolve();
@@ -134,7 +164,10 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
       else if (action.type === "enterMail" && !step.error && key && step.world.sessionId) remember(step.world.sessionId, key);
       keep(step.world.sessionId);
       const text = step.error ?? step.notice ?? "";
-      const shown = !step.error && step.key ? `${text} Ключ: ${step.key}. Запиши його.` : text;
+      // Новий ключ іде на екран «Твій ключ входу». Тост з ключем зникав за 2,6 с — так ключі губились.
+      const fresh = !step.error && step.key && step.world.sessionId ? { id: step.world.sessionId, key: step.key } : null;
+      if (fresh) holdKeyScreen(fresh.id);
+      const shown = fresh ? "" : text;
       if (!quiet && !step.error) blip();
       if (step.url && !step.error && typeof window !== "undefined") window.location.href = step.url;
       useOrbits.setState({
@@ -144,6 +177,7 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
         flash: quiet ? (prior.bad && prior.flash !== OFFLINE ? prior.flash : "") : shown,
         bad: quiet ? prior.bad && prior.flash !== OFFLINE : Boolean(step.error),
         ready: true,
+        ...(fresh ? { fresh } : {}),
       });
       return step;
     } catch {
@@ -161,6 +195,11 @@ export const useOrbits = create<OrbitState>()(() => ({
   flash: "",
   bad: false,
   ready: false,
+  fresh: null,
+  dismissKey: () => {
+    holdKeyScreen(null);
+    useOrbits.setState({ fresh: null, flash: WELCOME, bad: false });
+  },
   refresh: () => send({ type: "pull" }, true).then(() => undefined),
   probe: (email) => send({ type: "probe", email }, true).then((step) => Boolean(step?.taken)),
   registerPerson: (input) => send({ type: "register", ...input }).then(() => undefined),
@@ -170,7 +209,8 @@ export const useOrbits = create<OrbitState>()(() => ({
   leave: () => {
     keep(null);
     const world = useOrbits.getState().world;
-    useOrbits.setState({ world: { ...world, sessionId: null }, self: null, flash: "", bad: false });
+    holdKeyScreen(null);
+    useOrbits.setState({ world: { ...world, sessionId: null }, self: null, flash: "", bad: false, fresh: null });
   },
   start: () => send({ type: "start" }).then(() => undefined),
   issue: () => send({ type: "issue" }).then(() => undefined),

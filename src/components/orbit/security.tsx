@@ -4,6 +4,7 @@ import { Page } from "@/components/orbit/more";
 import { SUPPORT_MAIL } from "@/lib/orbit/docs";
 import type { Account, World } from "@/lib/orbit/engine";
 import { deviceKeys, useOrbits } from "@/lib/orbit/store";
+import { useLeave } from "@/components/orbit/key";
 
 const SAVED = (id: string) => `orbits-keysaved-${id}`;
 
@@ -60,6 +61,7 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
   const [saved, setSaved] = useState(false);
   const [device, setDevice] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
+  const leave = useLeave(user.id, user.name);
   useEffect(() => {
     setHeld(deviceKeys());
     setSaved(readFlag(SAVED(user.id)));
@@ -197,9 +199,10 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
         <p className="orbit-note as-small">«Забути» прибирає ключ лише з цього телефону. Без ключа зайти в той акаунт тут уже не вийде.</p>
       </section>
 
-      <button type="button" className="se-out" onClick={() => useOrbits.getState().leave()}>
+      <button type="button" className="se-out" onClick={leave.ask}>
         <LogOut size={17} strokeWidth={1.6} aria-hidden /> Вийти на цьому телефоні
       </button>
+      {leave.sheet}
 
       <section className="ex-soon" aria-label="Скоро">
         <p className="orbit-kicker">Скоро · без дат</p>

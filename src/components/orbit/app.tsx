@@ -21,7 +21,8 @@ import {
   type Account,
   type World,
 } from "@/lib/orbit/engine";
-import { bootOrbits, deviceKeys, useOrbits } from "@/lib/orbit/store";
+import { bootOrbits, deviceKeys, pendingKeyScreen, useOrbits } from "@/lib/orbit/store";
+import { KeyScreen, useLeave } from "@/components/orbit/key";
 
 type Tab = "home" | "market" | "mine" | "flow" | "me";
 
@@ -89,6 +90,7 @@ export function OrbitApp() {
   const enterMail = useOrbits((state) => state.enterMail);
   const enterId = useOrbits((state) => state.enterId);
   const ready = useOrbits((state) => state.ready);
+  const fresh = useOrbits((state) => state.fresh);
   const lang = useLang();
   const [tab, setTab] = useState<Tab>("home");
   const nav = useStack();
@@ -120,8 +122,22 @@ export function OrbitApp() {
     close();
     setTab("home");
   }, [userId, close]);
+  useEffect(() => {
+    // Вкладку перезавантажили до «Ключ збережено» — показуємо екран ключа ще раз.
+    if (!userId || useOrbits.getState().fresh) return;
+    const again = pendingKeyScreen(userId);
+    if (again) useOrbits.setState({ fresh: again });
+  }, [userId]);
   if (!user) {
     return <Gate world={world} flash={flash} bad={bad} ready={ready} lang={lang} onCreate={registerPerson} onMail={enterMail} onOld={enterId} />;
+  }
+
+  if (fresh && fresh.id === user.id) {
+    return (
+      <div className="orbit-app">
+        <KeyScreen userId={user.id} name={user.name} secret={fresh.key} onDone={() => useOrbits.getState().dismissKey()} />
+      </div>
+    );
   }
 
   return (
@@ -666,6 +682,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
   const ownKey = held[user.id];
   const local = world.accounts.filter((account) => held[account.id]);
   const [hidden] = useHidden();
+  const leave = useLeave(user.id, user.name);
   return (
     <div className="orbit-stack">
       <section className="orbit-block">
@@ -776,9 +793,10 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
         >
           Відновити ключ
         </button>
-        <button type="button" className="orbit-quiet" onClick={() => useOrbits.getState().leave()}>
+        <button type="button" className="orbit-quiet" onClick={leave.ask}>
           {t(lang, "leave")}
         </button>
+        {leave.sheet}
       </section>
     </div>
   );

@@ -59,6 +59,8 @@ type OrbitState = {
   confirmTopup: (sessionId: string) => Promise<void>;
   /** «Дякую» підтверджувачу успішного запуску. */
   thank: (cr: string, to: string) => Promise<void>;
+  /** 19: «Нагадати» тим, хто ще не підтвердив. */
+  nudge: (cr: string) => Promise<void>;
 };
 
 function who(): string | null {
@@ -250,6 +252,7 @@ export const useOrbits = create<OrbitState>()(() => ({
   topup: (amount) => send({ type: "topup", amount }).then(() => undefined),
   confirmTopup: (sessionId) => send({ type: "confirmTopup", sessionId }).then(() => undefined),
   thank: (cr, to) => send({ type: "thank", cr, to }).then(() => undefined),
+  nudge: (cr) => send({ type: "nudge", cr }).then(() => undefined),
 }));
 
 export function bootOrbits() {

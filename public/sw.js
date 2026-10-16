@@ -34,3 +34,35 @@ self.addEventListener("notificationclick", (event) => {
     }),
   );
 });
+
+// 16: офлайн-оболонка. Лише навігація: спершу мережа, без мережі — збережена сторінка «Немає зв’язку».
+// Дані світу (_serverFn, /api) ніколи не кешуються. Web push-ключів тут немає.
+const SHELL = "orbit-shell-v1";
+const SHELL_FILES = ["/offline.html", "/favicon.svg", "/icon-192.png", "/manifest.webmanifest"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((name) => name.startsWith("orbit-shell-") && name !== SHELL).map((name) => caches.delete(name))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  if (request.mode === "navigate") {
+    event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
+    return;
+  }
+  if (SHELL_FILES.includes(url.pathname)) {
+    event.respondWith(caches.match(request).then((hit) => hit || fetch(request)));
+  }
+});

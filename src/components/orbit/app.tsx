@@ -6,6 +6,7 @@ import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, ThanksDue, daysWith } from "@/components/orbit/person-extras";
 import { MyCrews } from "@/components/orbit/crew";
 import { OrbitDays } from "@/components/orbit/badges";
+import { NumberedOrbits } from "@/components/orbit/orbit-card";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
@@ -18,6 +19,9 @@ import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { registerShell } from "@/lib/orbit/pwa";
+import { Checklist } from "@/components/orbit/checklist";
+import { NudgeButton } from "@/components/orbit/nudge";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
 import {
   activeCreation,
@@ -106,6 +110,7 @@ function when(ms: number) {
 }
 
 export function OrbitApp() {
+  useEffect(() => registerShell(), []);
   const world = useOrbits((state) => state.world);
   const flash = useOrbits((state) => state.flash);
   const bad = useOrbits((state) => state.bad);
@@ -631,6 +636,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
     <div className="orbit-stack hm">
       {isNewcomer(world, user) && !pendingMail ? <FirstStep onTab={onTab} /> : null}
       <WalletCard world={world} user={user} onTab={onTab} onTopup={() => setTopup(true)} />
+      {!pendingMail ? <Checklist world={world} user={user} onTab={onTab} /> : null}
       <section className="orbit-block hm-price" aria-labelledby="hm-price-title">
         <div className="hm-hero">
           <OrbitRings />
@@ -769,7 +775,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
         </Satellites>
         <Witnesses world={world} creation={creation} title="Підтвердили" />
         {live && creation.code ? (
-          <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} />
+          <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} cr={creation.id} />
         ) : (
           <>
             {creation.code ? <p className="orbit-note ch-center">Код згас. Створи новий — він діятиме 10 хвилин.</p> : null}
@@ -784,6 +790,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
           Кодів сьогодні: {used} з {CODES_PER_DAY}{used >= CODES_PER_DAY ? ". Нові — після 00:00 UTC." : ""}
         </p>
       </section>
+      <NudgeButton world={world} creation={creation} userId={user.id} now={wall} />
       <ConfirmCard userId={user.id} ownCode={live ? creation.code : null} />
       {tail}
       </div>
@@ -967,6 +974,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
       </section>
       <ProfileStats world={world} user={user} />
       <OrbitDays world={world} userId={user.id} />
+      <NumberedOrbits world={world} userId={user.id} />
       <ThanksDue world={world} user={user} />
       <section className="orbit-block pr-bal" aria-labelledby="pr-bal-title">
         <div className="hm-wallet-head">

@@ -7,6 +7,7 @@ import { Avatar, Change, Empty, Progress, Segmented, Sparkline, Stat } from "@/c
 import { sparks, spk } from "@/lib/orbit/copy";
 import { DAY_MS, ORBIT_CAP, SELLER_SHARE, utcDay, type Account, type World } from "@/lib/orbit/engine";
 import { useOrbits } from "@/lib/orbit/store";
+import type { Trust } from "@/lib/orbit/social";
 
 const fmt = new Intl.NumberFormat("uk-UA");
 
@@ -29,6 +30,7 @@ type Panel = "book" | "trades" | "mine";
 /** Біржовий екран. Усе — з існуючої механіки: черга, ціна дня, «купити найстарішу». */
 export function Exchange({ world, user }: { world: World; user: Account }) {
   const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
+  const trust = useOrbits((state) => state.mine?.trust);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
   const [panel, setPanel] = useState<Panel>("book");
@@ -128,6 +130,7 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
                       <span className="ex-who">
                         <b>{no(row.orbitId)}</b>
                         <small>{mine ? "ти" : owner?.name ?? "хтось"} · {ago(row.createdAt, world.now)}</small>
+                        <TrustLine t={trust?.[row.userId]} />
                       </span>
                       {index === 0 ? <span className="ex-next">наступна</span> : null}
                       <span className="ex-px">{fmt.format(world.price)} ✦</span>
@@ -303,5 +306,20 @@ export function Soon() {
         </div>
       ))}
     </section>
+  );
+}
+
+/** 20: показники довіри продавця. Лише показ — жодних порогів чи обмежень. */
+function TrustLine({ t }: { t?: Trust }) {
+  if (!t) return null;
+  if (!t.listed) return <span className="ex-trust" data-new="1">Новий продавець · угод ще не було</span>;
+  const avg = t.avgMs == null ? null : t.avgMs < 3_600_000 ? `${Math.max(1, Math.round(t.avgMs / 60_000))} хв` : t.avgMs < 86_400_000 ? `${Math.round(t.avgMs / 3_600_000)} год` : `${Math.round(t.avgMs / 86_400_000)} д`;
+  return (
+    <span className="ex-trust" aria-label={`Продавець: виконано ${t.done ?? 0}%, середній час ${avg ?? "невідомо"}, угод за 30 днів ${t.d30}, різних покупців ${t.peers}`}>
+      <i>{t.done ?? 0}% виконано</i>
+      {avg ? <i>≈ {avg}</i> : null}
+      <i>{t.d30} за 30 д</i>
+      <i>{t.peers} покупц{t.peers === 1 ? "ь" : t.peers >= 2 && t.peers <= 4 ? "і" : "ів"}</i>
+    </span>
   );
 }

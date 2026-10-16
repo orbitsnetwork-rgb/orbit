@@ -354,7 +354,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (to === "/create" || to === "/map") void router.navigate({ to });
   }
 
-  if (path === "/") return <div className="min-h-dvh">{children}</div>;
+  if (path === "/" || path.startsWith("/l/")) return <div className="min-h-dvh">{children}</div>;
 
   return (
     <div className="min-h-dvh bg-transparent text-fg lg:flex">

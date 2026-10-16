@@ -1,4 +1,4 @@
-import { Check, Copy, Link2, QrCode, Share2 } from "lucide-react";
+import { Check, Copy, Link2, QrCode, Send, Share2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CODE_MS } from "@/lib/orbit/engine";
 import { buzz, canShare, copyText, shareSheet } from "@/lib/orbit/feel";
@@ -34,7 +34,7 @@ function Countdown({ leftMs }: { leftMs: number }) {
 type Said = { text: string; tone: "ok" | "warn" } | null;
 
 /** Живий код: велико, таймер, «Поділитися», посилання, QR. */
-export function CodeShare({ code, expires, now }: { code: string; expires: number; now: number }) {
+export function CodeShare({ code, expires, now, cr }: { code: string; expires: number; now: number; cr?: string }) {
   const leftMs = Math.max(0, expires - now);
   const link = inviteLink(code);
   const [said, setSaid] = useState<Said>(null);
@@ -101,6 +101,16 @@ export function CodeShare({ code, expires, now }: { code: string; expires: numbe
         <Countdown leftMs={leftMs} />
       </div>
       <p className="cs-how">Покажи код або надішли посилання: воно відкриє «Запуск» з уже введеним кодом — лишиться натиснути «Підтвердити».</p>
+      {cr ? (
+        <a
+          className="cs-share cs-tg"
+          href={`https://t.me/share/url?url=${encodeURIComponent(link.replace(/\/\?c=/, `/l/${cr}?c=`))}&text=${encodeURIComponent(`Підтверди мій запуск в Орбітах. Код діє до ${clock(expires)}.`)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Send size={18} strokeWidth={1.9} aria-hidden /> Надіслати в Telegram
+        </a>
+      ) : null}
       <button
         type="button"
         className="cs-share"

@@ -24,15 +24,37 @@ export type EvType =
   | "topup"
   | "starter"
   | "thanksGot"
-  | "thanksSent";
+  | "thanksSent"
+  | "nudge"
+  | "nudgeSent";
 
 /** Подія людини: тип, час, сума (зі знаком), орбіта, інша людина, заявка, номер підтвердження. */
 export type Ev = { t: EvType; at: number; amt?: number; orbit?: number; other?: string; cr?: string; n?: number };
-export type Days = { last: string; count: number; streak: number; best: number };
+/** freezes — «заморозки» серії (0–2): одна за кожні 7 днів поспіль; пропущений день з’їдає одну, серія не рветься. Лише косметика, без ✦. */
+export type Days = { last: string; count: number; streak: number; best: number; freezes?: number; frozen?: number };
+export const FREEZE_MAX = 2;
+export const FREEZE_EVERY = 7;
 /** origins: номер орбіти → заявка, з якої вона народилась (записуємо в момент заряду). */
 export type Extra = { events: Record<string, Ev[]>; thanks: Record<string, string[]>; days: Record<string, Days>; origins: Record<string, string> };
 
 export const EVENTS_PER_USER = 200;
+/** 19: «Нагадати» — не частіше ніж раз на 12 год, до 20 людей. */
+export const NUDGE_EVERY_MS = 12 * 60 * 60 * 1000;
+export const NUDGE_MAX = 20;
+
+/** Кому нагадати: ті, хто підтверджував мої минулі запуски, і ті, чиї запуски підтверджував я, — крім уже підтверджених. */
+export function nudgeTargets(world: World, selfId: string, crId: string): string[] {
+  const item = world.creations.find((row) => row.id === crId);
+  if (!item) return [];
+  const done = new Set(item.confirms.map((row) => row.witnessId));
+  const out = new Set<string>();
+  for (const row of world.creations) {
+    if (row.id === crId) continue;
+    if (row.userId === selfId) for (const c of row.confirms) out.add(c.witnessId);
+    else if (row.confirms.some((c) => c.witnessId === selfId)) out.add(row.userId);
+  }
+  return [...out].filter((id) => id !== selfId && !done.has(id) && world.accounts.some((a) => a.id === id)).slice(0, NUDGE_MAX);
+}
 
 export function emptyExtra(): Extra {
   return { events: {}, thanks: {}, days: {}, origins: {} };
@@ -60,7 +82,7 @@ export function asExtra(value: unknown): Extra {
     for (const [id, row] of Object.entries(raw.days as Record<string, unknown>)) {
       const d = row as Partial<Days>;
       if (id.startsWith("u-") && typeof d?.last === "string" && typeof d.count === "number") {
-        out.days[id] = { last: d.last, count: d.count, streak: d.streak ?? 1, best: d.best ?? d.count };
+        out.days[id] = { last: d.last, count: d.count, streak: d.streak ?? 1, best: d.best ?? d.count, freezes: Math.max(0, Math.min(FREEZE_MAX, Number(d.freezes ?? 0) || 0)), frozen: Math.max(0, Number(d.frozen ?? 0) || 0) };
       }
     }
   }
@@ -145,10 +167,20 @@ export function markDay(days: Record<string, Days>, userId: string | null, now: 
   const today = utcDay(now);
   const have = days[userId];
   if (have?.last === today) return days;
-  const yesterday = utcDay(now - 24 * 60 * 60 * 1000);
-  const streak = have && have.last === yesterday ? have.streak + 1 : 1;
+  // 14: «Орбітальна серія» з заморозкою. Пропущені дні між last і сьогодні гасять заморозки; якщо їх вистачає — серія живе.
+  const gap = have ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${have.last}T00:00:00Z`)) / 86_400_000) - 1 : 0;
+  let freezes = have?.freezes ?? 0;
+  let frozen = have?.frozen ?? 0;
+  let streak = 1;
+  if (have && gap === 0) streak = have.streak + 1;
+  else if (have && gap > 0 && gap <= freezes) {
+    streak = have.streak + 1;
+    freezes -= gap;
+    frozen += gap;
+  }
+  if (streak > 1 && streak % FREEZE_EVERY === 0) freezes = Math.min(FREEZE_MAX, freezes + 1);
   const count = (have?.count ?? 0) + 1;
-  return { ...days, [userId]: { last: today, count, streak, best: Math.max(have?.best ?? 0, streak) } };
+  return { ...days, [userId]: { last: today, count, streak, best: Math.max(have?.best ?? 0, streak), freezes, frozen } };
 }
 
 /** Що бачить сама людина про себе. */
@@ -164,7 +196,11 @@ export type Mine = {
   myPaidTotal?: number;
   fundRuns?: FundRun[];
   fundPaidTotal?: number;
+  /** 20: показники довіри продавців з черги (лише показ, без порогів). */
+  trust?: Record<string, Trust>;
 };
+/** done — продано з виставлених (%), avgMs — середній час від виставлення до продажу, d30 — угод за 30 днів, peers — різних покупців. */
+export type Trust = { sold: number; listed: number; done: number | null; avgMs: number | null; d30: number; peers: number };
 
 export function mineOf(extra: Extra, world: World, userId: string): Mine {
   const own = new Set(world.creations.filter((item) => item.userId === userId).map((item) => item.id));

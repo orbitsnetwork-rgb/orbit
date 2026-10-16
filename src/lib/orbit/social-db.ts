@@ -4,7 +4,7 @@
  * Лише сервер. Таблиці створюються міграцією 0031 і, про всяк випадок, тут при першому зверненні (IF NOT EXISTS).
  */
 import type { Sql } from "@/lib/db";
-import { EVENTS_PER_USER, type Days, type Ev, type Mine } from "@/lib/orbit/social";
+import { EVENTS_PER_USER, type Days, type Ev, type Mine, type Trust } from "@/lib/orbit/social";
 // @ts-ignore — vite raw import
 import schema from "../../../migrations/0031_orbit_social.sql?raw";
 // @ts-ignore — vite raw import
@@ -70,7 +70,7 @@ export async function insertThank(sql: Sql, cr: string, witnessId: string, autho
 }
 
 /** Останні 200 подій людини, її подяки й походження орбіт, до яких вона причетна. */
-export async function readMine(sql: Sql, userId: string, days: Days | null, crs: string[]): Promise<{ mine: Mine; origins: Record<string, string> }> {
+export async function readMine(sql: Sql, userId: string, days: Days | null, crs: string[], sellers: string[] = [], now = Date.now()): Promise<{ mine: Mine; origins: Record<string, string> }> {
   const evRows = await sql.query<{ t: string; at: string | number; data: unknown }>(
     `select t, at, data from orbit_events where user_id = $1 order by id desc limit ${EVENTS_PER_USER}`,
     [userId],
@@ -94,7 +94,8 @@ export async function readMine(sql: Sql, userId: string, days: Days | null, crs:
   );
   const myTotal = await sql.query<{ s: string | number | null }>(`select sum(amount) as s from orbit_payouts where user_id = $1`, [userId]);
   const runs = await readFundRuns(sql);
-  return { mine: { ...runs, payouts: paid.map((r) => ({ at: Number(r.at), userId, amount: Number(r.amount) })), myPaidTotal: Number(myTotal[0]?.s ?? 0), events, days, thanksGot: Number(got[0]?.n ?? 0), thanked }, origins };
+  const trust = await readTrust(sql, sellers, now);
+  return { mine: { ...runs, trust, payouts: paid.map((r) => ({ at: Number(r.at), userId, amount: Number(r.amount) })), myPaidTotal: Number(myTotal[0]?.s ?? 0), events, days, thanksGot: Number(got[0]?.n ?? 0), thanked }, origins };
 }
 
 /** Рядок обліку випуску. Перший запис у порожню таблицю — «генезис»: маса до початку обліку. Порожні зміни не пишемо. */
@@ -157,5 +158,40 @@ export async function readTransparency(sql: Sql, world: World): Promise<Transpar
     months.set(month, m);
   }
   const check = await reconcile(sql, world);
-  return { now: world.now, mass: massOf(world), fund: world.fund, reserve: world.reserve, accounts: world.accounts.length, days, months: [...months.values()].reverse(), reconciliation: check.diff + check.unexplained, checkedAt: Date.now() };
+  return { now: world.now, mass: massOf(world), fund: world.fund, reserve: world.reserve, accounts: world.accounts.length, days, months: [...months.values()].reverse(), reconciliation: check.diff || check.unexplained, checkedAt: Date.now() };
+}
+
+/** 20: довіра продавців — з подій list / sold / cancel / buy в orbit_events. Лише агрегати. */
+export async function readTrust(sql: Sql, sellers: string[], now: number): Promise<Record<string, Trust>> {
+  const out: Record<string, Trust> = {};
+  if (!sellers.length) return out;
+  const ids = [...new Set(sellers)].slice(0, 50);
+  for (const id of ids) out[id] = { sold: 0, listed: 0, done: null, avgMs: null, d30: 0, peers: 0 };
+  const counts = await sql.query<{ user_id: string; t: string; n: string | number; d30: string | number }>(
+    `select user_id, t, count(*) as n, count(*) filter (where at >= $2) as d30 from orbit_events where t in ('sold', 'cancel') and user_id = any($1::text[]) group by user_id, t`,
+    [ids, now - 30 * 86_400_000],
+  );
+  const cancels: Record<string, number> = {};
+  for (const r of counts) {
+    if (r.t === "sold") { out[r.user_id].sold = Number(r.n); out[r.user_id].d30 = Number(r.d30); }
+    else cancels[r.user_id] = Number(r.n);
+  }
+  const peers = await sql.query<{ seller: string; n: string | number }>(
+    `select data->>'other' as seller, count(distinct user_id) as n from orbit_events where t = 'buy' and data->>'other' = any($1::text[]) group by 1`,
+    [ids],
+  );
+  for (const r of peers) if (out[r.seller]) out[r.seller].peers = Number(r.n);
+  const times = await sql.query<{ user_id: string; avg: string | number | null }>(
+    `select s.user_id, avg(s.at - l.at) as avg from orbit_events s
+       join lateral (select at from orbit_events l where l.user_id = s.user_id and l.t = 'list' and l.data->>'orbit' = s.data->>'orbit' and l.at <= s.at order by l.at desc limit 1) l on true
+     where s.t = 'sold' and s.user_id = any($1::text[]) group by s.user_id`,
+    [ids],
+  );
+  for (const r of times) if (out[r.user_id] && r.avg != null) out[r.user_id].avgMs = Math.round(Number(r.avg));
+  for (const id of ids) {
+    const t = out[id];
+    t.listed = t.sold + (cancels[id] ?? 0);
+    t.done = t.listed ? Math.round((t.sold / t.listed) * 100) : null;
+  }
+  return out;
 }

@@ -69,6 +69,8 @@ export function eventText(ev: Ev, world: World): { text: string; topic: Topic } 
     case "topup": return { text: `Тестове поповнення: +${sp(ev.amt)}.`, topic: "me" };
     case "thanksGot": return { text: `${who(ev.other)} дякує тобі за підтвердження ✦`, topic: "me" };
     case "thanksSent": return { text: `Ти подякував ${who(ev.other)}.`, topic: "me" };
+    case "nudge": return { text: `${who(ev.other)} нагадує про свій запуск · ${ev.n ?? 0} з 8. Попроси свіжий код і підтверди.`, topic: "charge" };
+    case "nudgeSent": return { text: `Ти нагадав ${ev.n ?? 0} ${(ev.n ?? 0) === 1 ? "людині" : "людям"} про свій запуск.`, topic: "charge" };
     default: return { text: "Подія", topic: "system" };
   }
 }

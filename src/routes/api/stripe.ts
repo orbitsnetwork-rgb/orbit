@@ -33,7 +33,10 @@ export const Route = createFileRoute("/api/stripe")({
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
             packDoc({ ...done.world, sessionId: null }, bag.keys, bag.devices, bag.people, done.topups, bag.limits, bag.seen, bag.extra),
           ]);
-          await social.insertEvents(sql, diffEvents(bag.world, done.world, bag.topups, done.topups));
+          const evs = diffEvents(bag.world, done.world, bag.topups, done.topups);
+          await social.insertEvents(sql, evs);
+          const { emissionOf, massOf } = await import("@/lib/orbit/emission");
+          await social.insertEmission(sql, emissionOf(bag.world, done.world, bag.topups, done.topups, evs), massOf(bag.world));
           return false;
         });
         if (orphan) {

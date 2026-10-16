@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05060a">
+<title>Орбіти · немає зв’язку</title>
+<style>
+  html,body{margin:0;height:100%;background:#05060a;color:#ebe6dc;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{min-height:100%;display:grid;place-items:center;padding:32px;box-sizing:border-box;text-align:center;background:radial-gradient(60% 40% at 50% 30%,rgba(111,214,236,.12),transparent 70%)}
+  .ring{width:96px;height:96px;margin:0 auto 22px;border-radius:50%;border:2px solid rgba(235,230,220,.75);transform:rotate(-32deg) scaleY(.42);position:relative}
+  .ring:after{content:"";position:absolute;right:-6px;top:30%;width:14px;height:14px;border-radius:50%;background:#d7a15a;box-shadow:0 0 14px #d7a15a}
+  h1{font-size:1.35rem;margin:0 0 10px}
+  p{color:#b9b4aa;line-height:1.5;margin:0 auto 22px;max-width:30ch}
+  button{font:inherit;font-weight:700;color:#05060a;background:#ebe6dc;border:0;border-radius:14px;padding:13px 22px;min-height:48px;cursor:pointer}
+  button:focus-visible{outline:3px solid #6fd6ec;outline-offset:3px}
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <div class="ring" aria-hidden="true"></div>
+    <h1>Немає зв’язку з орбітою</h1>
+    <p>Телефон зараз без інтернету. Твої іскри й орбіти в безпеці на сервері — нічого не губиться.</p>
+    <button type="button" onclick="location.reload()">Спробувати ще</button>
+  </div>
+</main>
+</body>
+</html>

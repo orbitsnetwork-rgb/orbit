@@ -34,7 +34,8 @@ export type OrbitAction =
   | { type: "buy"; price: number }
   | { type: "topup"; amount: number }
   | { type: "confirmTopup"; sessionId: string }
-  | { type: "thank"; cr: string; to: string };
+  | { type: "thank"; cr: string; to: string }
+  | { type: "nudge"; cr: string };
 
 type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
@@ -97,6 +98,7 @@ function clean(input: unknown): Call {
   if (type === "confirmTopup") {
     return { sessionId, sessionKey, key, device, action: { type, sessionId: String(action.sessionId ?? "").slice(0, 80) } };
   }
+  if (type === "nudge") return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40) } };
   if (type === "thank") {
     return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40), to: String(action.to ?? "").slice(0, 40) } };
   }
@@ -142,7 +144,7 @@ async function loadSocial(sql: import("@/lib/db").Sql, world: World, extra: Extr
   if (!userId) return undefined;
   const { ensureSocial, readMine } = await import("@/lib/orbit/social-db");
   await ensureSocial(sql);
-  return readMine(sql, userId, extra.days[userId] ?? null, crsFor(world, userId));
+  return readMine(sql, userId, extra.days[userId] ?? null, crsFor(world, userId), world.queue.slice(0, 12).map((row) => row.userId), world.now);
 }
 
 export function statsOf(world: World): PublicStats {
@@ -327,9 +329,13 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
     }
     const { withTransaction } = await import("@/lib/db");
     return withTransaction(async (sql) => {
-      const { ensureSocial, insertEvents, insertOrigins, insertPayouts, insertThank } = await import("@/lib/orbit/social-db");
+      const { ensureSocial, insertEvents, insertEmission, insertOrigins, insertPayouts, insertThank } = await import("@/lib/orbit/social-db");
       await ensureSocial(sql);
       const pending: [string, Ev][] = [];
+      // 9: облік випуску останнього запису (як і події, рахується з різниці «було → стало»).
+      let emission: import("@/lib/orbit/emission").Emission | null = null;
+      let massBefore = 0;
+      const { emissionOf, massOf } = await import("@/lib/orbit/emission");
       let wrote = false;
       let stored: World | null = null;
       let days: Extra = { events: {}, thanks: {}, days: {}, origins: {} };
@@ -350,6 +356,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         wrote = true;
         pending.length = 0;
         pending.push(...diffEvents(bag.world, w, bag.topups, t));
+        emission = emissionOf(bag.world, w, bag.topups, t, pending);
+        massBefore = massOf(bag.world);
         return extra;
       };
       const daily = (id: string | null) => {
@@ -515,6 +523,25 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         await persist();
         return { world: base, notice: "Подяку надіслано ✦", self: mine };
       }
+      if (data.action.type === "nudge" && self) {
+        // 19: «Нагадати» — лише сповіщення в застосунку, без іскор і без коду. Раз на 12 год.
+        const { NUDGE_EVERY_MS, nudgeTargets } = await import("@/lib/orbit/social");
+        const mine = own(bag.people, self);
+        const crId = data.action.cr;
+        const item = clocked.creations.find((row) => row.id === crId);
+        if (!item || item.userId !== self || item.status !== "collecting") return { world: base, error: "Нагадати можна, поки збираєш підтвердження.", self: mine };
+        const last = await sql.query<{ at: string | number }>(`select at from orbit_events where user_id = $1 and t = 'nudgeSent' order by at desc limit 1`, [self]);
+        const lastAt = last[0] ? Number(last[0].at) : 0;
+        if (wall - lastAt < NUDGE_EVERY_MS) {
+          const h = Math.ceil((lastAt + NUDGE_EVERY_MS - wall) / 3_600_000);
+          return { world: base, error: `Нагадувати можна раз на 12 годин. Ще ${h} год.`, self: mine };
+        }
+        const to = nudgeTargets(clocked, self, item.id);
+        if (!to.length) return { world: base, error: "Поки нікому нагадати: поділись кодом або посиланням.", self: mine };
+        await insertEvents(sql, [...to.map((id): [string, Ev] => [id, { t: "nudge", at: wall, other: self, cr: item.id, n: item.confirms.length }]), [self, { t: "nudgeSent", at: wall, cr: item.id, n: to.length }]]);
+        await persist();
+        return { world: base, notice: `Нагадали ${to.length} ${to.length === 1 ? "людині" : "людям"} ✦`, self: mine };
+      }
       if (data.action.type === "topup" && self) {
         if (!opened) return { world: base, error: "Спробуй ще раз.", self: own(bag.people, self) };
         if ("error" in opened) return { world: base, error: opened.error, self: own(bag.people, self) };
@@ -619,6 +646,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       await insertEvents(sql, pending);
       await insertOrigins(sql, pending, Date.now());
       await insertPayouts(sql, pending);
+      await insertEmission(sql, emission, massBefore);
       out.social = await loadSocial(sql, done.world, days);
       return done;
     });

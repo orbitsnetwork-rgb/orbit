@@ -22,8 +22,10 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StageRouteImport } from './routes/stage'
 import { Route as TalkRouteImport } from './routes/talk'
+import { Route as ApiReconcileRouteImport } from './routes/api/reconcile'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
 import { Route as EIdRouteImport } from './routes/e.$id'
+import { Route as LCrRouteImport } from './routes/l.$cr'
 import { Route as OpenIdRouteImport } from './routes/open.$id'
 import { Route as PeopleNameRouteImport } from './routes/people.$name'
 import { Route as TalkIndexRouteImport } from './routes/talk.index'
@@ -94,6 +96,11 @@ const TalkRoute = TalkRouteImport.update({
   path: '/talk',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReconcileRoute = ApiReconcileRouteImport.update({
+  id: '/api/reconcile',
+  path: '/api/reconcile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStripeRoute = ApiStripeRouteImport.update({
   id: '/api/stripe',
   path: '/api/stripe',
@@ -102,6 +109,11 @@ const ApiStripeRoute = ApiStripeRouteImport.update({
 const EIdRoute = EIdRouteImport.update({
   id: '/e/$id',
   path: '/e/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LCrRoute = LCrRouteImport.update({
+  id: '/l/$cr',
+  path: '/l/$cr',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OpenIdRoute = OpenIdRouteImport.update({
@@ -139,8 +151,10 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/stage': typeof StageRoute
   '/talk': typeof TalkRouteWithChildren
+  '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
   '/e/$id': typeof EIdRoute
+  '/l/$cr': typeof LCrRoute
   '/open/$id': typeof OpenIdRoute
   '/people/$name': typeof PeopleNameRoute
   '/talk/$id': typeof TalkIdRoute
@@ -159,8 +173,10 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/stage': typeof StageRoute
+  '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
   '/e/$id': typeof EIdRoute
+  '/l/$cr': typeof LCrRoute
   '/open/$id': typeof OpenIdRoute
   '/people/$name': typeof PeopleNameRoute
   '/talk/$id': typeof TalkIdRoute
@@ -181,8 +197,10 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/stage': typeof StageRoute
   '/talk': typeof TalkRouteWithChildren
+  '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
   '/e/$id': typeof EIdRoute
+  '/l/$cr': typeof LCrRoute
   '/open/$id': typeof OpenIdRoute
   '/people/$name': typeof PeopleNameRoute
   '/talk/$id': typeof TalkIdRoute
@@ -204,8 +222,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/stage'
     | '/talk'
+    | '/api/reconcile'
     | '/api/stripe'
     | '/e/$id'
+    | '/l/$cr'
     | '/open/$id'
     | '/people/$name'
     | '/talk/$id'
@@ -224,8 +244,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/settings'
     | '/stage'
+    | '/api/reconcile'
     | '/api/stripe'
     | '/e/$id'
+    | '/l/$cr'
     | '/open/$id'
     | '/people/$name'
     | '/talk/$id'
@@ -245,8 +267,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/stage'
     | '/talk'
+    | '/api/reconcile'
     | '/api/stripe'
     | '/e/$id'
+    | '/l/$cr'
     | '/open/$id'
     | '/people/$name'
     | '/talk/$id'
@@ -267,8 +291,10 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   StageRoute: typeof StageRoute
   TalkRoute: typeof TalkRouteWithChildren
+  ApiReconcileRoute: typeof ApiReconcileRoute
   ApiStripeRoute: typeof ApiStripeRoute
   EIdRoute: typeof EIdRoute
+  LCrRoute: typeof LCrRoute
   OpenIdRoute: typeof OpenIdRoute
   PeopleNameRoute: typeof PeopleNameRoute
 }
@@ -366,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TalkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/reconcile': {
+      id: '/api/reconcile'
+      path: '/api/reconcile'
+      fullPath: '/api/reconcile'
+      preLoaderRoute: typeof ApiReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stripe': {
       id: '/api/stripe'
       path: '/api/stripe'
@@ -378,6 +411,13 @@ declare module '@tanstack/react-router' {
       path: '/e/$id'
       fullPath: '/e/$id'
       preLoaderRoute: typeof EIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/l/$cr': {
+      id: '/l/$cr'
+      path: '/l/$cr'
+      fullPath: '/l/$cr'
+      preLoaderRoute: typeof LCrRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/open/$id': {
@@ -437,8 +477,10 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   StageRoute: StageRoute,
   TalkRoute: TalkRouteWithChildren,
+  ApiReconcileRoute: ApiReconcileRoute,
   ApiStripeRoute: ApiStripeRoute,
   EIdRoute: EIdRoute,
+  LCrRoute: LCrRoute,
   OpenIdRoute: OpenIdRoute,
   PeopleNameRoute: PeopleNameRoute,
 }

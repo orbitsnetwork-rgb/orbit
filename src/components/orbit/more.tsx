@@ -1,11 +1,12 @@
 import { BellRing, CreditCard, Download, KeyRound, Landmark, MonitorSmartphone, UserX, Users } from "lucide-react";
 import { Avatar } from "@/components/orbit/ui/kit";
-import { Activity, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
+import { useInstall } from "@/lib/orbit/pwa";
+import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | "transparency" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -134,6 +135,7 @@ function entries(docs: number, unread: number): Entry[] {
     { route: "explorer", title: "Оглядач", sub: "Будь-яка орбіта за номером", icon: <Telescope size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
     { route: "leaders", title: "Рейтинг", sub: "Стабільність, орбіти, тримання", icon: <Trophy size={18} strokeWidth={1.7} />, tone: "sun", group: "world", auth: true },
     { route: "status", title: "Стан системи", sub: "Зв’язок, розклад ціни і фонду", icon: <Activity size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
+    { route: "transparency", title: "Прозорість", sub: "Усі іскри, випуск, фонд і звірка", icon: <Scale size={18} strokeWidth={1.7} />, tone: "sun", group: "world" },
     { route: "fees", title: "Комісії і ліміти", sub: "Скільки і за що, мої ліміти на сьогодні", icon: <Percent size={18} strokeWidth={1.7} />, tone: "mars", group: "rules", auth: true },
     { route: "docs", title: "Документи", sub: "Правила, умови, приватність, ризики", icon: <FileText size={18} strokeWidth={1.7} />, tone: "nebula", group: "rules", badge: String(docs) },
     { route: "learn", title: "Навчання", sub: "5 уроків по хвилині", icon: <GraduationCap size={18} strokeWidth={1.7} />, tone: "ion", group: "rules" },
@@ -160,12 +162,20 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onO
   const q = query.trim().toLowerCase();
   const hits = q ? all.filter((row) => `${row.title} ${row.sub}`.toLowerCase().includes(q)) : null;
   const tiles = signedIn ? TILES.map((id) => all.find((row) => row.route === id)).filter((row): row is Entry => Boolean(row)) : [];
+  const install = useInstall();
   return (
     <Page title="Ще" kicker="Орбіти" onBack={onBack}>
       {profile ? (
         <button type="button" className="mh-me" onClick={() => onOpen("assets")}>
           <Avatar id={profile.id} name={profile.name} size={44} me />
           <span><b>{profile.name}</b><small>{profile.line}</small></span>
+          <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
+        </button>
+      ) : null}
+      {install.can ? (
+        <button type="button" className="mh-install" onClick={() => void install.install()}>
+          <span className="mh-install-ico" aria-hidden><Download size={18} strokeWidth={1.8} /></span>
+          <span><b>Встановити «Орбіти»</b><small>Іконка на головному екрані, відкривається без браузера</small></span>
           <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
         </button>
       ) : null}

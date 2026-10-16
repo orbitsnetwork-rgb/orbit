@@ -13,6 +13,16 @@ export function amountOk(value: number) {
   return (TOPUP_AMOUNTS as readonly number[]).includes(value);
 }
 
+/** Stripe ніколи не тримає нас довше за STRIPE_TIMEOUT_MS (аудит K3). */
+export const STRIPE_TIMEOUT_MS = 8000;
+async function stripeFetch(url: string, init: RequestInit): Promise<Response | null> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(STRIPE_TIMEOUT_MS) });
+  } catch {
+    return null;
+  }
+}
+
 export async function openCheckout(userId: string, amount: number, origin: string) {
   const key = testKey();
   if (!key) return { error: "Тестове поповнення ще не підключено." as const };
@@ -28,11 +38,12 @@ export async function openCheckout(userId: string, amount: number, origin: strin
   body.set("line_items[0][price_data][currency]", "usd");
   body.set("line_items[0][price_data][unit_amount]", String(amount));
   body.set("line_items[0][price_data][product_data][name]", `${amount} ОД`);
-  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+  const response = await stripeFetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
+  if (!response) return { error: "Stripe не відповів вчасно. Спробуй ще раз." as const };
   const json = (await response.json()) as { id?: string; url?: string; livemode?: boolean; error?: { message?: string } };
   if (json.livemode) return { error: "Бойовий режим заборонено." as const };
   if (!response.ok || !json.id || !json.url) return { error: "Stripe не відкрив оплату." as const };
@@ -43,9 +54,10 @@ export async function readCheckout(sessionId: string) {
   const key = testKey();
   if (!key) return { error: "Тестове поповнення ще не підключено." as const };
   if (!sessionId.startsWith("cs_")) return { error: "Невідома оплата." as const };
-  const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
+  const response = await stripeFetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
     headers: { Authorization: `Bearer ${key}` },
   });
+  if (!response) return { error: "Stripe не відповів вчасно. Спробуй ще раз." as const };
   const json = (await response.json()) as {
     id?: string;
     livemode?: boolean;

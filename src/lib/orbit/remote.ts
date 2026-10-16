@@ -297,6 +297,23 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const quick = await peek(data, out);
       if (quick) return quick;
     }
+    // K3: HTTP-виклик до Stripe — до блокування світу. Під FOR UPDATE лише короткий запис результату.
+    let opened: Awaited<ReturnType<typeof openCheckout>> | null = null;
+    let paidEarly: Awaited<ReturnType<typeof readCheckout>> | null = null;
+    if ((data.action.type === "topup" || data.action.type === "confirmTopup") && data.sessionId) {
+      const { getSql } = await import("@/lib/db");
+      const rows = await (await getSql()).query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
+      const pre = rows[0] ? unpackDoc(rows[0].doc) : null;
+      if (pre && keyMatches(pre.keys, data.sessionId, data.sessionKey)) {
+        if (data.action.type === "topup") {
+          const { getRequestUrl } = await import("@tanstack/react-start/server");
+          // Адресу повернення беремо з налаштувань сайту, а не з заголовка Host.
+          const site = process.env.URL?.trim() ?? "";
+          const origin = site.startsWith("https://") ? site.replace(/\/$/, "") : new URL(getRequestUrl()).origin;
+          opened = await openCheckout(data.sessionId, data.action.amount, origin);
+        } else paidEarly = await readCheckout(data.action.sessionId);
+      }
+    }
     const { withTransaction } = await import("@/lib/db");
     return withTransaction(async (sql) => {
       const { ensureSocial, insertEvents, insertOrigins, insertThank } = await import("@/lib/orbit/social-db");
@@ -479,11 +496,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         return { world: base, notice: "Подяку надіслано ✦", self: mine };
       }
       if (data.action.type === "topup" && self) {
-        const { getRequestUrl } = await import("@tanstack/react-start/server");
-        // Адресу повернення беремо з налаштувань сайту, а не з заголовка Host.
-        const site = process.env.URL?.trim() ?? "";
-        const origin = site.startsWith("https://") ? site.replace(/\/$/, "") : new URL(getRequestUrl()).origin;
-        const opened = await openCheckout(self, data.action.amount, origin);
+        if (!opened) return { world: base, error: "Спробуй ще раз.", self: own(bag.people, self) };
         if ("error" in opened) return { world: base, error: opened.error, self: own(bag.people, self) };
         const topups: Topup[] = [
           ...bag.topups.filter((row) => row.id !== opened.id),
@@ -495,7 +508,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         return { world: base, url: opened.url, notice: "Відкриваю тестову оплату.", self: own(bag.people, self) };
       }
       if (data.action.type === "confirmTopup" && self) {
-        const paid = await readCheckout(data.action.sessionId);
+        const paid = paidEarly ?? { error: "Спробуй ще раз." as const };
         if ("error" in paid) return { world: base, error: paid.error, self: own(bag.people, self) };
         if (paid.userId !== self) return { world: base, error: "Це не твоя оплата.", self: own(bag.people, self) };
         const done = creditTopup(clocked, bag.topups, paid);

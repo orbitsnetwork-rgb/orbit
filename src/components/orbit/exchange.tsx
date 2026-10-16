@@ -81,7 +81,7 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
             </button>
             <button type="button" className="ex-sell" disabled={loose.length === 0 || busy} onClick={() => loose[0] && setConfirm({ kind: "sell", orbitId: loose[0].id })}>
               <span><Tag size={18} strokeWidth={2} aria-hidden /> Продати</span>
-              <small>{loose.length > 0 ? no(loose[0].id) : "немає вільних"}</small>
+              <small>{loose.length > 0 ? no(loose[0].id) : "немає орбіт на продаж"}</small>
             </button>
           </div>
         )}
@@ -244,7 +244,7 @@ export function ConfirmSheet({
     return (
       <div className="ex-overlay" onClick={onClose}>
         <div className="ex-sheet" role="dialog" aria-modal="true" aria-label="Купити орбіту" onClick={(event) => event.stopPropagation()}>
-          <p className="orbit-kicker">Купити найстарішу з черги</p>
+          <p className="orbit-kicker">Купити першу орбіту з черги</p>
           <h2 className="orbit-h">{oldest ? no(oldest.orbitId) : "—"}</h2>
           <div className="ex-lines">
             <div><span>Ціна дня</span><b>{sparks(price)}</b></div>

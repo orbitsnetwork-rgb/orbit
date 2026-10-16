@@ -79,7 +79,7 @@ export function CodeShare({ code, expires, now, cr }: { code: string; expires: n
     if (ok) {
       buzz(10);
       setDone(kind);
-      setSaid({ text: kind === "link" ? "Посилання скопійовано. Воно відкриє «Запуск» з уже введеним кодом." : "Код скопійовано.", tone: "ok" });
+      setSaid({ text: kind === "link" ? "Посилання скопійовано. Воно відкриє вкладку «Заявка» з уже введеним кодом." : "Код скопійовано.", tone: "ok" });
     } else {
       setSaid({ text: "Не вдалося скопіювати. Продиктуй код або покажи QR.", tone: "warn" });
     }
@@ -100,7 +100,7 @@ export function CodeShare({ code, expires, now, cr }: { code: string; expires: n
         </div>
         <Countdown leftMs={leftMs} />
       </div>
-      <p className="cs-how">Покажи код або надішли посилання: воно відкриє «Запуск» з уже введеним кодом — лишиться натиснути «Підтвердити».</p>
+      <p className="cs-how">Покажи код або надішли посилання: воно відкриє вкладку «Заявка» з уже введеним кодом — лишиться натиснути «Підтвердити».</p>
       {cr ? (
         <a
           className="cs-share cs-tg"

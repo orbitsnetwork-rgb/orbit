@@ -44,7 +44,7 @@ function Spark() {
   return (
     <div className="ob-art ob-art-spark" aria-hidden>
       <span className="ob-spark">✦</span>
-      <span className="ob-chip">+{STARTER_OD} ✦ за перший внесок</span>
+      <span className="ob-chip">+{STARTER_OD} ✦ після першого заряду</span>
       <span className="ob-test">Тест</span>
     </div>
   );

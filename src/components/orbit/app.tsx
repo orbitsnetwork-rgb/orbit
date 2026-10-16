@@ -384,11 +384,11 @@ function Gate({
       <main className="orbit-shell orbit-gate">
         <p className="orbit-kicker">{t(lang, "brand")}</p>
         <h1>{t(lang, "sub")}</h1>
-        <p className="orbit-note">Пошта, телефон, ім’я. Ключ — лише для входу.</p>
+        <p className="orbit-note">Акаунт за хвилину: пошта, телефон, ім’я. Пароля немає — входиш ключем, який покажемо після реєстрації.</p>
         <GuestStats />
         {invited ? (
           <p className="cs-invite" role="status">
-            Тебе запросили підтвердити запуск орбіти. Увійди або створи акаунт — код уже чекатиме в «Запуску».
+            Тебе запросили підтвердити запуск орбіти. Увійди або створи акаунт — код уже чекатиме у вкладці «Заявка».
           </p>
         ) : null}
         <LangRow lang={lang} />
@@ -443,11 +443,11 @@ function MailGate() {
     <>
       <p className="orbit-note">{self.mailCode ? `Код: ${self.mailCode}` : "Код на пошті."}</p>
       <label className="grid gap-1.5">
-        <span className="orbit-kicker">Код з пошти</span>
+        <span className="orbit-kicker">Підтвердь пошту: 6 цифр з листа</span>
         <input className="orbit-field" inputMode="numeric" maxLength={6} value={typed} onChange={(event) => setCode(event.target.value)} />
       </label>
       <button type="button" className="orbit-go" disabled={typed.length < 6} onClick={() => useOrbits.getState().confirmMail(typed)}>
-        Підтвердити
+        Підтвердити пошту
       </button>
       <Notice inline />
     </>
@@ -819,7 +819,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
           <OrbitRings />
           <span><Rocket size={30} strokeWidth={1.6} /></span>
         </div>
-        <p className="orbit-kicker">Запуск орбіти · №{money.format(world.nextNo)} наступна</p>
+        <p className="orbit-kicker">Наступна орбіта у світі — {orbitNo(world.nextNo)}</p>
         <h1 className="orbit-h mn-h1" id="mn-idle-title">Запусти свою орбіту</h1>
         <LaunchIntro chance={chance} />
         <button type="button" className="orbit-go k-go" onClick={() => void useOrbits.getState().start()}>

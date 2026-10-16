@@ -99,7 +99,7 @@ export function Fund({ world, user }: { world: World; user: Account }) {
           <span className="mn-tag" data-tone={inPool ? "aurora" : "mars"}>{inPool ? "ти в поділі" : holder ? "неактивний 3+ дні" : "потрібна орбіта"}</span>
         </div>
         <ul className="fd-parts">
-          <li><Scale size={15} strokeWidth={2} aria-hidden /><span>70% фонду — порівну між {active.length} активними власниками орбіт</span></li>
+          <li><Scale size={15} strokeWidth={2} aria-hidden /><span>70% фонду — порівну між активними власниками орбіт (зараз: {active.length})</span></li>
           <li><Users size={15} strokeWidth={2} aria-hidden /><span>30% — за стабільність (у тебе {fmt.format(user.stability)}), удвічі більше, якщо був онлайн за добу</span></li>
           <li><Gift size={15} strokeWidth={2} aria-hidden /><span>Бонус тримання орбіти: {bonus ? `+${Math.round(bonus * 100)}%` : "поки 0%"}</span></li>
         </ul>

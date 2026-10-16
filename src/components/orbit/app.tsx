@@ -373,7 +373,12 @@ function Gate({
   const enteringMail = key.trim().length >= 8 && (mailOk || email.trim() === "");
   const [invited, setInvited] = useState(false);
   // 14c: хто запрошує — з прев’ю посилання (той самий сервер, що й для Telegram-картки).
-  const host = useRouterState({ select: (state) => state.matches.find((m) => m.routeId === "/")?.loaderData as { who: string | null; n: number } | undefined });
+  const live = useRouterState({ select: (state) => state.matches.find((m) => m.routeId === "/")?.loaderData as { who: string | null; n: number } | undefined });
+  // Адресу з ?c= чистимо після старту, і лоадер перечитується без коду — тримаємо перше відоме ім’я.
+  const [host, setHost] = useState(live?.who ? live : undefined);
+  useEffect(() => {
+    if (live?.who) setHost(live);
+  }, [live]);
   useEffect(() => {
     const read = () => setInvited(Boolean(readInvite()));
     read();

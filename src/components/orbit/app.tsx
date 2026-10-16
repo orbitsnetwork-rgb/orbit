@@ -30,6 +30,7 @@ import { CodeShare } from "@/components/orbit/code-share";
 import { ChargeResult, markSeen, unseenOutcome } from "@/components/orbit/charge-result";
 import { Satellites } from "@/components/orbit/space/satellites";
 import { Starfield } from "@/components/orbit/space/starfield";
+import { Onboarding, onboardingDue } from "@/components/orbit/onboarding";
 import { OrbitRings } from "@/components/orbit/space/orbit-rings";
 import { useCountUp } from "@/lib/orbit/count-up";
 import { catchInvite, dropInvite, INVITE_EVENT, readInvite } from "@/lib/orbit/invite";
@@ -107,6 +108,7 @@ export function OrbitApp() {
   const nav = useStack();
   const [hidden] = useHidden();
   const [, bumpSeen] = useState(0);
+  const [intro, setIntro] = useState(false);
 
   useEffect(() => {
     // Короткий відгук на натискання основних кнопок (Android; iOS не вміє — пропускаємо).
@@ -153,6 +155,14 @@ export function OrbitApp() {
   }, [userId]);
   const keyScreen = Boolean(fresh && user && fresh.id === user.id);
   useEffect(() => {
+    // Знайомство — після екрана ключа, один раз для акаунта на цьому пристрої.
+    const w = useOrbits.getState().world;
+    const account = userId ? w.accounts.find((row) => row.id === userId) : undefined;
+    // Хто вже має орбіту чи запуск, знайомства не потребує.
+    const veteran = Boolean(userId && (w.orbits.some((o) => o.ownerId === userId) || w.creations.some((c) => c.userId === userId)));
+    setIntro(Boolean(account && !keyScreen && !veteran && onboardingDue(account.id, account.createdAt, Date.now())));
+  }, [userId, keyScreen]);
+  useEffect(() => {
     // Прийшли за посиланням з кодом — відкриваємо «Запуск», де код уже в полі. Нічого не надсилаємо.
     if (!userId || keyScreen) return;
     const go = () => {
@@ -186,6 +196,7 @@ export function OrbitApp() {
   return (
     <div className="orbit-app">
       <Starfield />
+      {intro && !outcome ? <Onboarding userId={user.id} onDone={() => setIntro(false)} /> : null}
       {outcome ? (
         <ChargeResult
           key={outcome.creation.id}
@@ -538,15 +549,6 @@ function Home({ world, user, onMine, onOpen }: { world: World; user: Account; on
   const chance = Math.round(chanceOf(world.orbits.length) * 100);
   const online = world.accounts.filter((account) => wall - account.lastActiveAt <= DAY_MS).length;
   const lastTrade = world.trades[world.trades.length - 1];
-  const seenKey = `orbits-seen-${user.id}`;
-  const [fresh, setFresh] = useState(false);
-  useEffect(() => {
-    try {
-      setFresh(localStorage.getItem(seenKey) !== "1");
-    } catch {
-      setFresh(false);
-    }
-  }, [seenKey]);
   return (
     <section className="orbit-block">
       <div className="hm-hero">
@@ -565,24 +567,6 @@ function Home({ world, user, onMine, onOpen }: { world: World; user: Account; on
       </div>
       <p className="orbit-note">Нова ціна через {left(nextMidnight(world.now) - world.now)}</p>
       {lastTrade ? <p className="orbit-note">Остання угода {spk(lastTrade.amount)} · {no(lastTrade.orbitId)}</p> : null}
-      {fresh ? (
-        <div className="orbit-tips">
-          <p className="orbit-kicker">Перші кроки</p>
-          <p className="orbit-note">Орбіта — рівна частка світу.</p>
-          <p className="orbit-note">Іскри ✦ лишаються всередині. Це не гроші.</p>
-          <p className="orbit-note">Купи з черги або відкрий заявку.</p>
-          <button
-            type="button"
-            className="orbit-quiet"
-            onClick={() => {
-              try { localStorage.setItem(seenKey, "1"); } catch { /* приватний режим */ }
-              setFresh(false);
-            }}
-          >
-            Зрозуміло
-          </button>
-        </div>
-      ) : null}
       {pendingMail ? (
         <MailGate />
       ) : (

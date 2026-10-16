@@ -1865,7 +1865,7 @@ a.h-11.bg-accent::after { display: none !important; }
 }
 .sf-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
 .orbit-shell { position: relative; z-index: 1; padding-bottom: calc(64px + 10px + 24px + env(safe-area-inset-bottom)); }
-.tab-in { display: grid; gap: 14px; animation: tab-in var(--t-base) var(--ease) both; }
+.tab-in { display: grid; gap: 14px; animation: tab-in var(--t-base) var(--ease) backwards; }
 @keyframes tab-in { from { opacity: 0; transform: translateY(8px); } }
 
 .orbit-top {
@@ -2069,3 +2069,57 @@ a.h-11.bg-accent::after { display: none !important; }
 .mo-row-ico { background: rgb(255 255 255 / .05); color: var(--sun); }
 .mo-row-text small { color: var(--text-2); }
 .mo-row-go { color: var(--text-3); }
+
+/* ── Знайомство: 3 картки зі свайпом ── */
+.ob-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 72;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background:
+    radial-gradient(60% 40% at 85% -5%, rgb(139 123 255 / .16), transparent 70%),
+    radial-gradient(70% 40% at 50% 30%, rgb(242 196 109 / .08), transparent 70%),
+    rgb(7 8 14 / .985);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--text-1);
+  animation: ky-fade 320ms var(--ease) both;
+}
+.ob-top { display: flex; align-items: center; justify-content: space-between; width: min(28rem, 100%); margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 16px 0; }
+.ob-step { color: var(--text-3); font: 600 13px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+.ob-skip { min-height: 44px; padding: 0 8px; border: 0; background: transparent; color: var(--sun); font: 600 15px/1 var(--font-sans); }
+.ob-track { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.ob-track::-webkit-scrollbar { display: none; }
+.ob-slide { flex: 0 0 100%; display: grid; align-content: center; justify-items: center; gap: 14px; padding: 8px 24px; scroll-snap-align: start; scroll-snap-stop: always; text-align: center; }
+.ob-slide > * { max-width: 26rem; }
+.ob-title { margin: 8px 0 0; font: 700 28px/34px var(--font-sans); letter-spacing: -.02em; outline: none; }
+.ob-body { margin: 0; color: var(--text-2); font: 500 16px/24px var(--font-sans); }
+.ob-foot { display: grid; gap: 16px; width: min(28rem, 100%); margin: 0 auto; padding: 8px 20px max(20px, calc(env(safe-area-inset-bottom) + 14px)); }
+.ob-dots { display: flex; justify-content: center; gap: 4px; }
+.ob-dots button { position: relative; width: 28px; height: 28px; border: 0; background: transparent; }
+.ob-dots button::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 999px; background: var(--line-strong); transition: width var(--t-base) var(--ease), margin var(--t-base) var(--ease), background-color var(--t-base); }
+.ob-dots button[data-on="1"]::after { width: 20px; margin-left: -10px; background: var(--sun); box-shadow: 0 0 10px rgb(242 196 109 / .5); }
+.ob-art { position: relative; display: grid; place-items: center; width: 260px; height: 240px; }
+.ob-art-sky .rings { opacity: .85; }
+.ob-count { position: relative; display: grid; gap: 2px; }
+.ob-count b { font: 800 34px/1 var(--font-sans); letter-spacing: -.03em; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, var(--sun-pale), var(--sun)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ob-count span { color: var(--text-2); font: 600 13px/18px var(--font-sans); }
+.ob-spark { font-size: 120px; line-height: 1; color: var(--sun); text-shadow: 0 0 40px rgb(242 196 109 / .55), 0 0 90px rgb(242 196 109 / .25); animation: ob-twinkle 3.2s ease-in-out infinite; }
+@keyframes ob-twinkle { 50% { transform: scale(.92) rotate(8deg); opacity: .85; } }
+.ob-chip { position: absolute; bottom: 18px; padding: 6px 12px; border-radius: 999px; background: rgb(94 211 160 / .12); border: 1px solid rgb(94 211 160 / .35); color: var(--aurora); font: 700 14px/1 var(--font-sans); }
+.ob-test { position: absolute; top: 20px; right: 34px; padding: 4px 8px; border-radius: 999px; background: rgb(111 214 236 / .12); color: var(--ion); font: 700 11px/14px var(--font-sans); letter-spacing: .12em; text-transform: uppercase; }
+.ob-art-days { height: auto; gap: 14px; }
+.ob-sats { position: relative; width: 150px; height: 150px; border-radius: 50%; border: 1px dashed var(--line-strong); display: grid; place-items: center; }
+.ob-sats b { font: 700 22px/1 var(--font-sans); color: var(--text-1); }
+.ob-sats span { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; border: 1.5px solid var(--line-strong); background: var(--space-850); animation: ob-light 6s var(--ease) infinite; animation-delay: calc(var(--i) * 450ms); }
+@keyframes ob-light { 0%, 8% { background: var(--space-850); border-color: var(--line-strong); box-shadow: none; } 14%, 80% { background: var(--sun); border-color: var(--sun); box-shadow: 0 0 12px var(--sun); } 100% { background: var(--space-850); border-color: var(--line-strong); box-shadow: none; } }
+.ob-plan { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%; margin: 0; padding: 0; list-style: none; }
+.ob-plan li { display: grid; align-content: start; gap: 3px; padding: 8px 4px; font-size: 11.5px !important; overflow-wrap: anywhere; border-radius: 12px; background: rgb(255 255 255 / .04); border: 1px solid var(--line); color: var(--text-2); font: 500 12px/15px var(--font-sans); }
+.ob-plan li span { color: var(--text-1); font-weight: 700; }
+.ob-plan li:last-child { border-color: rgb(111 214 236 / .35); color: var(--ion); }
+@media (prefers-reduced-motion: reduce) {
+  .ob-screen, .ob-spark, .ob-sats span { animation: none; }
+  .ob-sats span { background: var(--sun); border-color: var(--sun); }
+  .ob-dots button::after { transition: none; }
+}

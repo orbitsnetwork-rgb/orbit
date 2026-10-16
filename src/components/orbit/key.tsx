@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { Check, Copy, Download, KeyRound, LogOut, Share2, TriangleAlert } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { buzz, canShare, copyText, saveTextFile, shareSheet } from "@/lib/orbit/feel";
@@ -254,7 +255,7 @@ function LeaveSheet({ userId, name, onClose }: { userId: string; name: string; o
     useOrbits.getState().leave();
   };
   return (
-    <div className="ky-scrim" onClick={onClose}>
+    createPortal(<div className="ky-scrim" onClick={onClose}>
       <div className="ky-sheet" role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={`${titleId}-body`} onClick={(event) => event.stopPropagation()}>
         <span className="ky-handle" aria-hidden />
         <div className="ky-glyph ky-glyph-warn" aria-hidden>
@@ -278,6 +279,6 @@ function LeaveSheet({ userId, name, onClose }: { userId: string; name: string; o
           {ticked ? "Вийти" : "Вийти без збереженого ключа"}
         </button>
       </div>
-    </div>
+    </div>, document.body)
   );
 }

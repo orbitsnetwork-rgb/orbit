@@ -167,7 +167,8 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
       // Новий ключ іде на екран «Твій ключ входу». Тост з ключем зникав за 2,6 с — так ключі губились.
       const fresh = !step.error && step.key && step.world.sessionId ? { id: step.world.sessionId, key: step.key } : null;
       if (fresh) holdKeyScreen(fresh.id);
-      const shown = fresh ? "" : text;
+      // Рушій повертає сам код як повідомлення; тост не дублює код, що вже великий на екрані.
+      const shown = fresh ? "" : action.type === "issue" && !step.error ? "Код готовий. Діє 10 хвилин." : text;
       if (!quiet && !step.error) blip();
       if (step.url && !step.error && typeof window !== "undefined") window.location.href = step.url;
       useOrbits.setState({

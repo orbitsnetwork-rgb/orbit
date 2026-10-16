@@ -16,6 +16,9 @@ import {
   DAY_MS,
   FUND_PERIOD_MS,
   me,
+  STABILITY_CONFIRM,
+  STABILITY_FAIL,
+  WITNESS_OD,
   previewShare,
   utcDay,
   type Account,
@@ -23,6 +26,9 @@ import {
 } from "@/lib/orbit/engine";
 import { bootOrbits, deviceKeys, pendingKeyScreen, useOrbits } from "@/lib/orbit/store";
 import { KeyScreen, useLeave } from "@/components/orbit/key";
+import { CodeShare } from "@/components/orbit/code-share";
+import { catchInvite, dropInvite, INVITE_EVENT, readInvite } from "@/lib/orbit/invite";
+import { buzz } from "@/lib/orbit/feel";
 
 type Tab = "home" | "market" | "mine" | "flow" | "me";
 
@@ -97,6 +103,7 @@ export function OrbitApp() {
   const [hidden] = useHidden();
 
   useEffect(() => {
+    catchInvite();
     bootOrbits();
     const session = new URLSearchParams(window.location.search).get("topup");
     if (session?.startsWith("cs_")) {
@@ -128,11 +135,25 @@ export function OrbitApp() {
     const again = pendingKeyScreen(userId);
     if (again) useOrbits.setState({ fresh: again });
   }, [userId]);
+  const keyScreen = Boolean(fresh && user && fresh.id === user.id);
+  useEffect(() => {
+    // Прийшли за посиланням з кодом — відкриваємо «Запуск», де код уже в полі. Нічого не надсилаємо.
+    if (!userId || keyScreen) return;
+    const go = () => {
+      if (readInvite()) {
+        close();
+        setTab("mine");
+      }
+    };
+    go();
+    window.addEventListener(INVITE_EVENT, go);
+    return () => window.removeEventListener(INVITE_EVENT, go);
+  }, [userId, keyScreen, close]);
   if (!user) {
     return <Gate world={world} flash={flash} bad={bad} ready={ready} lang={lang} onCreate={registerPerson} onMail={enterMail} onOld={enterId} />;
   }
 
-  if (fresh && fresh.id === user.id) {
+  if (keyScreen && fresh) {
     return (
       <div className="orbit-app">
         <KeyScreen userId={user.id} name={user.name} secret={fresh.key} onDone={() => useOrbits.getState().dismissKey()} />
@@ -220,6 +241,13 @@ function Gate({
   const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const enteringOld = Boolean(old && key.trim().length >= 8);
   const enteringMail = !enteringOld && key.trim().length >= 8 && mailOk;
+  const [invited, setInvited] = useState(false);
+  useEffect(() => {
+    const read = () => setInvited(Boolean(readInvite()));
+    read();
+    window.addEventListener(INVITE_EVENT, read);
+    return () => window.removeEventListener(INVITE_EVENT, read);
+  }, []);
   const readyForm = mailOk && given.trim().length >= 2 && family.trim().length >= 2 && phone.trim().length >= 10 && birth.length >= 10;
   return (
     <div className="orbit-app">
@@ -227,6 +255,11 @@ function Gate({
         <p className="orbit-kicker">{t(lang, "brand")}</p>
         <h1>{t(lang, "sub")}</h1>
         <p className="orbit-note">Пошта, телефон, ім’я. Ключ — лише для входу.</p>
+        {invited ? (
+          <p className="cs-invite" role="status">
+            Тебе запросили підтвердити запуск орбіти. Увійди або створи акаунт — код уже чекатиме в «Запуску».
+          </p>
+        ) : null}
         <LangRow lang={lang} />
         <form
           className="orbit-block"
@@ -502,16 +535,12 @@ const QUICK: { route: Route; label: string; icon: ReactNode }[] = [
 
 function Mine({ world, user }: { world: World; user: Account }) {
   const creation = activeCreation(world, user.id);
-  const [digits, setDigits] = useState("");
   const wall = useWall(world.now);
   const result = world.creations
     .filter((item) => item.userId === user.id && (item.status === "done" || item.status === "failed"))
     .at(-1);
   const resultKey = result ? `orbits-result-${result.id}` : "";
   const [showResult, setShowResult] = useState(false);
-  useEffect(() => {
-    setDigits("");
-  }, [user.id]);
   useEffect(() => {
     if (!resultKey) return;
     try {
@@ -524,6 +553,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
   if (showResult && result && !creation) {
     const passed = result.status === "done";
     return (
+      <div className="orbit-stack">
       <section className="orbit-block orbit-result" data-on={passed ? "1" : "0"}>
         <p className="orbit-kicker">Заряд</p>
         <h1 className="orbit-h">{passed ? "Пройшов" : "Зірвався"}</h1>
@@ -539,6 +569,8 @@ function Mine({ world, user }: { world: World; user: Account }) {
           Далі
         </button>
       </section>
+      <ConfirmCard userId={user.id} ownCode={null} />
+      </div>
     );
   }
 
@@ -546,6 +578,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
     const readyAt = creation.chargeStartedAt + CHARGE_MS;
     const chance = Math.round(chanceOf(world.orbits.length) * 100);
     return (
+      <div className="orbit-stack">
       <section className="orbit-block">
         <p className="orbit-kicker">Заряд</p>
         <h1 className="orbit-h">{chance}%</h1>
@@ -557,14 +590,17 @@ function Mine({ world, user }: { world: World; user: Account }) {
         <p className="orbit-timer-big">{left(readyAt - wall)}</p>
         <p className="orbit-note">Чекаємо результат.</p>
       </section>
+      <ConfirmCard userId={user.id} ownCode={null} />
+      </div>
     );
   }
 
   if (creation?.status === "collecting") {
     const day = utcDay(world.now);
     const used = creation.codeDay === day ? creation.codesToday : 0;
-    const live = Boolean(creation.code && world.now < creation.codeExpires);
+    const live = Boolean(creation.code && wall < creation.codeExpires);
     return (
+      <div className="orbit-stack">
       <section className="orbit-block">
         <p className="orbit-kicker">Заявка · крок {Math.min(creation.confirms.length + 1, 8)} з 8</p>
         <h1 className="orbit-h">{creation.confirms.length} / 8</h1>
@@ -575,11 +611,8 @@ function Mine({ world, user }: { world: World; user: Account }) {
             </span>
           ))}
         </div>
-        {live ? (
-          <>
-            <p className="orbit-code">{creation.code}</p>
-            <p className="orbit-timer-big">{left(creation.codeExpires - wall)}</p>
-          </>
+        {live && creation.code ? (
+          <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} />
         ) : (
           <>
             <button type="button" className="orbit-go" onClick={() => useOrbits.getState().issue()}>
@@ -593,41 +626,130 @@ function Mine({ world, user }: { world: World; user: Account }) {
         </p>
         <Names world={world} userId={user.id} />
       </section>
+      <ConfirmCard userId={user.id} ownCode={live ? creation.code : null} />
+      </div>
     );
   }
 
-  const typed = digits.replace(/\D/g, "").slice(0, 6);
+  const chance = Math.round(chanceOf(world.orbits.length) * 100);
   return (
-    <section className="orbit-block">
+    <div className="orbit-stack">
+      <section className="orbit-block">
+        <p className="orbit-kicker">Запуск орбіти</p>
+        <h1 className="orbit-h">Запусти свою орбіту</h1>
+        <p className="orbit-note">Потрібно 8 підтверджень від інших учасників, а потім 24 години заряду. Шанс зараз — {chance}%.</p>
+        <button type="button" className="orbit-go" onClick={() => void useOrbits.getState().start()}>
+          Почати запуск
+        </button>
+        <Notice />
+      </section>
+      <ConfirmCard userId={user.id} ownCode={null} />
+      <Names world={world} userId={user.id} />
+    </div>
+  );
+}
+
+/** «Підтверди запуск учасника». Код з посилання ?c= лише підставляється — надсилає людина. */
+function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | null }) {
+  const [digits, setDigits] = useState("");
+  const [fromLink, setFromLink] = useState(false);
+  const [own, setOwn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState<{ text: string; bad: boolean } | null>(null);
+  const field = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLElement>(null);
+  useEffect(() => {
+    setDigits("");
+    setSaid(null);
+  }, [userId]);
+  useEffect(() => {
+    const take = () => {
+      const invite = readInvite();
+      if (!invite) return;
+      if (ownCode && invite.code === ownCode) {
+        // Своє посилання відкрили на своєму ж телефоні — не підставляємо.
+        dropInvite();
+        setOwn(true);
+        return;
+      }
+      setDigits(invite.code);
+      setFromLink(true);
+      setOwn(false);
+      window.requestAnimationFrame(() => {
+        box.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+        field.current?.focus({ preventScroll: true });
+      });
+    };
+    take();
+    window.addEventListener(INVITE_EVENT, take);
+    return () => window.removeEventListener(INVITE_EVENT, take);
+  }, [ownCode]);
+  const typed = digits.replace(/\D/g, "").slice(0, 6);
+  async function submit() {
+    if (typed.length !== 6 || busy) return;
+    setBusy(true);
+    await useOrbits.getState().accept(typed);
+    const state = useOrbits.getState();
+    setBusy(false);
+    setSaid({ text: sparkText(state.flash), bad: state.bad });
+    if (!state.bad) {
+      buzz([12, 60, 18]);
+      setDigits("");
+      setFromLink(false);
+      dropInvite();
+    } else buzz([30, 40, 30]);
+  }
+  return (
+    <section className="orbit-block cs-confirm" ref={box} aria-labelledby="cs-confirm-title" data-link={fromLink ? "1" : "0"}>
       <p className="orbit-kicker">Підтвердження</p>
-      <h1 className="orbit-h">Чужий код</h1>
-      <label className="grid gap-1.5">
-        <span className="orbit-kicker">Ввести чужий код</span>
-        <input
-          className="orbit-field orbit-code-input"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          value={typed}
-          onChange={(event) => setDigits(event.target.value)}
-        />
-      </label>
-      <button
-        type="button"
-        className="orbit-go"
-        disabled={typed.length > 0 && typed.length < 6}
-        onClick={() => {
-          if (typed.length === 6) {
-            useOrbits.getState().accept(typed).then(() => {
-              if (!useOrbits.getState().bad) setDigits("");
-            });
-          } else useOrbits.getState().start();
+      <h2 className="orbit-h cs-h2" id="cs-confirm-title">Підтверди запуск учасника</h2>
+      {fromLink ? (
+        <p className="cs-from-link" role="status">
+          Код із посилання вже в полі. Перевір цифри і натисни «Підтвердити».
+        </p>
+      ) : null}
+      {own ? (
+        <p className="cs-from-link" data-tone="warn" role="status">
+          Це посилання з твоїм власним кодом. Надішли його іншому учаснику — свій запуск підтвердити не можна.
+        </p>
+      ) : null}
+      <form
+        className="grid gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
         }}
       >
-        {typed.length > 0 ? "Підтвердити" : "Відкрити заявку"}
-      </button>
-      <Notice />
-      <Names world={world} userId={user.id} />
+        <label className="grid gap-1.5">
+          <span className="orbit-kicker">Код від учасника</span>
+          <input
+            ref={field}
+            className="orbit-field orbit-code-input"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="6 цифр"
+            maxLength={7}
+            value={typed.length > 3 ? `${typed.slice(0, 3)} ${typed.slice(3)}` : typed}
+            aria-describedby="cs-confirm-note"
+            onChange={(event) => {
+              setDigits(event.target.value);
+              setSaid(null);
+              if (fromLink) setFromLink(false);
+            }}
+          />
+        </label>
+        <button type="submit" className="orbit-go" disabled={typed.length !== 6 || busy}>
+          {busy ? "Підтверджуємо…" : "Підтвердити"}
+        </button>
+      </form>
+      {said?.text ? (
+        <p className={said.bad ? "orbit-flash" : "orbit-ok"} role="status">
+          {said.text}
+        </p>
+      ) : null}
+      <p className="orbit-note cs-note" id="cs-confirm-note">
+        Якщо запуск пройде, ти отримаєш {WITNESS_OD} іскор ✦ і +{STABILITY_CONFIRM} до стабільності. Якщо ні — −{STABILITY_FAIL} стабільності.
+      </p>
     </section>
   );
 }

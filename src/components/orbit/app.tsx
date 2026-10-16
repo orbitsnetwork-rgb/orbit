@@ -12,7 +12,7 @@ import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Walle
 import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
-import { ConfirmSheet, Exchange, Soon, type Confirm } from "@/components/orbit/exchange";
+import type { Confirm } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
 import { rememberTopup } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
@@ -20,6 +20,26 @@ import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 // 14: важкі екрани — окремими чанками, вантажаться при першому відкритті.
+const ExchangeLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.Exchange })));
+const ConfirmSheetLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.ConfirmSheet })));
+const SoonLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.Soon })));
+const ChecklistLazy = lazy(() => import("@/components/orbit/checklist").then((m) => ({ default: m.Checklist })));
+const CodeShareLazy = lazy(() => import("@/components/orbit/code-share").then((m) => ({ default: m.CodeShare })));
+function quiet<P extends object>(C: React.ComponentType<P>) {
+  return function Quiet(props: P) {
+    return (
+      <Suspense fallback={null}>
+        <C {...props} />
+      </Suspense>
+    );
+  };
+}
+const ConfirmSheet = quiet(ConfirmSheetLazy as React.ComponentType<React.ComponentProps<typeof ConfirmSheetLazy>>);
+const Soon = quiet(SoonLazy as React.ComponentType<React.ComponentProps<typeof SoonLazy>>);
+const Checklist = quiet(ChecklistLazy as React.ComponentType<React.ComponentProps<typeof ChecklistLazy>>);
+const CodeShare = quiet(CodeShareLazy as React.ComponentType<React.ComponentProps<typeof CodeShareLazy>>);
+const ChargeResult = quiet(lazy(() => import("@/components/orbit/charge-result").then((m) => ({ default: m.ChargeResult }))) as React.ComponentType<React.ComponentProps<typeof import("@/components/orbit/charge-result").ChargeResult>>);
+const Onboarding = quiet(lazy(() => import("@/components/orbit/onboarding").then((m) => ({ default: m.Onboarding }))) as React.ComponentType<React.ComponentProps<typeof import("@/components/orbit/onboarding").Onboarding>>);
 const Fund = lazy(() => import("@/components/orbit/fund").then((m) => ({ default: m.Fund })));
 const PagesLazy = lazy(() => import("@/components/orbit/pages").then((m) => ({ default: m.Pages })));
 function Pages(props: React.ComponentProps<typeof PagesLazy>) {
@@ -30,7 +50,6 @@ function Pages(props: React.ComponentProps<typeof PagesLazy>) {
   );
 }
 import { registerShell } from "@/lib/orbit/pwa";
-import { Checklist } from "@/components/orbit/checklist";
 import { NudgeButton } from "@/components/orbit/nudge";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
@@ -52,11 +71,10 @@ import {
 } from "@/lib/orbit/engine";
 import { bootOrbits, deviceKeys, pendingKeyScreen, startPolling, useOrbits } from "@/lib/orbit/store";
 import { KeyScreen, useLeave } from "@/components/orbit/key";
-import { CodeShare } from "@/components/orbit/code-share";
-import { ChargeResult, markSeen, unseenOutcome } from "@/components/orbit/charge-result";
+import { markSeen, unseenOutcome } from "@/components/orbit/charge-outcome";
 import { Satellites } from "@/components/orbit/space/satellites";
 import { Starfield } from "@/components/orbit/space/starfield";
-import { Onboarding, onboardingDue } from "@/components/orbit/onboarding";
+import { onboardingDue } from "@/components/orbit/onboarding-due";
 import { OrbitRings } from "@/components/orbit/space/orbit-rings";
 import { useCountUp } from "@/lib/orbit/count-up";
 import { catchInvite, dropInvite, INVITE_EVENT, readInvite } from "@/lib/orbit/invite";
@@ -282,7 +300,7 @@ export function OrbitApp() {
         <div key={tab} className="tab-in">
           <Boundary name={tab}>
           {tab === "home" ? <Home world={world} user={user} onTab={setTab} onOpen={nav.open} /> : null}
-          {tab === "market" ? <Exchange world={world} user={user} /> : null}
+          {tab === "market" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо обмін…</div>}><ExchangeLazy world={world} user={user} /></Suspense> : null}
           {tab === "mine" ? <Mine world={world} user={user} /> : null}
           {tab === "flow" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо фонд…</div>}><Fund world={world} user={user} /></Suspense> : null}
           {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}

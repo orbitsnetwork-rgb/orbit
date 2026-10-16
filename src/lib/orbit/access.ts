@@ -48,17 +48,34 @@ export function mintKey(): string {
   return `${out.slice(0, 4)}-${out.slice(4, 8)}-${out.slice(8, 12)}`;
 }
 
+/**
+ * Міграція: акаунтам без toppedUp рахуємо його з оплачених поповнень, що збереглись у документі
+ * (не більше за поточний баланс). Акаунти з полем не чіпаємо.
+ */
+function withToppedUp(world: World, topups: Topup[]): World {
+  if (world.accounts.every((account) => typeof account.toppedUp === "number")) return world;
+  const paid = new Map<string, number>();
+  for (const row of topups) if (row.status === "paid") paid.set(row.userId, (paid.get(row.userId) ?? 0) + row.amount);
+  return {
+    ...world,
+    accounts: world.accounts.map((account) =>
+      typeof account.toppedUp === "number" ? account : { ...account, toppedUp: Math.min(paid.get(account.id) ?? 0, Math.max(0, account.balance)) },
+    ),
+  };
+}
+
 export function unpackDoc(doc: unknown): Bag {
   const value = typeof doc === "string" ? parse(doc) : doc;
   if (!value || typeof value !== "object") return { world: emptyWorld(), keys: {}, devices: {}, people: [], topups: [], limits: {}, seen: {}, extra: emptyExtra() };
   const bag = value as { world?: unknown; keys?: unknown; devices?: unknown; people?: unknown; topups?: unknown; limits?: unknown; seen?: unknown; extra?: unknown };
   const world = asWorld(bag.world) ?? asWorld(value);
+  const topups = asTopups(bag.topups);
   return {
-    world: world ?? emptyWorld(),
+    world: world ? withToppedUp(world, topups) : emptyWorld(),
     keys: asKeys(bag.world ? bag.keys : null),
     devices: asDevices(bag.devices),
     people: asPeople(bag.people),
-    topups: asTopups(bag.topups),
+    topups,
     limits: asLimits(bag.limits),
     seen: asSeen(bag.seen),
     extra: asExtra(bag.extra),

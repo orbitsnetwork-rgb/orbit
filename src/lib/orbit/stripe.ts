@@ -85,7 +85,7 @@ export function creditTopup(world: World, topups: Topup[], paid: { id: string; u
     return { world, topups, error: "Імені немає." };
   }
   const accounts = world.accounts.map((account) =>
-    account.id === paid.userId ? { ...account, balance: account.balance + paid.amount } : account,
+    account.id === paid.userId ? { ...account, balance: account.balance + paid.amount, toppedUp: (account.toppedUp ?? 0) + paid.amount } : account,
   );
   const next = [
     ...topups.filter((row) => row.id !== paid.id),

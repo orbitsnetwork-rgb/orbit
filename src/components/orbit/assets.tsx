@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Page } from "@/components/orbit/more";
 import type { Tab } from "@/components/orbit/pages";
 import { sparkWord, spk } from "@/lib/orbit/copy";
-import { activeCreation, CONFIRM_NEED, DAY_MS, holdBonus, ORBIT_CAP, type Account, type World } from "@/lib/orbit/engine";
+import { activeCreation, CONFIRM_NEED, DAY_MS, holdBonus, ORBIT_CAP, type Account, type World, walletSplit } from "@/lib/orbit/engine";
 import { no } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { useOrbits } from "@/lib/orbit/store";
@@ -31,6 +31,7 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
   const queued = new Map(world.queue.map((row, index) => [row.orbitId, index]));
   const listed = mine.filter((orbit) => queued.has(orbit.id)).length;
   const value = mine.length * world.price;
+  const split = walletSplit(user);
   const show = (text: string) => (hidden ? MASK : text);
 
   return (
@@ -51,6 +52,11 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
           <div><span>У черзі</span><b>{listed}</b></div>
           <div><span>За ціною дня</span><b>{show(spk(value))}</b></div>
         </div>
+        <div className="as-split as-wallet" aria-label="Склад балансу">
+          <div><span>Поповнено</span><b>{show(spk(split.toppedUp))}</b></div>
+          <div><span>Зароблено</span><b>{show(spk(split.earned))}</b></div>
+        </div>
+        <p className="orbit-note as-small">«Поповнено» — частина балансу з тестових поповнень; купівля списує спершу її. Виводу немає.</p>
         {user.starterPending ? <p className="orbit-note as-small as-pending">Ще {fmt.format(user.starterPending)} ✦ стартових — після першого внеску: успішного підтвердження або власної орбіти.</p> : null}
         <p className="orbit-note as-small">Оцінка — кількість орбіт × ціна дня. Це не гроші і не обіцянка продажу.</p>
       </section>

@@ -39,6 +39,11 @@ export type Account = {
   stabilityDay?: string;
   /** Б5: стартові ✦, що чекають першого внеску (успішне підтвердження або власна орбіта). */
   starterPending?: number;
+  /**
+   * Частина балансу з реальних (тестових) поповнень — окремо від зароблених ✦. Купівля списує спершу її.
+   * Основа для можливого майбутнього обмеженого виводу саме цієї частини. Вивід НЕ ввімкнено.
+   */
+  toppedUp?: number;
   impulseUntil: number;
   lastActiveAt: number;
 };
@@ -481,6 +486,7 @@ export function buyOldest(world: World): Step {
   next = patchAccount(next, buyer.id, (account) => ({
     ...account,
     balance: account.balance - price,
+    toppedUp: Math.max(0, (account.toppedUp ?? 0) - price),
     stability: frozen ? account.stability : account.stability + STABILITY_BUY,
     lastActiveAt: next.now,
   }));
@@ -495,6 +501,12 @@ export function skip(world: World, ms: number): World {
 }
 
 /** Середній добовий оборот за вікно ціни (7 попередніх діб). */
+/** Скільки з балансу — поповнене (не більше за баланс) і скільки зароблене. */
+export function walletSplit(account: Account) {
+  const toppedUp = Math.min(Math.max(0, account.toppedUp ?? 0), Math.max(0, account.balance));
+  return { toppedUp, earned: Math.max(0, account.balance - toppedUp) };
+}
+
 export function turnoverPrev(world: World) {
   return Math.round(turnoverWindow(world) / PRICE_WINDOW_DAYS);
 }

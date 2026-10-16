@@ -1,5 +1,7 @@
-import { ArrowLeftRight, Hexagon, Orbit, UserRound, Waves } from "lucide-react";
+import { ArrowLeftRight, FileText, Hexagon, LayoutGrid, Orbit, UserRound, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
+import { Pages, Row, type Route } from "@/components/orbit/more";
+import type { DocId } from "@/lib/orbit/docs";
 import { useEffect, useRef, useState } from "react";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
 import {
@@ -18,7 +20,6 @@ import {
 import { bootOrbits, deviceKeys, useOrbits } from "@/lib/orbit/store";
 
 type Tab = "home" | "market" | "mine" | "flow" | "me";
-type Sheet = "rules" | "terms" | "refund" | "contact" | null;
 
 const TABS: { id: Tab; key: "home" | "market" | "mine" | "flow" | "me"; icon: typeof Orbit }[] = [
   { id: "home", key: "home", icon: Orbit },
@@ -86,7 +87,7 @@ export function OrbitApp() {
   const ready = useOrbits((state) => state.ready);
   const lang = useLang();
   const [tab, setTab] = useState<Tab>("home");
-  const [sheet, setSheet] = useState<Sheet>(null);
+  const nav = useStack();
 
   useEffect(() => {
     bootOrbits();
@@ -115,16 +116,19 @@ export function OrbitApp() {
               <div className="text-sm">{user.name}</div>
             </div>
           </div>
-          <div className="text-right">
+          <div className="mo-top-right">
             <div className="orbit-od">{spk(user.balance)}</div>
+            <button type="button" className="mo-icon" aria-label="Ще" aria-haspopup="dialog" onClick={() => nav.open("more")}>
+              <LayoutGrid size={18} strokeWidth={1.5} />
+            </button>
           </div>
         </header>
         {tab === "home" ? <Home world={world} user={user} onMine={() => setTab("mine")} /> : null}
         {tab === "market" ? <Exchange world={world} user={user} /> : null}
         {tab === "mine" ? <Mine world={world} user={user} /> : null}
         {tab === "flow" ? <Flow world={world} user={user} /> : null}
-        {tab === "me" ? <Person world={world} user={user} onSheet={setSheet} /> : null}
-        {sheet ? <Docs sheet={sheet} onClose={() => setSheet(null)} /> : null}
+        {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
+        <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} />
       </div>
       <Toast text={flash} bad={bad} event={world.log[0]?.text ?? ""} />
       <nav className="orbit-nav" aria-label="Розділи">
@@ -169,7 +173,7 @@ function Gate({
   const [birth, setBirth] = useState("");
   const [key, setKey] = useState("");
   const [oldName, setOldName] = useState("");
-  const [sheet, setSheet] = useState<Sheet>(null);
+  const nav = useStack();
   const [haveKey, setHaveKey] = useState(false);
   const old = world.accounts.find((account) => account.name.toLowerCase() === oldName.trim().toLowerCase());
   const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -211,8 +215,8 @@ function Gate({
             {haveKey ? "Нова людина" : "Вже є ключ"}
           </button>
         </form>
-        <DocsRow onSheet={setSheet} />
-        {sheet ? <Docs sheet={sheet} onClose={() => setSheet(null)} /> : null}
+        <DocsRow onOpen={nav.open} />
+        <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} />
       </main>
     </div>
   );
@@ -238,68 +242,35 @@ function MailGate() {
   );
 }
 
-function DocsRow({ onSheet }: { onSheet: (sheet: Sheet) => void }) {
-  return (
-    <div className="orbit-docs">
-      <button type="button" className="orbit-quiet" onClick={() => onSheet("rules")}>Правила</button>
-      <button type="button" className="orbit-quiet" onClick={() => onSheet("terms")}>Умови</button>
-      <button type="button" className="orbit-quiet" onClick={() => onSheet("refund")}>Повернення</button>
-      <button type="button" className="orbit-quiet" onClick={() => onSheet("contact")}>Контакт</button>
-    </div>
-  );
+/** Стек повноекранних сторінок (Ще → Документи → документ). */
+function useStack() {
+  const [stack, setStack] = useState<Route[]>([]);
+  return {
+    stack,
+    open: (route: Route) => setStack([route]),
+    push: (route: Route) => setStack((rows) => [...rows, route]),
+    pop: () => setStack((rows) => rows.slice(0, -1)),
+    replace: (route: Route) => setStack((rows) => [...rows.slice(0, -1), route]),
+    close: () => setStack([]),
+  };
 }
 
-function Docs({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: () => void }) {
-  const pages = {
-    rules: {
-      title: "Правила",
-      lines: [
-        "8 000 000 орбіт. Усі рівні. Ціна одна.",
-        "Нова ціна о 00:00 UTC.",
-        "Фонд ділиться раз на 3 доби.",
-        "70% активним за 3 доби. 30% за стабільністю.",
-        "Утримання 7 / 14 / 30 діб додає 10% / 25% / 50%.",
-        "Іскра ✦ — внутрішня одиниця світу. Не гроші.",
-        "Обмін: іскри на орбіти за ціною дня, всередині додатка.",
-      ],
-    },
-    terms: {
-      title: "Умови",
-      lines: [
-        "Орбіти — закритий світ. Іскри ✦ не виводяться і не переказуються як гроші.",
-        "Іскри — внутрішня одиниця для обміну на орбіти. Це не гроші і не валюта.",
-        "Ключ лишається на телефоні. Втратив — напиши на пошту.",
-        "Торгівля орбітами йде лише всередині додатка.",
-        "Зараз тестовий режим.",
-      ],
-    },
-    refund: {
-      title: "Повернення",
-      lines: [
-        "Зараз тестовий режим: справжні гроші не списуються.",
-        "Тестові іскри ✦ не мають грошової вартості.",
-        "Правила повернення з’являться разом зі справжньою оплатою.",
-        "Питання — на orbits.network@gmail.com.",
-      ],
-    },
-    contact: {
-      title: "Контакт",
-      lines: ["orbits.network@gmail.com", "Сайт: orbits-yw58.netlify.app", "Відповідь протягом 2 діб."],
-    },
-  } as const;
-  const page = pages[sheet];
+const QUICK_DOCS: { id: DocId; label: string }[] = [
+  { id: "rules", label: "Правила" },
+  { id: "terms", label: "Умови" },
+  { id: "privacy", label: "Приватність" },
+  { id: "risk", label: "Ризики" },
+];
+
+function DocsRow({ onOpen }: { onOpen: (route: Route) => void }) {
   return (
-    <div className="orbit-sheet" role="dialog" aria-modal="true" aria-label={page.title}>
-      <header className="orbit-sheet-top">
-        <button type="button" className="orbit-quiet" onClick={onClose}>← Назад</button>
-      </header>
-      <div className="orbit-sheet-body">
-        <h1 className="orbit-h">{page.title}</h1>
-        {page.lines.map((line) => (
-          <p key={line} className="orbit-sheet-line">{line}</p>
-        ))}
-      </div>
-      <button type="button" className="orbit-go" onClick={onClose}>Закрити</button>
+    <div className="orbit-docs">
+      {QUICK_DOCS.map((item) => (
+        <button key={item.id} type="button" className="orbit-quiet" onClick={() => onOpen(`doc:${item.id}`)}>
+          {item.label}
+        </button>
+      ))}
+      <button type="button" className="orbit-quiet" onClick={() => onOpen("docs")}>Усі документи</button>
     </div>
   );
 }
@@ -639,7 +610,7 @@ function Flow({ world, user }: { world: World; user: Account }) {
   );
 }
 
-function Person({ world, user, onSheet }: { world: World; user: Account; onSheet: (sheet: Sheet) => void }) {
+function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: (route: Route) => void }) {
   const lang = useLang();
   const [other, setOther] = useState("");
   const [pass, setPass] = useState("");
@@ -738,10 +709,15 @@ function Person({ world, user, onSheet }: { world: World; user: Account; onSheet
         </form>
       </section>
       <section className="orbit-block">
+        <div className="mo-card">
+          <Row icon={<LayoutGrid size={18} strokeWidth={1.5} />} title="Ще" sub="Усі розділи" onClick={() => onOpen("more")} />
+          <Row icon={<FileText size={18} strokeWidth={1.5} />} title="Документи" sub="Правила, умови, приватність" onClick={() => onOpen("docs")} />
+        </div>
+      </section>
+      <section className="orbit-block">
         <p className="orbit-kicker">Налаштування</p>
         <LangRow lang={lang} />
         <SoundRow lang={lang} />
-        <DocsRow onSheet={onSheet} />
         <button
           type="button"
           className="orbit-quiet"

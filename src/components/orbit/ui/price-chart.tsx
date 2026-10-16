@@ -102,8 +102,12 @@ export function PriceChart({ trades, price, now, initial = "7d" }: { trades: Tra
             <small>Ціна дня тримається: {fmt.format(price)} ✦</small>
           </div>
         ) : null}
-        <span className="pc-hi" aria-hidden>{fmt.format(Math.round(top))}</span>
-        <span className="pc-lo" aria-hidden>{fmt.format(Math.max(0, Math.round(bottom)))}</span>
+        {!flat && !empty ? (
+          <>
+            <span className="pc-hi" aria-hidden>{fmt.format(hi)}</span>
+            <span className="pc-lo" aria-hidden>{fmt.format(lo)}</span>
+          </>
+        ) : null}
       </div>
       <div className="pc-axis" aria-hidden>
         <span>{stamp(from, range)}</span>

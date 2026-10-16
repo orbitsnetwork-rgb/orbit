@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+import { ArrowLeftRight, Coins, CreditCard, Landmark, ListOrdered, Orbit as OrbitIcon, ShoppingCart, Tag, Users, Wallet } from "lucide-react";
+import { ago } from "@/lib/orbit/inbox";
+import { dayDelta, perDay } from "@/lib/orbit/series";
+import { PriceChart } from "@/components/orbit/ui/price-chart";
+import { Avatar, Change, Empty, Progress, Segmented, Sparkline, Stat } from "@/components/orbit/ui/kit";
 import { sparks, spk } from "@/lib/orbit/copy";
 import { DAY_MS, ORBIT_CAP, SELLER_SHARE, utcDay, type Account, type World } from "@/lib/orbit/engine";
 import { useOrbits } from "@/lib/orbit/store";
@@ -10,7 +15,7 @@ function no(id: number) {
 }
 
 function clock(ms: number) {
-  return new Intl.DateTimeFormat("uk-UA", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short", timeZone: "UTC" }).format(ms);
+  return new Intl.DateTimeFormat("uk-UA", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short", timeZone: "Europe/Kyiv" }).format(ms);
 }
 
 function dayLabel(day: string) {
@@ -19,26 +24,27 @@ function dayLabel(day: string) {
 
 type Confirm = { kind: "buy" } | { kind: "sell"; orbitId: number } | null;
 
+type Panel = "book" | "trades" | "mine";
+
 /** Біржовий екран. Усе — з існуючої механіки: черга, ціна дня, «купити найстарішу». */
 export function Exchange({ world, user }: { world: World; user: Account }) {
   const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
+  const [panel, setPanel] = useState<Panel>("book");
   const oldest = world.queue[0];
   const canBuy = Boolean(oldest && oldest.userId !== user.id);
-  const loose = world.orbits.filter((orbit) => orbit.ownerId === user.id && !world.queue.some((row) => row.orbitId === orbit.id));
+  const listedIds = new Set(world.queue.map((row) => row.orbitId));
+  const mineAll = world.orbits.filter((orbit) => orbit.ownerId === user.id);
+  const loose = mineAll.filter((orbit) => !listedIds.has(orbit.id));
+  const myListings = world.queue.map((row, index) => ({ row, index })).filter(({ row }) => row.userId === user.id);
   const dayAgo = world.now - DAY_MS;
   const recent = world.trades.filter((trade) => trade.at >= dayAgo);
   const volume = recent.reduce((sum, trade) => sum + trade.amount, 0);
   const issued = world.orbits.length;
   const supplyPct = (issued / ORBIT_CAP) * 100;
-
-  // Історія ціни: ціна кожної угоди = ціна дня в момент угоди. Групуємо по добах (UTC).
-  const byDay = new Map<string, number>();
-  for (const trade of world.trades) byDay.set(utcDay(trade.at), trade.amount);
-  const points = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-14);
-  const prevDay = points.length >= 1 ? points[points.length - 1][1] : null;
-  const change = prevDay && prevDay !== world.price ? ((world.price - prevDay) / prevDay) * 100 : 0;
+  const deals = perDay(world.trades.map((trade) => trade.at), world.now);
+  const listed = perDay(world.queue.map((row) => row.createdAt), world.now);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -51,103 +57,138 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
   }
 
   return (
-    <div className="orbit-stack">
-      <section className="orbit-block">
-        <div className="ex-head">
+    <div className="orbit-stack ex">
+      <section className="orbit-block ex-main" aria-labelledby="ex-pair">
+        <div className="ex-pair">
+          <span className="ex-coin" aria-hidden><OrbitIcon size={20} strokeWidth={1.8} /></span>
           <div>
-            <p className="orbit-kicker">Обмін · ✦ / орбіта</p>
-            <p className="orbit-price">{fmt.format(world.price)}</p>
-            <p className="orbit-unit">✦ ціна дня</p>
+            <h2 id="ex-pair">Орбіта <span>/ ✦</span></h2>
+            <p>Ціна дня · одна для всіх · {dayLabel(utcDay(world.now))}</p>
           </div>
-          <span className="ex-chg" data-dir={change > 0 ? "up" : change < 0 ? "down" : "flat"}>
-            {change === 0 ? "0%" : `${change > 0 ? "+" : ""}${change.toFixed(1)}%`}
-          </span>
+          <span className="hm-test">Тест</span>
         </div>
-        <Chart points={points} price={world.price} />
-        <div className="orbit-stats">
-          <div><b>{recent.length}</b><span>угод 24г</span></div>
-          <div><b>{fmt.format(volume)}</b><span>обсяг ✦</span></div>
-          <div><b>{world.queue.length}</b><span>у черзі</span></div>
-          <div><b>{loose.length}</b><span>твої вільні</span></div>
-        </div>
-        <div className="ex-supply">
-          <div className="ex-supply-row">
-            <span className="orbit-kicker">Випуск</span>
-            <span><b>{fmt.format(issued)}</b> / {fmt.format(ORBIT_CAP)}</span>
-          </div>
-          <div className="ex-bar"><i style={{ width: `${Math.max(supplyPct, issued > 0 ? 0.6 : 0)}%` }} /></div>
-          <p className="orbit-note">Орбіти видобувають люди: 8 підтверджень і заряд. Ліміт не змінюється.</p>
-        </div>
+        <PriceChart trades={world.trades} price={world.price} now={world.now} />
         {pendingMail ? (
           <p className="orbit-note">Спочатку підтвердь пошту на вкладці «Ціна».</p>
         ) : (
           <div className="ex-actions">
             <button type="button" className="ex-buy" disabled={!canBuy || busy} onClick={() => setConfirm({ kind: "buy" })}>
-              Купити
+              <span><ShoppingCart size={18} strokeWidth={2} aria-hidden /> Купити</span>
               <small>{canBuy ? spk(world.price) : oldest ? "перша твоя" : "черга порожня"}</small>
             </button>
             <button type="button" className="ex-sell" disabled={loose.length === 0 || busy} onClick={() => loose[0] && setConfirm({ kind: "sell", orbitId: loose[0].id })}>
-              Продати
+              <span><Tag size={18} strokeWidth={2} aria-hidden /> Продати</span>
               <small>{loose.length > 0 ? no(loose[0].id) : "немає вільних"}</small>
             </button>
           </div>
         )}
       </section>
 
-      <section className="orbit-block">
+      <div className="k-grid2">
+        <Stat icon={<ArrowLeftRight size={16} strokeWidth={2} />} tone="ion" value={fmt.format(recent.length)} label="угод за 24 год" foot={<Sparkline values={deals} tone="ion" width={120} height={22} />} />
+        <Stat icon={<Coins size={16} strokeWidth={2} />} value={`${fmt.format(volume)} ✦`} label="обсяг за 24 год" foot={<Change abs={dayDelta(deals)} suffix="угод до вчора" />} />
+        <Stat icon={<ListOrdered size={16} strokeWidth={2} />} tone="nebula" value={fmt.format(world.queue.length)} label="орбіт у черзі" foot={<Sparkline values={listed} tone="nebula" width={120} height={22} />} />
+        <Stat icon={<Wallet size={16} strokeWidth={2} />} tone="aurora" value={`${fmt.format(loose.length)} / ${fmt.format(mineAll.length)}`} label="твої вільні / усі" foot={<span className="ex-foot">{myListings.length ? `у черзі: ${myListings.length}` : "у черзі: немає"}</span>} />
+      </div>
+
+      <section className="orbit-block ex-supply" aria-labelledby="ex-supply-title">
         <div className="ex-supply-row">
-          <p className="orbit-kicker">Черга продажу</p>
-          <span className="orbit-note">купують з першої</span>
+          <h2 id="ex-supply-title" className="ex-h">Випуск орбіт</h2>
+          <span><b>{fmt.format(issued)}</b> / {fmt.format(ORBIT_CAP)}</span>
         </div>
-        {world.queue.length === 0 ? (
-          <p className="orbit-empty">Черга 0 · виставити орбіту може кожен власник</p>
-        ) : (
-          <div className="ex-book">
-            {world.queue.slice(0, 12).map((row, index) => {
-              const owner = world.accounts.find((account) => account.id === row.userId)?.name ?? "хтось";
-              const mine = row.userId === user.id;
-              return (
-                <div key={row.id} className="ex-book-row" data-first={index === 0 ? "1" : "0"}>
-                  <span className="ex-pos">{index + 1}</span>
-                  <span>{no(row.orbitId)}</span>
-                  <span className="ex-owner">{mine ? "ти" : owner}</span>
-                  <span className="ex-px">{fmt.format(world.price)} ✦</span>
-                  {mine && index > 0 ? (
-                    <button type="button" className="orbit-quiet" onClick={() => useOrbits.getState().cancel(row.orbitId)}>Зняти</button>
-                  ) : null}
-                </div>
-              );
-            })}
-            {world.queue.length > 12 ? <p className="orbit-note">І ще {world.queue.length - 12}</p> : null}
-          </div>
-        )}
-        {loose.length > 1 && !pendingMail ? (
-          <div className="orbit-chips">
-            {loose.slice(0, 6).map((orbit) => (
-              <button key={orbit.id} type="button" className="orbit-chip" onClick={() => setConfirm({ kind: "sell", orbitId: orbit.id })}>
-                Продати {no(orbit.id)}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <Progress value={issued} max={ORBIT_CAP} label="Випущено орбіт з ліміту" />
+        <p className="orbit-note">Випущено {supplyPct < 0.01 ? "<0,01" : supplyPct.toFixed(2).replace(".", ",")}%. Орбіти видобувають люди: 8 підтверджень і 24 год заряду. Ліміт не змінюється.</p>
       </section>
 
-      <section className="orbit-block">
-        <p className="orbit-kicker">Останні угоди</p>
-        {world.trades.length === 0 ? (
-          <p className="orbit-empty">Угод ще не було · перша з’явиться тут</p>
-        ) : (
-          world.trades
-            .slice(-8)
-            .reverse()
-            .map((trade, index) => (
-              <div key={`${trade.at}-${trade.orbitId}-${index}`} className="orbit-row">
-                <span>{no(trade.orbitId)}</span>
-                <span className="orbit-note">{clock(trade.at)} UTC</span>
-                <span>{spk(trade.amount)}</span>
-              </div>
-            ))
-        )}
+      <section className="orbit-block ex-panels" aria-label="Черга, угоди, мої">
+        <Segmented
+          label="Розділ обміну"
+          value={panel}
+          onChange={setPanel}
+          options={[
+            { id: "book", label: `Черга · ${world.queue.length}` },
+            { id: "trades", label: "Угоди" },
+            { id: "mine", label: `Мої · ${mineAll.length}` },
+          ]}
+        />
+        {panel === "book" ? (
+          world.queue.length === 0 ? (
+            <Empty icon={<ListOrdered size={20} strokeWidth={1.6} />} title="Черга порожня" text="Виставити орбіту на продаж може кожен власник. Купують завжди першу." />
+          ) : (
+            <>
+              <p className="ex-hint">Купують завжди першу в черзі за ціною дня.</p>
+              <ol className="ex-book">
+                {world.queue.slice(0, 12).map((row, index) => {
+                  const owner = world.accounts.find((account) => account.id === row.userId);
+                  const mine = row.userId === user.id;
+                  return (
+                    <li key={row.id} className="ex-book-row" data-first={index === 0 ? "1" : "0"} data-mine={mine ? "1" : "0"}>
+                      <span className="ex-pos">{index + 1}</span>
+                      <Avatar id={row.userId} name={owner?.name ?? "?"} size={30} me={mine} />
+                      <span className="ex-who">
+                        <b>{no(row.orbitId)}</b>
+                        <small>{mine ? "ти" : owner?.name ?? "хтось"} · {ago(row.createdAt, world.now)}</small>
+                      </span>
+                      {index === 0 ? <span className="ex-next">наступна</span> : null}
+                      <span className="ex-px">{fmt.format(world.price)} ✦</span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {world.queue.length > 12 ? <p className="orbit-note">І ще {world.queue.length - 12}</p> : null}
+            </>
+          )
+        ) : null}
+        {panel === "trades" ? (
+          world.trades.length === 0 ? (
+            <Empty icon={<ArrowLeftRight size={20} strokeWidth={1.6} />} title="Угод ще не було" text="Перша угода з’явиться тут одразу після купівлі." />
+          ) : (
+            <ul className="ex-trades">
+              {world.trades
+                .slice(-12)
+                .reverse()
+                .map((trade, index) => (
+                  <li key={`${trade.at}-${trade.orbitId}-${index}`}>
+                    <span className="ex-trade-ico" aria-hidden><ArrowLeftRight size={14} strokeWidth={2} /></span>
+                    <span className="ex-who">
+                      <b>{no(trade.orbitId)}</b>
+                      <small>{clock(trade.at)}</small>
+                    </span>
+                    <span className="ex-px">{spk(trade.amount)}</span>
+                  </li>
+                ))}
+            </ul>
+          )
+        ) : null}
+        {panel === "mine" ? (
+          mineAll.length === 0 ? (
+            <Empty icon={<OrbitIcon size={20} strokeWidth={1.6} />} title="У тебе ще немає орбіт" text="Купи першу з черги або запусти власну на вкладці «Заявка»." />
+          ) : (
+            <ul className="ex-trades">
+              {mineAll.map((orbit) => {
+                const at = myListings.find(({ row }) => row.orbitId === orbit.id);
+                return (
+                  <li key={orbit.id}>
+                    <span className="ex-trade-ico" data-on={at ? "1" : "0"} aria-hidden><OrbitIcon size={14} strokeWidth={2} /></span>
+                    <span className="ex-who">
+                      <b>{no(orbit.id)}</b>
+                      <small>{at ? `у черзі, місце ${at.index + 1}` : `тримаєш ${Math.max(0, Math.floor((world.now - orbit.createdAt) / DAY_MS))} д`}</small>
+                    </span>
+                    {at ? (
+                      at.index > 0 ? (
+                        <button type="button" className="k-ghost ex-mini" onClick={() => useOrbits.getState().cancel(orbit.id)}>Зняти</button>
+                      ) : (
+                        <span className="ex-next">купують наступною</span>
+                      )
+                    ) : (
+                      <button type="button" className="k-tonal ex-mini" disabled={pendingMail} onClick={() => setConfirm({ kind: "sell", orbitId: orbit.id })}>Продати</button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : null}
       </section>
 
       <Soon />
@@ -163,45 +204,6 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
           onSell={(orbitId) => run(() => useOrbits.getState().list(orbitId))}
         />
       ) : null}
-    </div>
-  );
-}
-
-function Chart({ points, price }: { points: [string, number][]; price: number }) {
-  if (points.length < 2) {
-    return (
-      <div className="ex-chart ex-chart-empty">
-        <span>Графік з’явиться після угод у різні дні</span>
-      </div>
-    );
-  }
-  const values = [...points.map((row) => row[1]), price];
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
-  const span = hi - lo || 1;
-  const width = 320;
-  const height = 110;
-  const step = width / (points.length - 1);
-  const flat = hi === lo;
-  const xy = points.map(([, value], index) => [index * step, flat ? height / 2 : height - 10 - ((value - lo) / span) * (height - 20)] as const);
-  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  return (
-    <div className="ex-chart">
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Ціна за днями">
-        <defs>
-          <linearGradient id="ex-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor="#d7a15a" stopOpacity="0.35" />
-            <stop offset="1" stopColor="#d7a15a" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon points={`0,${height} ${line} ${width},${height}`} fill="url(#ex-fill)" />
-        <polyline points={line} fill="none" stroke="#d7a15a" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="ex-chart-axis">
-        <span>{dayLabel(points[0][0])}</span>
-        <span>{flat ? `${fmt.format(lo)} ✦ стабільно` : `${fmt.format(lo)}–${fmt.format(hi)} ✦`}</span>
-        <span>{dayLabel(points[points.length - 1][0])}</span>
-      </div>
     </div>
   );
 }
@@ -247,8 +249,8 @@ function ConfirmSheet({
             <div><span>Стабільність</span><b>+1</b></div>
           </div>
           <p className="orbit-note">Ціна одна для всіх і міняється о 00:00 UTC. Тестовий режим.</p>
-          <button type="button" className="orbit-go" disabled={busy || short || !oldest} onClick={onBuy}>
-            {busy ? "…" : `Купити за ${spk(price)}`}
+          <button type="button" className="orbit-go k-go" disabled={busy || short || !oldest} onClick={onBuy}>
+            {busy ? <><span className="k-spin" aria-hidden /> Купуємо…</> : `Купити за ${spk(price)}`}
           </button>
           <button type="button" className="orbit-quiet" onClick={onClose}>Скасувати</button>
         </div>
@@ -270,8 +272,8 @@ function ConfirmSheet({
         <p className="orbit-note">
           Іскри прийдуть, коли орбіту куплять. Продаж іде за ціною дня в момент купівлі: {Math.round(SELLER_SHARE * 100)}% тобі, решта — у фонд і резерв. Поки орбіта не перша, її можна зняти.
         </p>
-        <button type="button" className="orbit-go" disabled={busy} onClick={() => onSell(confirm.orbitId)}>
-          {busy ? "…" : "Поставити в чергу"}
+        <button type="button" className="orbit-go k-go" disabled={busy} onClick={() => onSell(confirm.orbitId)}>
+          {busy ? <><span className="k-spin" aria-hidden /> Ставимо…</> : "Поставити в чергу"}
         </button>
         <button type="button" className="orbit-quiet" onClick={onClose}>Скасувати</button>
       </div>
@@ -280,26 +282,26 @@ function ConfirmSheet({
 }
 
 const SOON = [
-  { title: "Ввід гривні", text: "Купівля іскор за гривні. Зараз лише тестове поповнення." },
-  { title: "Вивід на картку", text: "Після юридичної перевірки. Без обіцянок доходу." },
-  { title: "Обмін P2P", text: "Власна ціна в оголошенні, угоди між людьми." },
+  { title: "Ввід гривні", text: "Купівля іскор за гривні. Зараз лише тестове поповнення.", icon: <Landmark size={18} strokeWidth={1.8} /> },
+  { title: "Вивід на картку", text: "Після юридичної перевірки. Без обіцянок доходу.", icon: <CreditCard size={18} strokeWidth={1.8} /> },
+  { title: "Обмін P2P", text: "Власна ціна в оголошенні, угоди між людьми.", icon: <Users size={18} strokeWidth={1.8} /> },
 ];
 
 /** «Скоро»: чесна дорожня карта. Без функцій, без дат. */
 export function Soon() {
   return (
-    <section className="ex-soon" aria-label="Скоро">
-      <p className="orbit-kicker">Скоро</p>
+    <section className="ex-soon orbit-block" aria-labelledby="ex-soon-title">
+      <h2 id="ex-soon-title" className="ex-h">Скоро</h2>
       {SOON.map((item) => (
         <div key={item.title} className="ex-soon-row">
+          <span className="ex-soon-ico" aria-hidden>{item.icon}</span>
           <div>
             <b>{item.title}</b>
             <p className="orbit-note">{item.text}</p>
           </div>
-          <button type="button" className="ex-soon-btn" disabled aria-disabled="true">У розробці</button>
+          <span className="k-soon">У розробці</span>
         </div>
       ))}
     </section>
   );
 }
-

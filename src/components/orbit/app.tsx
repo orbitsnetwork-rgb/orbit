@@ -29,8 +29,11 @@ import { KeyScreen, useLeave } from "@/components/orbit/key";
 import { CodeShare } from "@/components/orbit/code-share";
 import { ChargeResult, markSeen, unseenOutcome } from "@/components/orbit/charge-result";
 import { Satellites } from "@/components/orbit/space/satellites";
+import { Starfield } from "@/components/orbit/space/starfield";
+import { OrbitRings } from "@/components/orbit/space/orbit-rings";
+import { useCountUp } from "@/lib/orbit/count-up";
 import { catchInvite, dropInvite, INVITE_EVENT, readInvite } from "@/lib/orbit/invite";
-import { buzz } from "@/lib/orbit/feel";
+import { buzz, VIBRATE } from "@/lib/orbit/feel";
 
 type Tab = "home" | "market" | "mine" | "flow" | "me";
 
@@ -106,6 +109,16 @@ export function OrbitApp() {
   const [, bumpSeen] = useState(0);
 
   useEffect(() => {
+    // Короткий відгук на натискання основних кнопок (Android; iOS не вміє — пропускаємо).
+    const onDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target.closest("button") : null;
+      if (target && !target.disabled && target.matches(".orbit-go, .ky-go, .cs-share, .orbit-nav button")) buzz(target.matches(".orbit-nav button") ? 6 : 8);
+    };
+    document.addEventListener("pointerdown", onDown, { passive: true });
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, []);
+
+  useEffect(() => {
     catchInvite();
     bootOrbits();
     const session = new URLSearchParams(window.location.search).get("topup");
@@ -172,6 +185,7 @@ export function OrbitApp() {
 
   return (
     <div className="orbit-app">
+      <Starfield />
       {outcome ? (
         <ChargeResult
           key={outcome.creation.id}
@@ -198,9 +212,7 @@ export function OrbitApp() {
             </div>
           </div>
           <div className="mo-top-right">
-            <button type="button" className="orbit-od" aria-label={hidden ? "Баланс приховано. Відкрити активи" : `Баланс ${spk(user.balance)}. Відкрити активи`} onClick={() => nav.open("assets")}>
-              {hidden ? `${MASK} ✦` : spk(user.balance)}
-            </button>
+            <TopBalance balance={user.balance} hidden={hidden} onOpen={() => nav.open("assets")} />
             <button type="button" className="mo-icon mo-bell" aria-label={inbox.unread ? `Сповіщення, нових ${inbox.unread}` : "Сповіщення"} aria-haspopup="dialog" onClick={() => nav.open("inbox")}>
               <Bell size={18} strokeWidth={1.5} />
               {inbox.unread ? <b aria-hidden>{inbox.unread > 9 ? "9+" : inbox.unread}</b> : null}
@@ -210,15 +222,18 @@ export function OrbitApp() {
             </button>
           </div>
         </header>
-        {tab === "home" ? <Home world={world} user={user} onMine={() => setTab("mine")} onOpen={nav.open} /> : null}
-        {tab === "market" ? <Exchange world={world} user={user} /> : null}
-        {tab === "mine" ? <Mine world={world} user={user} /> : null}
-        {tab === "flow" ? <Flow world={world} user={user} /> : null}
-        {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
+        <div key={tab} className="tab-in">
+          {tab === "home" ? <Home world={world} user={user} onMine={() => setTab("mine")} onOpen={nav.open} /> : null}
+          {tab === "market" ? <Exchange world={world} user={user} /> : null}
+          {tab === "mine" ? <Mine world={world} user={user} /> : null}
+          {tab === "flow" ? <Flow world={world} user={user} /> : null}
+          {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
+        </div>
         <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} world={world} user={user} onTab={setTab} unread={inbox.unread} />
       </div>
       <Toast text={flash} bad={bad} event={world.log[0]?.text ?? ""} />
-      <nav className="orbit-nav" aria-label="Розділи">
+      <nav className="orbit-nav" aria-label="Основна навігація" style={{ ["--i" as string]: TABS.findIndex((item) => item.id === tab) }}>
+        <span className="orbit-nav-dot" aria-hidden />
         {TABS.map((item) => {
           const Icon = item.icon;
           const on = tab === item.id;
@@ -231,6 +246,39 @@ export function OrbitApp() {
         })}
       </nav>
     </div>
+  );
+}
+
+/** Число, що «докручується» при зміні. */
+function CountUp({ value }: { value: number }) {
+  return <>{money.format(useCountUp(value))}</>;
+}
+
+/** Баланс у шапці: докручується і показує дельту «+40 ✦», коли змінюється. */
+function TopBalance({ balance, hidden, onOpen }: { balance: number; hidden: boolean; onOpen: () => void }) {
+  const shown = useCountUp(balance);
+  const prev = useRef(balance);
+  const [delta, setDelta] = useState<{ n: number; id: number } | null>(null);
+  useEffect(() => {
+    const d = balance - prev.current;
+    prev.current = balance;
+    if (!d) return;
+    setDelta({ n: d, id: Date.now() });
+    const id = window.setTimeout(() => setDelta(null), 1300);
+    return () => window.clearTimeout(id);
+  }, [balance]);
+  return (
+    <span className="orbit-od-wrap">
+      <button type="button" className="orbit-od" aria-label={hidden ? "Баланс приховано. Відкрити активи" : `Баланс ${spk(balance)}. Відкрити активи`} onClick={onOpen}>
+        {hidden ? `${MASK} ✦` : spk(shown)}
+      </button>
+      {delta && !hidden ? (
+        <span key={delta.id} className="orbit-delta" data-up={delta.n > 0 ? "1" : "0"} aria-hidden>
+          {delta.n > 0 ? "+" : "−"}
+          {money.format(Math.abs(delta.n))} ✦
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -276,6 +324,7 @@ function Gate({
   const readyForm = mailOk && given.trim().length >= 2 && family.trim().length >= 2 && phone.trim().length >= 10 && birth.length >= 10;
   return (
     <div className="orbit-app">
+      <Starfield />
       <main className="orbit-shell orbit-gate">
         <p className="orbit-kicker">{t(lang, "brand")}</p>
         <h1>{t(lang, "sub")}</h1>
@@ -500,9 +549,14 @@ function Home({ world, user, onMine, onOpen }: { world: World; user: Account; on
   }, [seenKey]);
   return (
     <section className="orbit-block">
-      <p className="orbit-kicker">Ціна · {when(world.now)}</p>
-      <p className="orbit-price">{money.format(world.price)}</p>
-      <p className="orbit-unit">✦ за орбіту</p>
+      <div className="hm-hero">
+        <OrbitRings />
+        <div className="hm-hero-num">
+          <p className="orbit-kicker">Ціна орбіти · {when(world.now)}</p>
+          <p className="orbit-price"><CountUp value={world.price} /></p>
+          <p className="orbit-unit">✦ за орбіту</p>
+        </div>
+      </div>
       <div className="orbit-stats">
         <div><b>{online}</b><span>онлайн</span></div>
         <div><b>{world.queue.length}</b><span>черга</span></div>
@@ -770,7 +824,7 @@ function Flow({ world, user }: { world: World; user: Account }) {
   return (
     <section className="orbit-block">
       <p className="orbit-kicker">Фонд</p>
-      <p className="orbit-price">{money.format(world.fund)}</p>
+      <p className="orbit-price"><CountUp value={world.fund} /></p>
       <p className="orbit-unit">{sparkWord(world.fund)} ✦</p>
       <div className="orbit-stats">
         <div><b>{left(due - wall)}</b><span>поділ</span></div>
@@ -827,7 +881,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
       </section>
       <section className="orbit-block">
         <p className="orbit-kicker">Баланс</p>
-        <p className="orbit-price">{hidden ? MASK : money.format(user.balance)}</p>
+        <p className="orbit-price">{hidden ? MASK : <CountUp value={user.balance} />}</p>
         <p className="orbit-unit">{hidden ? "приховано" : `${sparkWord(user.balance)} ✦`}</p>
         <TopupRow />
         <Soon />
@@ -906,6 +960,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
         <p className="orbit-kicker">Налаштування</p>
         <LangRow lang={lang} />
         <SoundRow lang={lang} />
+        <VibrateRow />
         <button
           type="button"
           className="orbit-quiet"
@@ -1015,6 +1070,41 @@ function SelfCard() {
     <p className="orbit-note">
       {self.given} {self.family}. {self.email}. {self.phone}. {self.birth}.
     </p>
+  );
+}
+
+function VibrateRow() {
+  const [on, setOn] = useState(true);
+  const [can, setCan] = useState(false);
+  useEffect(() => {
+    setCan(typeof navigator.vibrate === "function");
+    try {
+      setOn(localStorage.getItem(VIBRATE) !== "0");
+    } catch {
+      setOn(true);
+    }
+  }, []);
+  if (!can) return null;
+  return (
+    <div className="flex gap-3">
+      <button
+        type="button"
+        className="orbit-quiet"
+        aria-pressed={on}
+        onClick={() => {
+          const next = !on;
+          try {
+            localStorage.setItem(VIBRATE, next ? "1" : "0");
+          } catch {
+            /* приватний режим */
+          }
+          setOn(next);
+          if (next) buzz(10);
+        }}
+      >
+        Вібрація: {on ? "увімк" : "вимк"}
+      </button>
+    </div>
   );
 }
 

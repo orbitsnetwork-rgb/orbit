@@ -11,6 +11,21 @@ export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
 }
 
+/** Іконка-плитка біля заголовка сторінки: один стиль для всіх розділів. */
+const PAGE_ICON: Record<string, { icon: ReactNode; tone: string }> = {
+  Історія: { icon: <HistoryIcon size={22} strokeWidth={1.8} />, tone: "ion" },
+  Активи: { icon: <Wallet size={22} strokeWidth={1.8} />, tone: "sun" },
+  Безпека: { icon: <Shield size={22} strokeWidth={1.8} />, tone: "aurora" },
+  Довідка: { icon: <CircleHelp size={22} strokeWidth={1.8} />, tone: "aurora" },
+  Документи: { icon: <FileText size={22} strokeWidth={1.8} />, tone: "nebula" },
+  "Комісії і ліміти": { icon: <Percent size={22} strokeWidth={1.8} />, tone: "mars" },
+  Навчання: { icon: <GraduationCap size={22} strokeWidth={1.8} />, tone: "ion" },
+  "Оглядач орбіт": { icon: <Telescope size={22} strokeWidth={1.8} />, tone: "ion" },
+  Рейтинг: { icon: <Trophy size={22} strokeWidth={1.8} />, tone: "sun" },
+  Сповіщення: { icon: <Bell size={22} strokeWidth={1.8} />, tone: "nebula" },
+  "Стан системи": { icon: <Activity size={22} strokeWidth={1.8} />, tone: "aurora" },
+};
+
 /** Повноекранна сторінка: шапка «Назад», заголовок, фокус на заголовку, Escape — назад. */
 export function Page({
   title,
@@ -67,8 +82,13 @@ export function Page({
       </header>
       <div className="mo-body" ref={body}>
         <div className="mo-inner">
-          {kicker ? <p className="orbit-kicker">{kicker}</p> : null}
-          <h1 className="orbit-h mo-title" id={id} ref={head} tabIndex={-1}>{title}</h1>
+          <div className="mo-head" data-tone={PAGE_ICON[title]?.tone ?? "none"}>
+            {PAGE_ICON[title] ? <span className="mo-head-ico" aria-hidden>{PAGE_ICON[title].icon}</span> : null}
+            <div>
+              {kicker ? <p className="orbit-kicker">{kicker}</p> : null}
+              <h1 className="orbit-h mo-title" id={id} ref={head} tabIndex={-1}>{title}</h1>
+            </div>
+          </div>
           {children}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Page } from "@/components/orbit/more";
+import { Avatar } from "@/components/orbit/ui/kit";
 import { DAY_MS, type Account, type World } from "@/lib/orbit/engine";
 
 type Metric = "stability" | "orbits" | "hold";
@@ -53,7 +54,7 @@ export function Leaders({ world, user, onBack, onClose }: { world: World; user: 
             {[top[1], top[0], top[2]].map((row, index) =>
               row ? (
                 <li key={row.account.id} data-place={row.place} data-me={row.account.id === user.id ? "1" : "0"} style={{ order: index }}>
-                  <span className="lb-face" aria-hidden>{row.account.name.slice(0, 1).toUpperCase()}</span>
+                  <Avatar id={row.account.id} name={row.account.name} size={row.place === 1 ? 56 : 48} me={row.account.id === user.id} />
                   <b>{row.account.name}</b>
                   <small>{tab.unit(row.value)}</small>
                   <span className="lb-step"><span className="visually-hidden">Місце </span>{row.place}</span>
@@ -68,7 +69,7 @@ export function Leaders({ world, user, onBack, onClose }: { world: World; user: 
               {rest.map((row) => (
                 <li key={row.account.id} className="lb-row" data-me={row.account.id === user.id ? "1" : "0"}>
                   <span className="lb-place">{row.place}</span>
-                  <span className="lb-face" aria-hidden>{row.account.name.slice(0, 1).toUpperCase()}</span>
+                  <Avatar id={row.account.id} name={row.account.name} size={34} me={row.account.id === user.id} />
                   <b>{row.account.name}{row.account.id === user.id ? " · ти" : ""}</b>
                   <span className="lb-val">{tab.unit(row.value)}</span>
                 </li>

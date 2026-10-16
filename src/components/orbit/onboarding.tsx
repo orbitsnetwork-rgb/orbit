@@ -44,7 +44,7 @@ function Spark() {
   return (
     <div className="ob-art ob-art-spark" aria-hidden>
       <span className="ob-spark">✦</span>
-      <span className="ob-chip">+{STARTER_OD} ✦ на старт</span>
+      <span className="ob-chip">+{STARTER_OD} ✦ за перший внесок</span>
       <span className="ob-test">Тест</span>
     </div>
   );
@@ -87,7 +87,7 @@ const SLIDES = [
   {
     art: <Spark />,
     title: "Іскри ✦ — тестові одиниці",
-    body: `Іскрами купують орбіти, з них складається фонд. Зараз усе працює в тестовому режимі: іскри не є грошима і не виводяться. На старт — ${STARTER_OD} ✦.`,
+    body: `Іскрами купують орбіти, з них складається фонд. Зараз усе працює в тестовому режимі: іскри не є грошима і не виводяться. Стартові ${STARTER_OD} ✦ — після першого успішного підтвердження чужого запуску або власної орбіти.`,
   },
   {
     art: <Days />,

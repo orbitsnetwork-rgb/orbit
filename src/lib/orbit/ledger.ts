@@ -72,14 +72,16 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
   const since = events.length ? Math.min(...events.map((ev) => ev.at)) : Number.POSITIVE_INFINITY;
   const legacy = (at: number) => at < since;
 
-  rows.push({
+  // Б5: нові акаунти отримують стартові ✦ після першого внеску (подія starter); старі — одразу.
+  const starter = events.find((ev) => ev.t === "starter");
+  if (!user.starterPending) rows.push({
     id: `start-${user.id}`,
     kind: "bonus",
-    at: user.createdAt,
-    amount: STARTER_OD,
+    at: starter?.at ?? user.createdAt,
+    amount: starter?.amt ?? STARTER_OD,
     title: "Стартові іскри",
     source: "world",
-    lines: [["Звідки", "Подарунок на старті, один раз"]],
+    lines: [["Звідки", starter ? "За перший внесок, один раз" : "Подарунок на старті, один раз"]],
   });
 
   for (const ev of events) {

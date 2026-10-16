@@ -51,6 +51,7 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
           <div><span>У черзі</span><b>{listed}</b></div>
           <div><span>За ціною дня</span><b>{show(spk(value))}</b></div>
         </div>
+        {user.starterPending ? <p className="orbit-note as-small as-pending">Ще {fmt.format(user.starterPending)} ✦ стартових — після першого внеску: успішного підтвердження або власної орбіти.</p> : null}
         <p className="orbit-note as-small">Оцінка — кількість орбіт × ціна дня. Це не гроші і не обіцянка продажу.</p>
       </section>
 

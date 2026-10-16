@@ -975,6 +975,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
         </div>
         <p className="hm-bal">{hidden ? MASK : <CountUp value={user.balance} />}<span> ✦</span></p>
         <p className="hm-bal-sub">{hidden ? "приховано" : `${sparkWord(user.balance)} ✦ · тестові одиниці`}</p>
+        {user.starterPending ? <p className="hm-bal-sub pr-pending">+{user.starterPending} ✦ стартових — після першого внеску</p> : null}
         <div className="pr-bal-links">
           <button type="button" className="k-ghost" onClick={() => onOpen("history")}><HistoryIcon size={16} strokeWidth={1.8} aria-hidden /> Історія</button>
           <button type="button" className="k-ghost" onClick={() => onOpen("assets")}><Wallet size={16} strokeWidth={1.8} aria-hidden /> Активи</button>

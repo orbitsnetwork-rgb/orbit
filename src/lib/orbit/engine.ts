@@ -37,6 +37,8 @@ export type Account = {
   stabilityFromConfirmToday: number;
   /** Б4: окремий день для ліміту стабільності за підтвердження (раніше ділив поле confirmDay з лічильником кодів). */
   stabilityDay?: string;
+  /** Б5: стартові ✦, що чекають першого внеску (успішне підтвердження або власна орбіта). */
+  starterPending?: number;
   impulseUntil: number;
   lastActiveAt: number;
 };
@@ -139,6 +141,12 @@ function patchAccount(world: World, id: string, edit: (account: Account) => Acco
   return { ...world, accounts: world.accounts.map((account) => (account.id === id ? edit(account) : account)) };
 }
 
+/** Б5: перший внесок відкриває стартові ✦. */
+function vest(account: Account): Account {
+  const pending = account.starterPending ?? 0;
+  return pending > 0 ? { ...account, balance: account.balance + pending, starterPending: 0 } : account;
+}
+
 function touch(world: World, id: string): World {
   return patchAccount(world, id, (account) => ({ ...account, lastActiveAt: world.now }));
 }
@@ -183,6 +191,9 @@ function resolveCharges(world: World): World {
       };
       if (stillOpen) {
         next = patchAccount(next, creation.userId, (account) => ({ ...account, stability: account.stability + STABILITY_CREATE }));
+      }
+      next = patchAccount(next, creation.userId, vest);
+      if (stillOpen) {
         next = grantWitnesses(next, creation.confirms, STABILITY_CONFIRM);
       }
       next = note(next, `Заряд пройшов. Орбіта #${orbit.id} у ${nameOf(next, creation.userId)}. Шанс був ${Math.round(chance * 100)}%.`);
@@ -208,12 +219,13 @@ function grantWitnesses(world: World, confirms: Confirm[], delta: number): World
       const used = sameDay ? account.stabilityFromConfirmToday : 0;
       let add = delta;
       if (delta > 0) add = Math.max(0, Math.min(delta, STABILITY_CONFIRM_CAP - used));
+      const paid = delta > 0 ? vest(account) : account;
       return {
-        ...account,
+        ...paid,
         stability: Math.max(0, account.stability + add),
         stabilityDay: day,
         stabilityFromConfirmToday: delta > 0 ? used + add : used,
-        balance: account.balance + (delta > 0 ? WITNESS_OD : 0),
+        balance: paid.balance + (delta > 0 ? WITNESS_OD : 0),
       };
     });
   }
@@ -308,7 +320,8 @@ export function register(world: World, rawName: string): Step {
     id: `u-${base.now.toString(36)}-${base.accounts.length}`,
     name,
     stability: 0,
-    balance: STARTER_OD,
+    balance: 0,
+    starterPending: STARTER_OD,
     createdAt: base.now,
     confirmDay: "",
     confirmsToday: 0,
@@ -319,9 +332,9 @@ export function register(world: World, rawName: string): Step {
   };
   const next = note(
     { ...base, accounts: [...base.accounts, account], sessionId: account.id },
-    `${name} у системі. Стабільність 0. На рахунку ${STARTER_OD} ОД.`,
+    `${name} у системі. Стабільність 0. Стартові ${STARTER_OD} ОД — після першого внеску.`,
   );
-  return { world: next, notice: "Можна підтверджувати одразу. До стабільності 20 — один код на добу." };
+  return { world: next, notice: `Можна підтверджувати одразу. До стабільності 20 — один код на добу. Стартові ${STARTER_OD} ✦ — після першого успішного підтвердження або власної орбіти.` };
 }
 
 export function enter(world: World, id: string): Step {

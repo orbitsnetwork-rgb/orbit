@@ -3,7 +3,7 @@
  * Події виводимо з різниці «світ до → світ після» кожного запису документа, тож вони не залежать
  * від тексту спільного журналу й від імен (дві «Олена К.» більше не плутаються).
  */
-import { SELLER_SHARE, STARTER_OD, WITNESS_OD, utcDay, type World } from "@/lib/orbit/engine";
+import { SELLER_SHARE, WITNESS_OD, utcDay, type World } from "@/lib/orbit/engine";
 import type { Topup } from "@/lib/orbit/access";
 
 export type EvType =
@@ -22,6 +22,7 @@ export type EvType =
   | "cancel"
   | "fund"
   | "topup"
+  | "starter"
   | "thanksGot"
   | "thanksSent";
 
@@ -78,7 +79,13 @@ export function diffEvents(prev: World, next: World, prevTopups: Topup[] = [], n
   const out: [string, Ev][] = [];
   const at = next.now;
   const known = new Set(prev.accounts.map((account) => account.id));
-  for (const account of next.accounts) if (!known.has(account.id)) out.push([account.id, { t: "join", at: account.createdAt, amt: STARTER_OD }]);
+  for (const account of next.accounts) if (!known.has(account.id)) out.push([account.id, { t: "join", at: account.createdAt, amt: account.balance }]);
+  // Б5: стартові ✦ зараховано за перший внесок.
+  const pendingBefore = new Map(prev.accounts.map((account) => [account.id, account.starterPending ?? 0]));
+  for (const account of next.accounts) {
+    const was = pendingBefore.get(account.id) ?? 0;
+    if (was > 0 && !(account.starterPending ?? 0)) out.push([account.id, { t: "starter", at, amt: was }]);
+  }
 
   const before = new Map(prev.creations.map((item) => [item.id, item]));
   const oldOrbits = new Set(prev.orbits.map((orbit) => orbit.id));

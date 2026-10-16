@@ -198,7 +198,7 @@ export function project(world: World, selfId: string | null, people: Identity[] 
     accounts: world.accounts.map((account) =>
       account.id === selfId
         ? account
-        : { ...account, name: shown.get(account.id) ?? account.name, balance: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0, stabilityDay: "" },
+        : { ...account, name: shown.get(account.id) ?? account.name, balance: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0, stabilityDay: "", starterPending: 0 },
     ),
     creations: world.creations.map((item) =>
       item.userId === selfId ? item : { ...item, code: null, codeExpires: 0, codeDay: "", codesToday: 0 },

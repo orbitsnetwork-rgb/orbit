@@ -1,7 +1,7 @@
 /** Центр сповіщень: події журналу світу, позначки «прочитано» — лише на цьому телефоні. */
 import { useEffect, useState } from "react";
 import { sparkText } from "@/lib/orbit/copy";
-import type { Account, World } from "@/lib/orbit/engine";
+import { STARTER_OD, type Account, type World } from "@/lib/orbit/engine";
 import type { Ev } from "@/lib/orbit/social";
 import { useOrbits } from "@/lib/orbit/store";
 
@@ -51,7 +51,8 @@ export function eventText(ev: Ev, world: World): { text: string; topic: Topic } 
   const who = (id?: string) => world.accounts.find((account) => account.id === id)?.name ?? "учасник";
   const sp = (n?: number) => `${Math.abs(n ?? 0)} ✦`;
   switch (ev.t) {
-    case "join": return { text: `Ти в Орбітах. Стартові ${sp(ev.amt)} на рахунку.`, topic: "me" };
+    case "join": return { text: ev.amt ? `Ти в Орбітах. Стартові ${sp(ev.amt)} на рахунку.` : `Ти в Орбітах. Стартові ${STARTER_OD} ✦ — після першого внеску.`, topic: "me" };
+    case "starter": return { text: `Стартові ${sp(ev.amt)} зараховано за перший внесок.`, topic: "me" };
     case "launch": return { text: "Ти відкрив заявку на орбіту.", topic: "charge" };
     case "confirmGiven": return { text: `Ти підтвердив запуск ${who(ev.other)} · ${ev.n} з 8.`, topic: "charge" };
     case "confirmed": return { text: `${who(ev.other)} підтвердив твій запуск · ${ev.n} з 8.`, topic: "charge" };

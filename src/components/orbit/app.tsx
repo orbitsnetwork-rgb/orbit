@@ -293,7 +293,7 @@ function CountUp({ value }: { value: number }) {
   return <>{money.format(useCountUp(value))}</>;
 }
 
-/** Баланс у шапці: докручується і показує дельту «+40 ✦», коли змінюється. */
+/** Баланс у шапці: докручується і показує дельту «+20 ✦», коли змінюється. */
 function TopBalance({ balance, hidden, onOpen }: { balance: number; hidden: boolean; onOpen: () => void }) {
   const shown = useCountUp(balance);
   const prev = useRef(balance);

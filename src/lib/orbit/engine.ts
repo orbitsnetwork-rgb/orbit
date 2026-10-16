@@ -22,7 +22,7 @@ export const SELLER_SHARE = 0.97;
 export const FUND_SHARE = 0.025;
 export const IMPULSE_MS = 48 * 60 * 60 * 1000;
 export const STARTER_OD = 200;
-export const WITNESS_OD = 40;
+export const WITNESS_OD = 20;
 
 export type Confirm = { witnessId: string; at: number };
 

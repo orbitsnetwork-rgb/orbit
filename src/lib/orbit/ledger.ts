@@ -171,18 +171,20 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
     if (item.userId === user.id || (item.status !== "done" && item.status !== "failed")) continue;
     if (!item.confirms.some((row) => row.witnessId === user.id)) continue;
     const passed = item.status === "done";
+    // Скільки реально нараховано (40 ✦ до 16.10.2026, 20 ✦ після) — з особистої події, якщо вона є.
+    const reward = events.find((ev) => ev.t === "witnessOk" && ev.cr === item.id)?.amt ?? WITNESS_OD;
     const owner = world.accounts.find((account) => account.id === item.userId)?.name ?? "хтось";
     rows.push({
       id: `w-${item.id}`,
       kind: "charge",
       at: (item.chargeStartedAt ?? creationTime(item.id)) + CHARGE_MS,
-      amount: passed ? WITNESS_OD : 0,
+      amount: passed ? reward : 0,
       title: passed ? "Свідок · заряд пройшов" : "Свідок · заряд зірвався",
       status: owner,
       source: "world",
       lines: [
         ["Чия заявка", owner],
-        ["Тобі", passed ? `+${WITNESS_OD} ✦` : "0 ✦"],
+        ["Тобі", passed ? `+${reward} ✦` : "0 ✦"],
       ],
     });
   }

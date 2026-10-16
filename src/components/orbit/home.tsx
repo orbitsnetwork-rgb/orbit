@@ -1,7 +1,7 @@
 /** Головна v8: гаманець з діями, ціна з графіком-спарклайном, банери, «Ринок», «Активність». */
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeftRight, Check, Coins, Eye, EyeOff, GraduationCap, Hourglass, Landmark, ListOrdered, Orbit as OrbitIcon, Plus, QrCode, Rocket, Share2, Trophy } from "lucide-react";
-import { DAY_MS, FUND_PERIOD_MS, activeCreation, type Account, type World } from "@/lib/orbit/engine";
+import { DAY_MS, FUND_PERIOD_MS, WITNESS_OD, activeCreation, type Account, type World } from "@/lib/orbit/engine";
 import { LESSONS } from "@/lib/orbit/learn";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { dayDelta, perDay, priceSeries, sumPerDay } from "@/lib/orbit/series";
@@ -94,7 +94,7 @@ export function FirstStep({ onTab, busy = false }: { onTab: (tab: HomeTab) => vo
         }}
       >
         <b><span className="hm-first-num" aria-hidden>1</span>Підтвердь друга</b>
-        <small>Друг надіслав 6 цифр або посилання? Введи код — його запуск стане ближчим, а тобі +40 ✦.</small>
+        <small>Друг надіслав 6 цифр або посилання? Введи код — його запуск стане ближчим, а тобі +{WITNESS_OD} ✦, коли заряд пройде.</small>
         <div className="hm-first-code">
           <input
             className="orbit-field"

@@ -54,7 +54,7 @@ export function eventText(ev: Ev, world: World): { text: string; topic: Topic } 
   switch (ev.t) {
     case "join": return { text: ev.amt ? `Ти в Орбітах. Стартові ${sp(ev.amt)} на рахунку.` : `Ти в Орбітах. Стартові ${STARTER_OD} ✦ — після першого внеску.`, topic: "me" };
     case "starter": return { text: `Стартові ${sp(ev.amt)} зараховано — перший заряд пройшов.`, topic: "me" };
-    case "launch": return { text: "Ти відкрив заявку на орбіту.", topic: "charge" };
+    case "launch": return { text: "Твою заявку на орбіту відкрито.", topic: "charge" };
     case "confirmGiven": return { text: `Ти підтвердив запуск ${who(ev.other)} · ${ev.n} з 8.`, topic: "charge" };
     case "confirmed": return { text: `${who(ev.other)} підтвердив твій запуск · ${ev.n} з 8.`, topic: "charge" };
     case "charging": return { text: "Вісімка зібрана. Заряд на 24 години.", topic: "charge" };

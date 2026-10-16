@@ -48,7 +48,7 @@ export function LaunchStats({ world, user, creation }: { world: World; user: Acc
   return (
     <div className="k-grid2">
       <Stat icon={<Gauge size={16} strokeWidth={2} />} value={`${chance}%`} label="шанс заряду зараз" tone="aurora" foot={<Progress value={chance} max={100} label="Шанс заряду" tone="aurora" />} />
-      <Stat icon={<KeyRound size={16} strokeWidth={2} />} value={`${used} з ${CODES_PER_DAY}`} label="твоїх підтверджень сьогодні" tone="ion" foot={<Progress value={used} max={CODES_PER_DAY} label="Кодів сьогодні" tone="ion" />} />
+      <Stat icon={<KeyRound size={16} strokeWidth={2} />} value={`${used} з ${CODES_PER_DAY}`} label="кодів випущено сьогодні" tone="ion" foot={<Progress value={used} max={CODES_PER_DAY} label="Кодів сьогодні" tone="ion" />} />
       <Stat icon={<Zap size={16} strokeWidth={2} />} value={fmt.format(user.stability)} label="твоя стабільність" tone="nebula" />
       <Stat icon={<Sparkles size={16} strokeWidth={2} />} value={`+${WITNESS_OD} ✦`} label={`за підтвердження · +${STABILITY_CONFIRM} стаб.`} />
     </div>
@@ -153,7 +153,7 @@ export function PastLaunches({ world, user }: { world: World; user: Account }) {
 /** Ідея запуску на порожньому екрані: 3 кроки з іконками. */
 export function LaunchIntro({ chance }: { chance: number }) {
   const rows = [
-    { icon: <ShieldCheck size={18} strokeWidth={1.9} />, title: `${CONFIRM_NEED} підтверджень`, text: `Кожен учасник вводить твій 6-значний код. Підтверджувати можна до ${CODES_PER_DAY} запусків на день.` },
+    { icon: <ShieldCheck size={18} strokeWidth={1.9} />, title: `${CONFIRM_NEED} підтверджень`, text: `Кожен учасник вводить твій 6-значний код. Один код — одне підтвердження, до ${CODES_PER_DAY} кодів на день.` },
     { icon: <BatteryCharging size={18} strokeWidth={1.9} />, title: "24 години заряду", text: `Шанс успіху зараз — ${chance}%. Чим більше орбіт у світі, тим складніше.` },
     { icon: <CircleDashed size={18} strokeWidth={1.9} />, title: "Нова орбіта", text: "Отримуєш наступний номер. А кожен, хто підтвердив, отримує нагороду в іскрах ✦." },
   ];

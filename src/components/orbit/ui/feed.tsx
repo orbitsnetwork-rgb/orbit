@@ -1,3 +1,4 @@
+import { plainEvent } from "@/lib/orbit/copy";
 import { orbitNo } from "@/lib/orbit/traits";
 /** Стрічка подій світу з аватарами. Лише публічний журнал; баланси інших сюди не потрапляють. */
 import type { ReactNode } from "react";
@@ -17,7 +18,7 @@ function iconOf(note: Note): ReactNode {
 
 /** Коротко й по-людськи: службові хвости журналу прибираємо (усе є в «Сповіщеннях»). */
 export function humanize(text: string) {
-  return text
+  return plainEvent(text)
     .replace(/^(.+?) у системі\..*$/, "$1 — новий учасник Орбіт")
     .replace(/^(.+? купив #\d+ за [\d\s\u00a0]+✦)\..*$/, "$1")
     .replace(/^(.+?) купив (#\d+) за (.+)$/, "$1 · купівля $2 за $3")

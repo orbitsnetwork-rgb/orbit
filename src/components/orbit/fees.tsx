@@ -81,7 +81,7 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
               <Tr name="Заявка, коди, заряд" value="0%" note="Безкоштовно" />
               <Tr name="Тестове поповнення" value="0%" note="Справжні гроші не списуються" />
               <Tr name="Зберігання, вхід" value="0%" note="Без плати за бездіяльність" />
-              <Tr name="Вивід на картку" value="—" note="У розробці" soon />
+              <Tr name="Вивід на картку" value="—" note="Вимкнено. Колись — лише поповнена частина" soon />
             </div>
           </section>
 

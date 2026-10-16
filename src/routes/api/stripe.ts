@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/stripe")({
           const bag = unpackDoc(rows[0]?.doc);
           const done = creditTopup(bag.world, bag.topups, { id, userId, amount });
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc({ ...done.world, sessionId: null }, bag.keys, bag.devices, bag.people, done.topups),
+            packDoc({ ...done.world, sessionId: null }, bag.keys, bag.devices, bag.people, done.topups, bag.limits),
           ]);
         });
         return new Response("ok");

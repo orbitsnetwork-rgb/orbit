@@ -20,7 +20,11 @@ export type Bag = {
   devices: Record<string, DeviceSlot>;
   people: Identity[];
   topups: Topup[];
+  limits: Record<string, Limit>;
 };
+
+/** Лічильник спроб: n спроб у вікні, що почалося в start; до until — блок. */
+export type Limit = { n: number; start: number; until: number };
 
 export const NAMES_PER_DEVICE = 3;
 
@@ -41,8 +45,8 @@ export function mintKey(): string {
 
 export function unpackDoc(doc: unknown): Bag {
   const value = typeof doc === "string" ? parse(doc) : doc;
-  if (!value || typeof value !== "object") return { world: emptyWorld(), keys: {}, devices: {}, people: [], topups: [] };
-  const bag = value as { world?: unknown; keys?: unknown; devices?: unknown; people?: unknown; topups?: unknown };
+  if (!value || typeof value !== "object") return { world: emptyWorld(), keys: {}, devices: {}, people: [], topups: [], limits: {} };
+  const bag = value as { world?: unknown; keys?: unknown; devices?: unknown; people?: unknown; topups?: unknown; limits?: unknown };
   const world = asWorld(bag.world) ?? asWorld(value);
   return {
     world: world ?? emptyWorld(),
@@ -50,6 +54,7 @@ export function unpackDoc(doc: unknown): Bag {
     devices: asDevices(bag.devices),
     people: asPeople(bag.people),
     topups: asTopups(bag.topups),
+    limits: asLimits(bag.limits),
   };
 }
 
@@ -59,8 +64,9 @@ export function packDoc(
   devices: Record<string, DeviceSlot> = {},
   people: Identity[] = [],
   topups: Topup[] = [],
+  limits: Record<string, Limit> = {},
 ) {
-  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups });
+  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits });
 }
 
 export function readPerson(raw: {
@@ -108,7 +114,51 @@ export function markDevice(devices: Record<string, DeviceSlot>, deviceId: string
 
 export function keyMatches(keys: Record<string, string>, id: string | null, key: string | null) {
   if (!id || !key) return false;
-  return keys[id] === key;
+  const have = keys[id];
+  if (typeof have !== "string" || have.length !== key.length) return false;
+  let diff = 0;
+  for (let i = 0; i < have.length; i += 1) diff |= have.charCodeAt(i) ^ key.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Чи заблоковано ключ лімітом зараз. */
+export function limited(limits: Record<string, Limit>, id: string, now: number) {
+  const row = limits[id];
+  return Boolean(row && row.until > now);
+}
+
+/** Записує невдалу спробу. max спроб за windowMs, далі блок на lockMs. */
+export function strike(limits: Record<string, Limit>, id: string, now: number, max: number, windowMs: number, lockMs: number) {
+  const prev = limits[id];
+  const fresh = !prev || now - prev.start > windowMs;
+  const n = fresh ? 1 : prev.n + 1;
+  const row: Limit = { n, start: fresh ? now : prev.start, until: n >= max ? now + lockMs : 0 };
+  const next: Record<string, Limit> = {};
+  // Прибираємо прострочені записи, щоб документ не ріс.
+  for (const [key, value] of Object.entries(limits)) {
+    if (value.until > now || now - value.start <= windowMs) next[key] = value;
+  }
+  next[id] = row;
+  return next;
+}
+
+export function forgive(limits: Record<string, Limit>, id: string) {
+  if (!limits[id]) return limits;
+  const next = { ...limits };
+  delete next[id];
+  return next;
+}
+
+function asLimits(raw: unknown): Record<string, Limit> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, Limit> = {};
+  for (const [id, value] of Object.entries(raw)) {
+    if (!value || typeof value !== "object" || id.length > 120) continue;
+    const row = value as Limit;
+    if (typeof row.n !== "number" || typeof row.start !== "number" || typeof row.until !== "number") continue;
+    out[id] = { n: row.n, start: row.start, until: row.until };
+  }
+  return out;
 }
 
 function asTopups(raw: unknown): Topup[] {
@@ -122,7 +172,7 @@ function asTopups(raw: unknown): Topup[] {
     if (row.status !== "open" && row.status !== "paid") continue;
     rows.push({ id: row.id, userId: row.userId, amount: row.amount, status: row.status, at: Number(row.at) || 0 });
   }
-  return rows.slice(-200);
+  return trimTopups(rows);
 }
 
 function asDevices(raw: unknown): Record<string, DeviceSlot> {
@@ -198,4 +248,22 @@ function parse(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+
+/**
+ * Оплачені записи зберігаються назавжди: це журнал ідемпотентності, щоб одну
+ * оплату не зарахувати двічі. Обрізаються лише відкриті (незавершені) сесії.
+ */
+export function trimTopups(rows: Topup[]): Topup[] {
+  const paidIds = new Set(rows.filter((row) => row.status === "paid").map((row) => row.id));
+  const seen = new Set<string>();
+  const paid: Topup[] = [];
+  for (const row of rows) {
+    if (row.status !== "paid" || seen.has(row.id)) continue;
+    seen.add(row.id);
+    paid.push(row);
+  }
+  const open = rows.filter((row) => row.status === "open" && !paidIds.has(row.id)).slice(-200);
+  return [...paid, ...open];
 }

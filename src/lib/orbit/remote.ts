@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { keyMatches, mailCode, markDevice, mintKey, namesLeft, packDoc, readPerson, unpackDoc, type Identity, type Topup } from "@/lib/orbit/access";
+import { forgive, keyMatches, limited, mailCode, markDevice, mintKey, namesLeft, packDoc, readPerson, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
   adoptClock,
@@ -101,6 +101,41 @@ function attach(world: World, sessionId: string | null): World {
   return { ...world, sessionId };
 }
 
+/** Що бачить клієнт: світ лише з власними приватними полями. */
+function reply(step: OrbitReply): OrbitReply {
+  return { ...step, world: project(step.world, step.world.sessionId) };
+}
+
+/**
+ * Публічна проєкція світу. Кожен отримує повні дані лише про себе.
+ * Про інших — тільки те, що потрібно для черги, оглядача, рейтингу й стрічки:
+ * без балансів, денних лічильників і живих кодів підтвердження.
+ */
+export function project(world: World, selfId: string | null): World {
+  return {
+    ...world,
+    sessionId: selfId,
+    accounts: world.accounts.map((account) =>
+      account.id === selfId
+        ? account
+        : { ...account, balance: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0 },
+    ),
+    creations: world.creations.map((item) =>
+      item.userId === selfId ? item : { ...item, code: null, codeExpires: 0, codeDay: "", codesToday: 0 },
+    ),
+  };
+}
+
+const MIN = 60_000;
+/** Ліміти спроб: [скільки, за яке вікно, на скільки блок]. */
+const RULES = {
+  mail: [5, 60 * MIN, 60 * MIN],
+  code: [10, 60 * MIN, 30 * MIN],
+  key: [10, 60 * MIN, 60 * MIN],
+  probe: [30, 60 * MIN, 30 * MIN],
+} as const;
+const SLOW = "Забагато спроб. Спробуй пізніше.";
+
 function run(world: World, action: OrbitAction): Step {
   if (action.type === "pull") return { world };
   if (action.type === "register") return register(world, action.name);
@@ -126,6 +161,16 @@ function own(people: Identity[], id: string | null): Identity | null {
 export const orbitAct = createServerFn({ method: "POST" })
   .inputValidator(clean)
   .handler(async ({ data }): Promise<OrbitReply> => {
+    try {
+      return reply(await act(data));
+    } catch (error) {
+      // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
+      console.error("orbitAct failed", error instanceof Error ? error.message : "unknown");
+      throw new Error("Сервер тимчасово недоступний.");
+    }
+  });
+
+async function act(data: Call): Promise<OrbitReply> {
     const { withTransaction } = await import("@/lib/db");
     return withTransaction(async (sql) => {
       await sql.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb) on conflict (id) do nothing`, [
@@ -133,14 +178,48 @@ export const orbitAct = createServerFn({ method: "POST" })
       ]);
       const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world' for update`, []);
       const bag = unpackDoc(rows[0]?.doc);
+      let limits: Record<string, Limit> = bag.limits;
       const clocked = adoptClock({ ...bag.world, sessionId: null });
       const self = keyMatches(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
       const base = attach(clocked, self);
+      const wall = Date.now();
+      const persist = (people = bag.people) =>
+        sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
+          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits),
+        ]);
+      const gate = async (id: string, rule: keyof typeof RULES): Promise<OrbitReply | null> => {
+        if (!limited(limits, id, wall)) return null;
+        await persist();
+        return { world: base, error: SLOW, self: own(bag.people, self) };
+      };
+      const miss = (id: string, rule: keyof typeof RULES) => {
+        const [max, windowMs, lockMs] = RULES[rule];
+        limits = strike(limits, id, wall, max, windowMs, lockMs);
+      };
+
+      if (data.action.type === "probe") {
+        const blocked = await gate(`p:${data.device ?? "none"}`, "probe");
+        if (blocked) return blocked;
+        miss(`p:${data.device ?? "none"}`, "probe");
+      }
+      if (data.action.type === "enterMail" || data.action.type === "enter") {
+        const target = data.action.type === "enter" ? data.action.id : data.action.email.trim().toLowerCase();
+        const blocked = (await gate(`k:${target}`, "key")) ?? (await gate(`kd:${data.device ?? "none"}`, "key"));
+        if (blocked) return blocked;
+      }
+      if (data.action.type === "confirmMail" && self) {
+        const blocked = await gate(`m:${self}`, "mail");
+        if (blocked) return blocked;
+      }
+      if (data.action.type === "accept" && self) {
+        const blocked = await gate(`c:${self}`, "code");
+        if (blocked) return blocked;
+      }
 
       if (data.action.type === "probe") {
         const email = data.action.email.trim().toLowerCase();
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
         ]);
         return { world: base, taken: bag.people.some((person) => person.email === email), self: own(bag.people, self) };
       }
@@ -148,28 +227,33 @@ export const orbitAct = createServerFn({ method: "POST" })
         const email = data.action.email.trim().toLowerCase();
         const person = bag.people.find((row) => row.email === email);
         if (!person || !keyMatches(bag.keys, person.userId, data.key)) {
+          miss(`k:${email}`, "key");
+          miss(`kd:${data.device ?? "none"}`, "key");
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
           ]);
           return { world: base, error: LOCKED };
         }
+        limits = forgive(limits, `k:${email}`);
         const opened = enter(attach(clocked, null), person.userId);
         const sharedMail = { ...opened.world, sessionId: null };
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups),
+          packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits),
         ]);
         return { ...opened, world: attach(sharedMail, person.userId), self: person };
       }
       if (data.action.type === "enter" && !keyMatches(bag.keys, data.action.id, data.key)) {
+        miss(`k:${data.action.id}`, "key");
+        miss(`kd:${data.device ?? "none"}`, "key");
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
         ]);
         return { world: base, error: LOCKED };
       }
       if (actsAsSelf(data.action) && !self) {
         const step = data.sessionId ? { world: base, error: LOCKED } : run(base, data.action);
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
         ]);
         return { ...step, self: own(bag.people, self) };
       }
@@ -182,12 +266,15 @@ export const orbitAct = createServerFn({ method: "POST" })
         if (person.confirmed) {
           return { world: base, self: person, notice: "Пошта вже підтверджена." };
         }
-        if (person.mailCode !== data.action.code) {
+        if (!person.mailCode || person.mailCode !== data.action.code) {
+          miss(`m:${self}`, "mail");
+          await persist();
           return { world: base, error: "Код не той.", self: person };
         }
+        limits = forgive(limits, `m:${self}`);
         const people = bag.people.map((row) => (row.userId === self ? { ...row, confirmed: true, mailCode: null } : row));
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, people, bag.topups),
+          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits),
         ]);
         return { world: base, self: people.find((row) => row.userId === self) ?? null, notice: "Пошту підтверджено." };
       }
@@ -199,7 +286,9 @@ export const orbitAct = createServerFn({ method: "POST" })
       }
       if (data.action.type === "topup" && self) {
         const { getRequestUrl } = await import("@tanstack/react-start/server");
-        const origin = new URL(getRequestUrl()).origin;
+        // Адресу повернення беремо з налаштувань сайту, а не з заголовка Host.
+        const site = process.env.URL?.trim() ?? "";
+        const origin = site.startsWith("https://") ? site.replace(/\/$/, "") : new URL(getRequestUrl()).origin;
         const opened = await openCheckout(self, data.action.amount, origin);
         if ("error" in opened) return { world: base, error: opened.error, self: own(bag.people, self) };
         const topups: Topup[] = [
@@ -207,7 +296,7 @@ export const orbitAct = createServerFn({ method: "POST" })
           { id: opened.id, userId: self, amount: data.action.amount, status: "open", at: clocked.now },
         ];
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, topups),
+          packDoc(clocked, bag.keys, bag.devices, bag.people, topups, limits),
         ]);
         return { world: base, url: opened.url, notice: "Відкриваю тестову оплату.", self: own(bag.people, self) };
       }
@@ -218,7 +307,7 @@ export const orbitAct = createServerFn({ method: "POST" })
         const done = creditTopup(clocked, bag.topups, paid);
         const sharedPay = { ...done.world, sessionId: null };
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedPay, bag.keys, bag.devices, bag.people, done.topups),
+          packDoc(sharedPay, bag.keys, bag.devices, bag.people, done.topups, limits),
         ]);
         return {
           world: attach(sharedPay, self),
@@ -243,19 +332,19 @@ export const orbitAct = createServerFn({ method: "POST" })
         );
         if ("error" in person) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
           ]);
           return { world: base, error: person.error };
         }
         if (bag.people.some((row) => row.email === person.email || row.phone === person.phone)) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
           ]);
           return { world: base, error: "Така пошта або телефон вже є." };
         }
         if (!data.device || namesLeft(bag.devices, data.device, day) <= 0) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups),
+            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits),
           ]);
           return { world: base, error: data.device ? "Сьогодні з цього пристрою вже 3 імені." : "Пристрій не впізнано." };
         }
@@ -263,6 +352,15 @@ export const orbitAct = createServerFn({ method: "POST" })
       }
 
       const step = run(data.action.type === "enter" ? attach(clocked, null) : base, data.action);
+      if (data.action.type === "accept" && self) {
+        // Лише невгаданий код рахується як спроба; помилки на кшталт «свій код» — ні.
+        if (step.error === "Код недійсний або вже згас." || step.error === "Код — це 6 цифр.") {
+          miss(`c:${self}`, "code");
+          await persist();
+          return { world: base, error: step.error, self: own(bag.people, self) };
+        }
+        if (!step.error) limits = forgive(limits, `c:${self}`);
+      }
       let keys = bag.keys;
       let devices = bag.devices;
       let people = bag.people;
@@ -276,8 +374,8 @@ export const orbitAct = createServerFn({ method: "POST" })
         people = [...people, fresh];
       }
       const shared = { ...step.world, sessionId: null };
-      await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups)]);
+      await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits)]);
       const session = step.world.sessionId;
       return { ...step, world: attach(shared, session), key, self: fresh?.userId ? fresh : own(people, session) };
     });
-  });
+}

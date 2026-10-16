@@ -350,10 +350,11 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       if (data.action.type === "enterMail") {
         const email = data.action.email.trim().toLowerCase();
         // Вхід за поштою й ключем; без пошти — за самим ключем (він випадковий і унікальний). Ім’я для входу не потрібне.
-        const person = email
-          ? bag.people.find((row) => row.email === email)
-          : bag.people.find((row) => keyMatches(bag.keys, row.userId, data.key));
-        if (!person || !keyMatches(bag.keys, person.userId, data.key)) {
+        // Без пошти шукаємо серед усіх ключів: так входять і старі акаунти, у яких немає запису з поштою.
+        const userId = email
+          ? (bag.people.find((row) => row.email === email)?.userId ?? null)
+          : (Object.keys(bag.keys).find((id) => keyMatches(bag.keys, id, data.key)) ?? null);
+        if (!userId || !keyMatches(bag.keys, userId, data.key) || !clocked.accounts.some((account) => account.id === userId)) {
           miss(`k:${email}`, "key");
           miss(`kd:${data.device ?? "none"}`, "key");
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
@@ -362,13 +363,13 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           return { world: base, error: LOCKED };
         }
         limits = forgive(limits, `k:${email}`);
-        seen = markSeen(seen, data.device, person.userId);
-        const opened = enter(attach(clocked, null), person.userId);
+        seen = markSeen(seen, data.device, userId);
+        const opened = enter(attach(clocked, null), userId);
         const sharedMail = { ...opened.world, sessionId: null };
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
           packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits, seen),
         ]);
-        return { ...opened, world: attach(sharedMail, person.userId), self: person };
+        return { ...opened, world: attach(sharedMail, userId), self: own(bag.people, userId) };
       }
       if (data.action.type === "enter" && !keyMatches(bag.keys, data.action.id, data.key)) {
         miss(`k:${data.action.id}`, "key");

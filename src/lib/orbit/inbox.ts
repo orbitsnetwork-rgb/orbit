@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 /** Центр сповіщень: події журналу світу, позначки «прочитано» — лише на цьому телефоні. */
 import { useEffect, useState } from "react";
 import { sparkText } from "@/lib/orbit/copy";
@@ -44,7 +45,7 @@ export function topicOf(text: string): Topic {
   return "system";
 }
 
-const no7 = (n?: number) => (n === undefined ? "" : `#${String(n).padStart(7, "0")}`);
+const no7 = (n?: number) => (n === undefined ? "" : orbitNo(n));
 
 /** Текст особистої події. Інших людей називаємо за id — так, як їх показує сервер («Ім’я П.»). */
 export function eventText(ev: Ev, world: World): { text: string; topic: Topic } {
@@ -93,7 +94,7 @@ export function notesOf(world: World, user: Account, events: Ev[] = [], publicOn
       // Лише вигляд: номери орбіт як у біржі (#0000019) і одиниця ✦ біля часток продажу.
       const text = sparkText(row.text)
         .replace(/(Продавцю|У фонд) (\d+)\./g, "$1 $2 ✦.")
-        .replace(/#(\d+)/g, (_m, n: string) => `#${n.padStart(7, "0")}`);
+        .replace(/#(\d+)/g, (_m, n: string) => orbitNo(Number(n)));
       const orbit = /#(\d+)/.exec(row.text);
       return {
         key: `${row.at}-${row.text.length}-${row.text.slice(0, 16)}`,

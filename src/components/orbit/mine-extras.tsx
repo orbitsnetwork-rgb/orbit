@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 /** «Заявка» v8: етапи запуску, показники, хто запускає зараз, хто онлайн, мої минулі запуски. */
 import type { ReactNode } from "react";
 import { BatteryCharging, CheckCircle2, CircleDashed, Gauge, KeyRound, Rocket, ShieldCheck, Sparkles, XCircle, Zap } from "lucide-react";
@@ -6,7 +7,7 @@ import { Avatar, Empty, Progress, SectionHead, Stat } from "@/components/orbit/u
 
 const fmt = new Intl.NumberFormat("uk-UA");
 function no(id: number) {
-  return `#${String(id).padStart(7, "0")}`;
+  return orbitNo(id);
 }
 function date(ms: number) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", timeZone: "Europe/Kyiv" }).format(ms);

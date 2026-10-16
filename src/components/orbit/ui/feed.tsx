@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 /** Стрічка подій світу з аватарами. Лише публічний журнал; баланси інших сюди не потрапляють. */
 import type { ReactNode } from "react";
 import { Coins, Radio, Rocket, ShoppingCart, Sparkles, UserPlus } from "lucide-react";
@@ -24,7 +25,7 @@ export function humanize(text: string) {
     .replace(/^(.+?) поставив (#\d+) у чергу\.?$/, "$1 виставляє $2 на продаж")
     .replace(/^(.+?) зняв (#\d+) з черги\.?$/, "$1 знімає $2 з продажу")
     .replace(/^Ціна на добу [\d-]+: (.+)$/, "Нова ціна дня: $1")
-    .replace(/#(\d{1,6})(?!\d)/g, (_m, n: string) => `#${n.padStart(7, "0")}`)
+    .replace(/#(\d{1,7})(?!\d)/g, (_m, n: string) => orbitNo(Number(n)))
     .replace(/\.$/, "");
 }
 

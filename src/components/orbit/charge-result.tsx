@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 import { ThankList } from "@/components/orbit/crew";
 import { useOrbits } from "@/lib/orbit/store";
 import { Orbit as OrbitIcon, RotateCcw } from "lucide-react";
@@ -58,7 +59,7 @@ export function unseenOutcome(world: World, userId: string): Outcome | null {
 }
 
 function no(id: number) {
-  return `№${String(id).padStart(7, "0")}`;
+  return orbitNo(id);
 }
 
 const SPARKS = 24;

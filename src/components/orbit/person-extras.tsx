@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 /** «Я» v8: показники профілю і картки моїх орбіт. */
 import { ThankList } from "@/components/orbit/crew";
 import { useOrbits } from "@/lib/orbit/store";
@@ -7,7 +8,7 @@ import { Empty, SectionHead, Stat } from "@/components/orbit/ui/kit";
 
 const fmt = new Intl.NumberFormat("uk-UA");
 function no(id: number) {
-  return `#${String(id).padStart(7, "0")}`;
+  return orbitNo(id);
 }
 
 export function daysWith(user: Account, now: number) {

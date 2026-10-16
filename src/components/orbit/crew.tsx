@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 /** «Дякую» підтверджувачам і «Екіпаж» запуску. Без іскор і без чату: лише люди, номер і спільна історія. */
 import { useState } from "react";
 import { Check, Heart, Users } from "lucide-react";
@@ -54,7 +55,7 @@ export function ThankList({ world, creation, compact = false }: { world: World; 
 
 const statusWord: Record<Creation["status"], string> = { collecting: "збирає підтвердження", charging: "заряд іде", done: "пройшов", failed: "зірвався" };
 const dateOf = (ms: number) => new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", timeZone: "UTC" }).format(ms);
-const no7 = (n: number) => `№${String(n).padStart(7, "0")}`;
+const no7 = (n: number) => orbitNo(n);
 
 /** Картка екіпажу: номер, 9 людей (автор + 8), орбіта, спільна історія. */
 export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; crew: Crew; me?: string; showOrbit?: boolean }) {

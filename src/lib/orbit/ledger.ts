@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 /**
  * Історія операцій людини. Лише читання: збираємо з того, що вже є у світі
  * (угоди, виплати, заявки, черга, журнал) і з поповнень, записаних на цьому телефоні.
@@ -156,7 +157,7 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
       amount: 0,
       title: passed ? "Заряд пройшов" : "Заряд зірвався",
       badge: passed ? "+1 орбіта" : "без орбіти",
-      status: passed ? (orbitId ? `орбіта #${String(orbitId).padStart(7, "0")}` : "нова орбіта") : "підтвердження згоріли",
+      status: passed ? (orbitId ? `орбіта ${orbitNo(orbitId)}` : "нова орбіта") : "підтвердження згоріли",
       orbitId,
       source: "world",
       lines: [
@@ -316,7 +317,7 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
 const fmt = new Intl.NumberFormat("uk-UA");
 
 export function no(id: number) {
-  return `#${String(id).padStart(7, "0")}`;
+  return orbitNo(id);
 }
 
 export function clock(ms: number) {

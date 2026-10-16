@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 import { createPortal } from "react-dom";
 import { Avatar, Segmented } from "@/components/orbit/ui/kit";
 import { Fund } from "@/components/orbit/fund";
@@ -65,7 +66,7 @@ const TABS: { id: Tab; key: "home" | "market" | "mine" | "flow" | "me"; icon: ty
 const money = new Intl.NumberFormat("uk-UA");
 
 function no(id: number) {
-  return `#${String(id).padStart(7, "0")}`;
+  return orbitNo(id);
 }
 
 function left(ms: number) {

@@ -1,3 +1,4 @@
+import { orbitNo } from "@/lib/orbit/traits";
 import { useEffect, useState } from "react";
 import { ArrowLeftRight, Coins, CreditCard, Landmark, ListOrdered, Orbit as OrbitIcon, ShoppingCart, Tag, Users, Wallet } from "lucide-react";
 import { ago } from "@/lib/orbit/inbox";
@@ -12,7 +13,7 @@ import type { Trust } from "@/lib/orbit/social";
 const fmt = new Intl.NumberFormat("uk-UA");
 
 function no(id: number) {
-  return `#${String(id).padStart(7, "0")}`;
+  return orbitNo(id);
 }
 
 function clock(ms: number) {

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, FileText, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
+import { ArrowLeftRight, Bell, FileText, Shield, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
 import { Pages } from "@/components/orbit/pages";
@@ -6,7 +6,7 @@ import { rememberTopup } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
 import {
   activeCreation,
@@ -113,6 +113,13 @@ export function OrbitApp() {
 
   const user = me(world);
   const inbox = useInbox(world, user);
+  const userId = user?.id;
+  const { close } = nav;
+  useEffect(() => {
+    // Інша людина або вихід: закрити відкриті сторінки й почати з головної.
+    close();
+    setTab("home");
+  }, [userId, close]);
   if (!user) {
     return <Gate world={world} flash={flash} bad={bad} ready={ready} lang={lang} onCreate={registerPerson} onMail={enterMail} onOld={enterId} />;
   }
@@ -263,14 +270,17 @@ function MailGate() {
 /** Стек повноекранних сторінок (Ще → Документи → документ). */
 function useStack() {
   const [stack, setStack] = useState<Route[]>([]);
-  return {
-    stack,
-    open: (route: Route) => setStack([route]),
-    push: (route: Route) => setStack((rows) => [...rows, route]),
-    pop: () => setStack((rows) => rows.slice(0, -1)),
-    replace: (route: Route) => setStack((rows) => [...rows.slice(0, -1), route]),
-    close: () => setStack([]),
-  };
+  const actions = useMemo(
+    () => ({
+      open: (route: Route) => setStack([route]),
+      push: (route: Route) => setStack((rows) => [...rows, route]),
+      pop: () => setStack((rows) => rows.slice(0, -1)),
+      replace: (route: Route) => setStack((rows) => [...rows.slice(0, -1), route]),
+      close: () => setStack((rows) => (rows.length ? [] : rows)),
+    }),
+    [],
+  );
+  return { stack, ...actions };
 }
 
 const QUICK_DOCS: { id: DocId; label: string }[] = [
@@ -733,6 +743,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
           <Row icon={<LayoutGrid size={18} strokeWidth={1.5} />} title="Ще" sub="Усі розділи" onClick={() => onOpen("more")} />
           <Row icon={<Wallet size={18} strokeWidth={1.5} />} title="Активи" sub="Баланс і мої орбіти" onClick={() => onOpen("assets")} />
           <Row icon={<HistoryIcon size={18} strokeWidth={1.5} />} title="Історія" sub="Усі мої операції" onClick={() => onOpen("history")} />
+          <Row icon={<Shield size={18} strokeWidth={1.5} />} title="Безпека" sub="Ключ, пристрій, вихід" onClick={() => onOpen("security")} />
           <Row icon={<FileText size={18} strokeWidth={1.5} />} title="Документи" sub="Правила, умови, приватність" onClick={() => onOpen("docs")} />
         </div>
       </section>

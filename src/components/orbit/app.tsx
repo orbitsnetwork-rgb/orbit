@@ -1,9 +1,10 @@
 import { createPortal } from "react-dom";
 import { Avatar, Segmented } from "@/components/orbit/ui/kit";
 import { Fund } from "@/components/orbit/fund";
+import { humanize } from "@/components/orbit/ui/feed";
 import { OrbitCards, ProfileStats, daysWith } from "@/components/orbit/person-extras";
 import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from "@/components/orbit/home";
-import { Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { Exchange, Soon } from "@/components/orbit/exchange";
@@ -445,27 +446,40 @@ function DocsRow({ onOpen }: { onOpen: (route: Route) => void }) {
   );
 }
 
+/** Повноекранні моменти (ключ, знайомство, результат заряду): сповіщення чекає, поки вони закриються. */
+const HOLD_TOAST = ".ky-screen, .ob-screen, .cr-screen";
+
 function Toast({ text, bad, event }: { text: string; bad: boolean; event: string }) {
-  const [shown, setShown] = useState<{ text: string; bad: boolean } | null>(null);
+  const [shown, setShown] = useState<{ text: string; bad: boolean; id: number } | null>(null);
+  const [held, setHeld] = useState(false);
   const firstEvent = useRef(event);
   useEffect(() => {
     if (!text) return;
-    setShown({ text, bad });
-    const timer = window.setTimeout(() => setShown(null), 2600);
-    return () => window.clearTimeout(timer);
+    setShown({ text, bad, id: Date.now() });
   }, [text, bad]);
   useEffect(() => {
     if (!event || event === firstEvent.current) return;
     firstEvent.current = event;
     if (!toastsOn()) return;
-    setShown({ text: event, bad: false });
+    setShown({ text: humanize(sparkText(event)), bad: false, id: Date.now() });
+  }, [event]);
+  useEffect(() => {
+    const check = () => setHeld(Boolean(document.querySelector(HOLD_TOAST)));
+    check();
+    const watch = new MutationObserver(check);
+    watch.observe(document.body, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!shown || held) return;
     const timer = window.setTimeout(() => setShown(null), 2600);
     return () => window.clearTimeout(timer);
-  }, [event]);
-  if (!shown) return null;
+  }, [shown, held]);
+  if (!shown || held) return null;
   return (
     <div className="orbit-toast" data-bad={shown.bad ? "1" : "0"} role="status" onClick={() => setShown(null)}>
-      {sparkText(shown.text)}
+      <span className="orbit-toast-ico" aria-hidden>{shown.bad ? <AlertCircle size={18} strokeWidth={2} /> : <CheckCircle2 size={18} strokeWidth={2} />}</span>
+      <span>{sparkText(shown.text)}</span>
     </div>
   );
 }

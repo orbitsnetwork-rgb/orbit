@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { Avatar, Segmented } from "@/components/orbit/ui/kit";
 import { Fund } from "@/components/orbit/fund";
 import { humanize } from "@/components/orbit/ui/feed";
+import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, daysWith } from "@/components/orbit/person-extras";
 import { Activity, Banners, MarketsCard, PriceMini, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
@@ -117,6 +118,15 @@ export function OrbitApp() {
   const [hidden] = useHidden();
   const [, bumpSeen] = useState(0);
   const [intro, setIntro] = useState(false);
+  // null — ще не знаємо (сервер і перший кадр однакові), true — на телефоні є збережений вхід.
+  const [returning, setReturning] = useState<boolean | null>(null);
+  useEffect(() => {
+    try {
+      setReturning(Boolean(localStorage.getItem("orbits-who")));
+    } catch {
+      setReturning(false);
+    }
+  }, []);
 
   useEffect(() => {
     // Короткий відгук на натискання основних кнопок (Android; iOS не вміє — пропускаємо).
@@ -183,6 +193,15 @@ export function OrbitApp() {
     window.addEventListener(INVITE_EVENT, go);
     return () => window.removeEventListener(INVITE_EVENT, go);
   }, [userId, keyScreen, close]);
+  if (!user && !ready && returning !== false) {
+    // Перше завантаження: людина з цього телефону вже входила — показуємо каркас застосунку, а не форму входу.
+    return (
+      <div className="orbit-app">
+        <Starfield />
+        {returning ? <AppSkeleton /> : <div className="sk-splash" role="status" aria-busy="true"><img src="/favicon.svg" alt="" width={56} height={56} /><span className="visually-hidden">Завантажуємо…</span></div>}
+      </div>
+    );
+  }
   if (!user) {
     return <Gate world={world} flash={flash} bad={bad} ready={ready} lang={lang} onCreate={registerPerson} onMail={enterMail} onOld={enterId} />;
   }

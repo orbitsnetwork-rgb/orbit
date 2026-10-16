@@ -2558,3 +2558,19 @@ body:has(.mo-page, .ky-scrim, .ex-overlay, .ob-screen, .cr-screen, .ky-screen) .
 .ln-card { border-color: var(--glass-line); background: radial-gradient(80% 90% at 100% 0%, rgb(111 214 236 / .14), transparent 60%), var(--glass), var(--space-850); }
 .ln-hero { border-color: var(--glass-line); background: radial-gradient(80% 120% at 0% 0%, rgb(111 214 236 / .16), transparent 60%), var(--glass); }
 .ln-opt { border-color: var(--glass-line); background: rgb(255 255 255 / .04); }
+
+/* ── v9 · Скелетони першого завантаження ── */
+.sk-card { display: grid; gap: 12px; }
+.sk-card[data-tall="1"] { gap: 16px; }
+.sk-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 8px; }
+.sk-actions span, .sk-nav span { display: grid; justify-items: center; gap: 7px; }
+.sk-center { display: grid; justify-items: center; gap: 10px; padding: 18px 0 6px; }
+.sk-row4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.sk-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.sk-line > span { display: grid; gap: 6px; }
+.sk-col { display: grid; gap: 5px; }
+.sk-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; }
+.sk-splash { position: fixed; inset: 0; display: grid; place-items: center; }
+.sk-splash img { animation: sk-pulse 1.4s ease-in-out infinite; filter: drop-shadow(0 0 24px rgb(242 196 109 / .45)); }
+@keyframes sk-pulse { 50% { opacity: .55; transform: scale(.94); } }
+@media (prefers-reduced-motion: reduce) { .sk-splash img { animation: none; } }

@@ -1,9 +1,23 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
-import { Shell } from "@/components/shell";
 import { SceneProvider } from "@/lib/scene";
 import appCss from "../styles.css?url";
+
+// 14: старий «Восьма»-шелл — окремим чанком; Орбіти («/», «/l/…») його не завантажують.
+const Shell = lazy(() => import("@/components/shell").then((m) => ({ default: m.Shell })));
+const isOrbitPath = (path: string) => path === "/" || path.startsWith("/l/");
+
+function ShellGate({ children }: { children: React.ReactNode }) {
+  const path = useRouterState({ select: (state) => state.location.pathname });
+  if (isOrbitPath(path)) return <div className="min-h-dvh">{children}</div>;
+  return (
+    <Suspense fallback={<div className="min-h-dvh" />}>
+      <Shell>{children}</Shell>
+    </Suspense>
+  );
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -46,9 +60,9 @@ export const Route = createRootRoute({
         <PreviewHostBridge />
         <AuthProvider>
           <SceneProvider>
-            <Shell>
+            <ShellGate>
               <Outlet />
-            </Shell>
+            </ShellGate>
           </SceneProvider>
         </AuthProvider>
         <Scripts />

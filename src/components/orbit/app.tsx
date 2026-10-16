@@ -1,7 +1,6 @@
 import { orbitNo } from "@/lib/orbit/traits";
 import { createPortal } from "react-dom";
 import { Avatar, Segmented } from "@/components/orbit/ui/kit";
-import { Fund } from "@/components/orbit/fund";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, ThanksDue, daysWith } from "@/components/orbit/person-extras";
@@ -14,12 +13,21 @@ import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastL
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import { ConfirmSheet, Exchange, Soon, type Confirm } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
-import { Pages } from "@/components/orbit/pages";
 import { rememberTopup } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+// 14: важкі екрани — окремими чанками, вантажаться при першому відкритті.
+const Fund = lazy(() => import("@/components/orbit/fund").then((m) => ({ default: m.Fund })));
+const PagesLazy = lazy(() => import("@/components/orbit/pages").then((m) => ({ default: m.Pages })));
+function Pages(props: React.ComponentProps<typeof PagesLazy>) {
+  return (
+    <Suspense fallback={null}>
+      <PagesLazy {...props} />
+    </Suspense>
+  );
+}
 import { registerShell } from "@/lib/orbit/pwa";
 import { Checklist } from "@/components/orbit/checklist";
 import { NudgeButton } from "@/components/orbit/nudge";
@@ -275,7 +283,7 @@ export function OrbitApp() {
           {tab === "home" ? <Home world={world} user={user} onTab={setTab} onOpen={nav.open} /> : null}
           {tab === "market" ? <Exchange world={world} user={user} /> : null}
           {tab === "mine" ? <Mine world={world} user={user} /> : null}
-          {tab === "flow" ? <Fund world={world} user={user} /> : null}
+          {tab === "flow" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо фонд…</div>}><Fund world={world} user={user} /></Suspense> : null}
           {tab === "me" ? <Person world={world} user={user} onOpen={nav.open} /> : null}
           </Boundary>
         </div>

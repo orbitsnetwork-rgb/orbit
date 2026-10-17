@@ -327,6 +327,11 @@ await step("per-user projection", async () => {
   const foreign = pages.filter((p) => p !== host).some((p) => hostMail && p.bodies.some((b) => b.includes(hostMail)));
   check("host email never sent to others", hostMail && !foreign);
 });
+  // App console must be clean while the server is up; then close the phase-2 tabs so their polling
+  // doesn't log ERR_CONNECTION_REFUSED when phase 3 restarts the server.
+  const appErrs = pages.flatMap((p) => p.errors.map((e) => `${p.label}: ${e}`));
+  check("console errors = 0 (phases 1–2)", appErrs.length === 0, appErrs.slice(0, 5).join(" | "));
+  for (const p of pages) { await p.close().catch(() => {}); p.errors = []; }
   // ───────── Phase 3: security / correctness ─────────
   const sec = await import("./security.mjs");
   await sec.securityPhase();

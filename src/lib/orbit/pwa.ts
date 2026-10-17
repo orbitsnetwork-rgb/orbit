@@ -22,7 +22,7 @@ export function registerShell() {
   let flag = false;
   try {
     flag = localStorage.getItem("orbit-sw") === "1";
-  } catch {}
+  } catch { /* сховище недоступне */ }
   if (!("serviceWorker" in navigator) || (!import.meta.env.PROD && !flag)) return;
   const go = () => navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   if (document.readyState === "complete") go();

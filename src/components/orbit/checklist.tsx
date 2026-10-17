@@ -19,7 +19,9 @@ function read(key: string) {
 function mark(key: string) {
   try {
     localStorage.setItem(key, "1");
-  } catch {}
+  } catch {
+    // приватний режим: просто не запам’ятаємо
+  }
 }
 
 export function stepsOf(world: World, user: Account, why: boolean) {

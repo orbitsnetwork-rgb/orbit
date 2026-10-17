@@ -4,7 +4,6 @@
  * Runs after grok-pwa.ts (alphabetical), so the platform PWA head-injection still wraps this response
  * and copies these headers.
  */
-// @ts-expect-error JS module shared with the test
 import { withSecurityHeaders } from "../../scripts/security-headers.mjs";
 
 export default async function securityHeadersMiddleware(

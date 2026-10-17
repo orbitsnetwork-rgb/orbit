@@ -29,9 +29,10 @@ export const SECURITY_HEADERS = {
 };
 
 /** Returns a Response carrying the security headers (headers already set by a route win). */
+/** @param {unknown} response */
 export function withSecurityHeaders(response) {
   if (!(response instanceof Response)) return response;
-  const apply = (h) => { for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!h.has(k)) h.set(k, v); };
+  const apply = (/** @type {Headers} */ h) => { for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!h.has(k)) h.set(k, v); };
   try {
     apply(response.headers);
     return response;

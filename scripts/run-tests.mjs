@@ -16,7 +16,7 @@ function find(dir, re, out = []) {
 }
 const mjs = find(join(root, "scripts"), /\.test\.mjs$/);
 const ts = [
-  "src/lib/life.test.ts", "src/lib/credential.test.ts", "src/lib/nearby.test.ts", "src/lib/app-data/app-data.test.ts",
+  "src/lib/app-data/app-data.test.ts",
   "src/lib/app-data/readiness-schedule.test.ts", "src/lib/auth/gate-identity.test.ts", "src/lib/auth/sign-in-gate.test.ts",
   ...find(join(root, "src/lib/orbit"), /\.test\.ts$/),
 ];

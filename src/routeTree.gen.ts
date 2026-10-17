@@ -10,90 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ActivityRouteImport } from './routes/activity'
-import { Route as CreateRouteImport } from './routes/create'
-import { Route as DiscoverRouteImport } from './routes/discover'
-import { Route as ExchangeRouteImport } from './routes/exchange'
-import { Route as HallRouteImport } from './routes/hall'
-import { Route as HelpRouteImport } from './routes/help'
-import { Route as MapRouteImport } from './routes/map'
-import { Route as MineRouteImport } from './routes/mine'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as StageRouteImport } from './routes/stage'
-import { Route as TalkRouteImport } from './routes/talk'
 import { Route as ApiReconcileRouteImport } from './routes/api/reconcile'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
-import { Route as EIdRouteImport } from './routes/e.$id'
 import { Route as LCrRouteImport } from './routes/l.$cr'
-import { Route as OpenIdRouteImport } from './routes/open.$id'
-import { Route as PeopleNameRouteImport } from './routes/people.$name'
-import { Route as TalkIndexRouteImport } from './routes/talk.index'
-import { Route as TalkIdRouteImport } from './routes/talk.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ActivityRoute = ActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CreateRoute = CreateRouteImport.update({
-  id: '/create',
-  path: '/create',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DiscoverRoute = DiscoverRouteImport.update({
-  id: '/discover',
-  path: '/discover',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExchangeRoute = ExchangeRouteImport.update({
-  id: '/exchange',
-  path: '/exchange',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HallRoute = HallRouteImport.update({
-  id: '/hall',
-  path: '/hall',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HelpRoute = HelpRouteImport.update({
-  id: '/help',
-  path: '/help',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MapRoute = MapRouteImport.update({
-  id: '/map',
-  path: '/map',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MineRoute = MineRouteImport.update({
-  id: '/mine',
-  path: '/mine',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StageRoute = StageRouteImport.update({
-  id: '/stage',
-  path: '/stage',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TalkRoute = TalkRouteImport.update({
-  id: '/talk',
-  path: '/talk',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReconcileRoute = ApiReconcileRouteImport.update({
@@ -106,197 +29,44 @@ const ApiStripeRoute = ApiStripeRouteImport.update({
   path: '/api/stripe',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EIdRoute = EIdRouteImport.update({
-  id: '/e/$id',
-  path: '/e/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LCrRoute = LCrRouteImport.update({
   id: '/l/$cr',
   path: '/l/$cr',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OpenIdRoute = OpenIdRouteImport.update({
-  id: '/open/$id',
-  path: '/open/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PeopleNameRoute = PeopleNameRouteImport.update({
-  id: '/people/$name',
-  path: '/people/$name',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TalkIndexRoute = TalkIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => TalkRoute,
-} as any)
-const TalkIdRoute = TalkIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => TalkRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
-  '/create': typeof CreateRoute
-  '/discover': typeof DiscoverRoute
-  '/exchange': typeof ExchangeRoute
-  '/hall': typeof HallRoute
-  '/help': typeof HelpRoute
-  '/map': typeof MapRoute
-  '/mine': typeof MineRoute
-  '/profile': typeof ProfileRoute
-  '/settings': typeof SettingsRoute
-  '/stage': typeof StageRoute
-  '/talk': typeof TalkRouteWithChildren
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
-  '/e/$id': typeof EIdRoute
   '/l/$cr': typeof LCrRoute
-  '/open/$id': typeof OpenIdRoute
-  '/people/$name': typeof PeopleNameRoute
-  '/talk/$id': typeof TalkIdRoute
-  '/talk/': typeof TalkIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
-  '/create': typeof CreateRoute
-  '/discover': typeof DiscoverRoute
-  '/exchange': typeof ExchangeRoute
-  '/hall': typeof HallRoute
-  '/help': typeof HelpRoute
-  '/map': typeof MapRoute
-  '/mine': typeof MineRoute
-  '/profile': typeof ProfileRoute
-  '/settings': typeof SettingsRoute
-  '/stage': typeof StageRoute
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
-  '/e/$id': typeof EIdRoute
   '/l/$cr': typeof LCrRoute
-  '/open/$id': typeof OpenIdRoute
-  '/people/$name': typeof PeopleNameRoute
-  '/talk/$id': typeof TalkIdRoute
-  '/talk': typeof TalkIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
-  '/create': typeof CreateRoute
-  '/discover': typeof DiscoverRoute
-  '/exchange': typeof ExchangeRoute
-  '/hall': typeof HallRoute
-  '/help': typeof HelpRoute
-  '/map': typeof MapRoute
-  '/mine': typeof MineRoute
-  '/profile': typeof ProfileRoute
-  '/settings': typeof SettingsRoute
-  '/stage': typeof StageRoute
-  '/talk': typeof TalkRouteWithChildren
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
-  '/e/$id': typeof EIdRoute
   '/l/$cr': typeof LCrRoute
-  '/open/$id': typeof OpenIdRoute
-  '/people/$name': typeof PeopleNameRoute
-  '/talk/$id': typeof TalkIdRoute
-  '/talk/': typeof TalkIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/activity'
-    | '/create'
-    | '/discover'
-    | '/exchange'
-    | '/hall'
-    | '/help'
-    | '/map'
-    | '/mine'
-    | '/profile'
-    | '/settings'
-    | '/stage'
-    | '/talk'
-    | '/api/reconcile'
-    | '/api/stripe'
-    | '/e/$id'
-    | '/l/$cr'
-    | '/open/$id'
-    | '/people/$name'
-    | '/talk/$id'
-    | '/talk/'
+  fullPaths: '/' | '/api/reconcile' | '/api/stripe' | '/l/$cr'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/activity'
-    | '/create'
-    | '/discover'
-    | '/exchange'
-    | '/hall'
-    | '/help'
-    | '/map'
-    | '/mine'
-    | '/profile'
-    | '/settings'
-    | '/stage'
-    | '/api/reconcile'
-    | '/api/stripe'
-    | '/e/$id'
-    | '/l/$cr'
-    | '/open/$id'
-    | '/people/$name'
-    | '/talk/$id'
-    | '/talk'
-  id:
-    | '__root__'
-    | '/'
-    | '/activity'
-    | '/create'
-    | '/discover'
-    | '/exchange'
-    | '/hall'
-    | '/help'
-    | '/map'
-    | '/mine'
-    | '/profile'
-    | '/settings'
-    | '/stage'
-    | '/talk'
-    | '/api/reconcile'
-    | '/api/stripe'
-    | '/e/$id'
-    | '/l/$cr'
-    | '/open/$id'
-    | '/people/$name'
-    | '/talk/$id'
-    | '/talk/'
+  to: '/' | '/api/reconcile' | '/api/stripe' | '/l/$cr'
+  id: '__root__' | '/' | '/api/reconcile' | '/api/stripe' | '/l/$cr'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ActivityRoute: typeof ActivityRoute
-  CreateRoute: typeof CreateRoute
-  DiscoverRoute: typeof DiscoverRoute
-  ExchangeRoute: typeof ExchangeRoute
-  HallRoute: typeof HallRoute
-  HelpRoute: typeof HelpRoute
-  MapRoute: typeof MapRoute
-  MineRoute: typeof MineRoute
-  ProfileRoute: typeof ProfileRoute
-  SettingsRoute: typeof SettingsRoute
-  StageRoute: typeof StageRoute
-  TalkRoute: typeof TalkRouteWithChildren
   ApiReconcileRoute: typeof ApiReconcileRoute
   ApiStripeRoute: typeof ApiStripeRoute
-  EIdRoute: typeof EIdRoute
   LCrRoute: typeof LCrRoute
-  OpenIdRoute: typeof OpenIdRoute
-  PeopleNameRoute: typeof PeopleNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -306,90 +76,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/activity': {
-      id: '/activity'
-      path: '/activity'
-      fullPath: '/activity'
-      preLoaderRoute: typeof ActivityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/create': {
-      id: '/create'
-      path: '/create'
-      fullPath: '/create'
-      preLoaderRoute: typeof CreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/discover': {
-      id: '/discover'
-      path: '/discover'
-      fullPath: '/discover'
-      preLoaderRoute: typeof DiscoverRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/exchange': {
-      id: '/exchange'
-      path: '/exchange'
-      fullPath: '/exchange'
-      preLoaderRoute: typeof ExchangeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/hall': {
-      id: '/hall'
-      path: '/hall'
-      fullPath: '/hall'
-      preLoaderRoute: typeof HallRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/help': {
-      id: '/help'
-      path: '/help'
-      fullPath: '/help'
-      preLoaderRoute: typeof HelpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/map': {
-      id: '/map'
-      path: '/map'
-      fullPath: '/map'
-      preLoaderRoute: typeof MapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mine': {
-      id: '/mine'
-      path: '/mine'
-      fullPath: '/mine'
-      preLoaderRoute: typeof MineRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stage': {
-      id: '/stage'
-      path: '/stage'
-      fullPath: '/stage'
-      preLoaderRoute: typeof StageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/talk': {
-      id: '/talk'
-      path: '/talk'
-      fullPath: '/talk'
-      preLoaderRoute: typeof TalkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/reconcile': {
@@ -406,13 +92,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/e/$id': {
-      id: '/e/$id'
-      path: '/e/$id'
-      fullPath: '/e/$id'
-      preLoaderRoute: typeof EIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/l/$cr': {
       id: '/l/$cr'
       path: '/l/$cr'
@@ -420,69 +99,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LCrRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/open/$id': {
-      id: '/open/$id'
-      path: '/open/$id'
-      fullPath: '/open/$id'
-      preLoaderRoute: typeof OpenIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/people/$name': {
-      id: '/people/$name'
-      path: '/people/$name'
-      fullPath: '/people/$name'
-      preLoaderRoute: typeof PeopleNameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/talk/': {
-      id: '/talk/'
-      path: '/'
-      fullPath: '/talk/'
-      preLoaderRoute: typeof TalkIndexRouteImport
-      parentRoute: typeof TalkRoute
-    }
-    '/talk/$id': {
-      id: '/talk/$id'
-      path: '/$id'
-      fullPath: '/talk/$id'
-      preLoaderRoute: typeof TalkIdRouteImport
-      parentRoute: typeof TalkRoute
-    }
   }
 }
 
-interface TalkRouteChildren {
-  TalkIdRoute: typeof TalkIdRoute
-  TalkIndexRoute: typeof TalkIndexRoute
-}
-
-const TalkRouteChildren: TalkRouteChildren = {
-  TalkIdRoute: TalkIdRoute,
-  TalkIndexRoute: TalkIndexRoute,
-}
-
-const TalkRouteWithChildren = TalkRoute._addFileChildren(TalkRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ActivityRoute: ActivityRoute,
-  CreateRoute: CreateRoute,
-  DiscoverRoute: DiscoverRoute,
-  ExchangeRoute: ExchangeRoute,
-  HallRoute: HallRoute,
-  HelpRoute: HelpRoute,
-  MapRoute: MapRoute,
-  MineRoute: MineRoute,
-  ProfileRoute: ProfileRoute,
-  SettingsRoute: SettingsRoute,
-  StageRoute: StageRoute,
-  TalkRoute: TalkRouteWithChildren,
   ApiReconcileRoute: ApiReconcileRoute,
   ApiStripeRoute: ApiStripeRoute,
-  EIdRoute: EIdRoute,
   LCrRoute: LCrRoute,
-  OpenIdRoute: OpenIdRoute,
-  PeopleNameRoute: PeopleNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

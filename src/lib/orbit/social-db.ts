@@ -5,15 +5,11 @@
  */
 import type { Sql } from "@/lib/db";
 import { EVENTS_PER_USER, type Days, type Ev, type Mine, type Trust } from "@/lib/orbit/social";
-// @ts-ignore — vite raw import
 import schema from "../../../migrations/0031_orbit_social.sql?raw";
-// @ts-ignore — vite raw import
 import payoutSchema from "../../../migrations/0032_orbit_payouts.sql?raw";
-// @ts-ignore — vite raw import
 import emissionSchema from "../../../migrations/0033_orbit_emission.sql?raw";
 import linkSchema from "../../../migrations/0034_orbit_links.sql?raw";
 import inPersonSchema from "../../../migrations/0035_orbit_inperson.sql?raw";
-// @ts-ignore — vite raw import
 import archiveSchema from "../../../migrations/0036_orbit_archive.sql?raw";
 import type { DaySnap, Emission, Transparency } from "@/lib/orbit/emission";
 import type { World } from "@/lib/orbit/engine";

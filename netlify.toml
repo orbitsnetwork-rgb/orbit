@@ -5,12 +5,13 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# Заголовки безпеки. 'unsafe-inline' для script-src потрібен, бо SSR вставляє
+# Заголовки безпеки (статичні файли; для SSR — server/middleware/security-headers.ts,
+# значення в scripts/security-headers.mjs, мають збігатися). 'unsafe-inline' для script-src потрібен, бо SSR вставляє
 # інлайн-скрипти гідрації (різні на кожен запит) і два скрипти в <head>.
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; object-src 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://grok.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; object-src 'none'"
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"

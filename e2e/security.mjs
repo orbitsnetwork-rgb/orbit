@@ -17,6 +17,14 @@ export async function securityPhase() {
   const w = await L.apiRegister("Ольга", { ip: "10.2.0.2" });
   check("api register returns id + key", v.id?.startsWith("u-") && /^[A-Z0-9-]{14}$/.test(v.key || ""), v.raw.slice(0, 200));
 
+  await step("security headers on SSR HTML, /l/ and API", async () => {
+    for (const path of ["/", "/l/AAAAAAAAAAAAAAAA", "/api/reconcile"]) {
+      const r = await fetch(L.BASE + path);
+      const h = (k) => r.headers.get(k) || "";
+      L.check(`headers ${path}: CSP frame-ancestors 'none'`, h("content-security-policy").includes("frame-ancestors 'none'"), h("content-security-policy"));
+      L.check(`headers ${path}: X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy`, h("x-frame-options") === "DENY" && h("x-content-type-options") === "nosniff" && h("referrer-policy") === "strict-origin-when-cross-origin" && h("permissions-policy").includes("camera=()"));
+    }
+  });
   await step("stripe webhook: signature + idempotency", async () => {
     const body = session("cs_e2e_1", v.id, 500);
     check("webhook: unsigned → 400", (await hook(body)).status === 400);

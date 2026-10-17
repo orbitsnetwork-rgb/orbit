@@ -34,4 +34,4 @@ fi
 # Nitro bundles PGlite JS but not its wasm/data assets — copy them next to the bundled lib.
 cp node_modules/@electric-sql/pglite/dist/{pglite.data,pglite.wasm,initdb.wasm} .output/server/_libs/ || { echo "pglite assets missing"; exit 2; }
 export ORBIT_E2E_ROOT="$ROOT" ORBIT_E2E_RUN_DIR="$RUN_DIR" ORBIT_E2E_SCREENS="$SCREENS" ORBIT_E2E_PORT="$PORT"
-node "$ROOT/e2e/suite.mjs"
+node --import "$ROOT/scripts/ts-register.mjs" "$ROOT/e2e/suite.mjs"

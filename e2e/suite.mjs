@@ -327,6 +327,14 @@ await step("per-user projection", async () => {
   const foreign = pages.filter((p) => p !== host).some((p) => hostMail && p.bodies.some((b) => b.includes(hostMail)));
   check("host email never sent to others", hostMail && !foreign);
 });
+  // ───────── Phase 3: security / correctness ─────────
+  const sec = await import("./security.mjs");
+  await sec.securityPhase();
+  await L.stopServer();
+  await step("security: DB state", sec.securityDb);
+  // ───────── Phase 4: migration of an existing (pre-v7) world ─────────
+  const mig = await import("./migrate-sim.mjs");
+  await step("migration simulation", mig.migrationPhase);
 } finally {
   const errs = pages.flatMap((p) => p.errors.map((e) => `${p.label}: ${e}`));
   check("console errors = 0", errs.length === 0, errs.slice(0, 5).join(" | "));

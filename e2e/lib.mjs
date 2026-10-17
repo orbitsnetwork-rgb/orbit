@@ -25,6 +25,7 @@ export async function step(name, fn) {
 export const summary = () => ({ pass: results.filter((r) => r.ok).length, fail: results.filter((r) => !r.ok).length, results });
 
 // ---------- server ----------
+export const E2E_DEVICE_SECRET = "e2e-local-only-device-secret-not-real";
 let server = null;
 let lastLogs = "";
 export function setClock(ms) { writeFileSync(CLOCK, String(Math.round(ms))); }
@@ -34,7 +35,7 @@ export async function startServer(extraEnv = {}, { fresh = false } = {}) {
   await stopServer();
   mkdirSync(RUN, { recursive: true });
   if (fresh) { rmSync(join(RUN, "data"), { recursive: true, force: true }); setClock(0); }
-  const env = { ...process.env, PORT: String(PORT), ORBIT_E2E_CLOCK: CLOCK, REG_PER_IP_HOUR: "100000", DEVICE_SECRET: "e2e-local-only-device-secret-not-real", ...extraEnv };
+  const env = { ...process.env, PORT: String(PORT), ORBIT_E2E_CLOCK: CLOCK, REG_PER_IP_HOUR: "100000", DEVICE_SECRET: E2E_DEVICE_SECRET, ...extraEnv };
   delete env.DATABASE_URL; // never Neon
   for (const [k, v] of Object.entries(extraEnv)) if (v === undefined) delete env[k];
   server = spawn("node", ["--import", join(ROOT, "e2e/clock.mjs"), join(ROOT, ".output/server/index.mjs"), "orbit-e2e-server"], { cwd: RUN, env, stdio: ["ignore", "pipe", "pipe"] });
@@ -194,11 +195,11 @@ export async function findActUrl() {
   return ACT_URL;
 }
 /** Call orbitAct like the app does. ip → X-Forwarded-For (local server honours it; Netlify uses its own header). */
-export async function act(action, { sessionId = null, sessionKey = null, key = null, device = null, ip = "10.9.9.9", cookie, origin } = {}) {
+export async function act(action, { sessionId = null, sessionKey = null, key = null, device = null, ip = "10.9.9.9", cookie, origin = BASE } = {}) {
   const url = await findActUrl();
   const headers = { "content-type": "application/json", "x-tsr-serverfn": "true", accept: "application/json", "x-forwarded-for": ip };
   if (cookie) headers.cookie = cookie;
-  if (origin) headers.origin = origin;
+  if (origin) headers.origin = origin; // TanStack Start's CSRF middleware needs a same-origin Origin header
   const r = await fetch(url, { method: "POST", headers, body: encode({ sessionId, sessionKey, key, device, action }) });
   const raw = await r.text();
   return { status: r.status, raw, reply: decode(raw)?.result ?? null, setCookie: r.headers.get("set-cookie") };

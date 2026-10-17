@@ -378,6 +378,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
       // 11: старий текстовий ключ при вдалій перевірці замінюється на scrypt-хеш (запишеться з найближчим записом).
       bag.keys = K.upgradeKey(bag.keys, self, data.sessionKey);
+      bag.keys = K.hashSome(bag.keys, 3);
       const base = attach(clocked, self);
       const wall = Date.now();
       const persist = (people = bag.people) =>

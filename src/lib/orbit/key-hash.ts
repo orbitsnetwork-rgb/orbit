@@ -77,6 +77,23 @@ export function upgradeKey(keys: Record<string, string>, id: string | null, key:
   return { ...keys, [id]: hashKey(key) };
 }
 
+/**
+ * R6: поступова міграція — на кожному записі світу хешуємо до `max` старих текстових ключів (scrypt ≈ 50 мс кожен),
+ * щоб ключі тих, хто давно не входив, теж не лежали відкритим текстом. Для разового проходу — scripts/hash-keys.mjs.
+ */
+export function hashSome(keys: Record<string, string>, max = 3): Record<string, string> {
+  let left = max;
+  let out: Record<string, string> | null = null;
+  for (const [id, stored] of Object.entries(keys)) {
+    if (left <= 0) break;
+    if (isHashed(stored)) continue;
+    out ??= { ...keys };
+    out[id] = hashKey(stored);
+    left -= 1;
+  }
+  return out ?? keys;
+}
+
 /** Разова міграція всіх текстових ключів (скрипт scripts/hash-keys.mjs). */
 export function hashAll(keys: Record<string, string>): { keys: Record<string, string>; changed: number } {
   let changed = 0;

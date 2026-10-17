@@ -41,6 +41,7 @@ export const Route = createFileRoute("/api/stripe")({
           await social.insertEvents(sql, evs);
           const { emissionOf, massOf } = await import("@/lib/orbit/emission");
           await social.insertEmission(sql, emissionOf(bag.world, done.world, bag.topups, done.topups, evs), massOf(bag.world));
+          await social.archiveWrite(sql, bag.world, done.world, Date.now());
           return false;
         });
         if (orphan) {

@@ -13,6 +13,8 @@ import payoutSchema from "../../../migrations/0032_orbit_payouts.sql?raw";
 import emissionSchema from "../../../migrations/0033_orbit_emission.sql?raw";
 import linkSchema from "../../../migrations/0034_orbit_links.sql?raw";
 import inPersonSchema from "../../../migrations/0035_orbit_inperson.sql?raw";
+// @ts-ignore — vite raw import
+import archiveSchema from "../../../migrations/0036_orbit_archive.sql?raw";
 import type { DaySnap, Emission, Transparency } from "@/lib/orbit/emission";
 import type { World } from "@/lib/orbit/engine";
 
@@ -20,7 +22,7 @@ const g = globalThis as { __orbitSocialReady__?: Promise<void> };
 
 export function ensureSocial(sql: Sql): Promise<void> {
   g.__orbitSocialReady__ ??= (async () => {
-    for (const stmt of (String(schema) + ";" + String(payoutSchema) + ";" + String(emissionSchema) + ";" + String(linkSchema) + ";" + String(inPersonSchema)).replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
+    for (const stmt of (String(schema) + ";" + String(payoutSchema) + ";" + String(emissionSchema) + ";" + String(linkSchema) + ";" + String(inPersonSchema) + ";" + String(archiveSchema)).replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
   })().catch((error) => {
     g.__orbitSocialReady__ = undefined;
     throw error;
@@ -238,4 +240,41 @@ export async function readInPerson(sql: Sql, crs: string[]): Promise<Record<stri
   const rows = await sql.query<{ cr: string; witness_id: string }>(`select cr, witness_id from orbit_inperson where cr = any($1::text[])`, [crs]);
   for (const row of rows) (out[row.cr] ??= []).push(row.witness_id);
   return out;
+}
+
+/**
+ * v16, крок 1 винесення історії з рядка світу: дубль-запис нових угод, рядків журналу й завершених запусків
+ * в append-only таблиці (0036) в тій самій транзакції, що й запис світу. Читання поки що зі світу.
+ * Ідемпотентно: угоди — за індексом у world.trades, журнал — за (час, текст), запуски — за id.
+ */
+export async function archiveWrite(sql: Sql, prev: World, next: World, at: number) {
+  const start = prev.trades.length <= next.trades.length ? prev.trades.length : 0;
+  for (let seq = start; seq < next.trades.length; seq++) {
+    const t = next.trades[seq];
+    await sql.query(
+      `insert into orbit_trades (seq, at, amount, orbit_id, buyer_id, seller_id) values ($1, $2, $3, $4, $5, $6) on conflict (seq) do nothing`,
+      [seq, t.at, t.amount, t.orbitId, t.buyerId ?? null, t.sellerId ?? null],
+    );
+  }
+  const had = new Set(prev.log.map((row) => `${row.at}|${row.text}`));
+  for (const row of [...next.log].reverse()) {
+    if (had.has(`${row.at}|${row.text}`)) continue;
+    await sql.query(`insert into orbit_log (at, text) values ($1, $2) on conflict do nothing`, [row.at, row.text]);
+  }
+  const before = new Map(prev.creations.map((item) => [item.id, item.status]));
+  for (const item of next.creations) {
+    if ((item.status !== "done" && item.status !== "failed") || before.get(item.id) === item.status) continue;
+    await sql.query(
+      `insert into orbit_launches (id, user_id, status, confirms, charge_started_at, archived_at) values ($1, $2, $3, $4::jsonb, $5, $6) on conflict (id) do nothing`,
+      [item.id, item.userId, item.status, JSON.stringify(item.confirms), item.chargeStartedAt, at],
+    );
+  }
+}
+
+/** Для звірки й тестів: скільки рядків в архіві. */
+export async function archiveCounts(sql: Sql) {
+  const [t] = await sql.query<{ n: string | number }>(`select count(*) as n from orbit_trades`, []);
+  const [l] = await sql.query<{ n: string | number }>(`select count(*) as n from orbit_log`, []);
+  const [c] = await sql.query<{ n: string | number }>(`select count(*) as n from orbit_launches`, []);
+  return { trades: Number(t?.n ?? 0), log: Number(l?.n ?? 0), launches: Number(c?.n ?? 0) };
 }

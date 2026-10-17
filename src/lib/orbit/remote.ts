@@ -362,6 +362,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       let wrote = false;
       let stored: World | null = null;
       let days: Extra = { events: {}, thanks: {}, days: {}, origins: {} };
+      let archivePrev: World | null = null;
+      let archiveNext: World | null = null;
       const result = await (async (): Promise<OrbitReply> => {
       await sql.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb) on conflict (id) do nothing`, [
         packDoc(emptyWorld(), {}),
@@ -377,6 +379,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       /** Перед кожним записом: особисті події з різниці «було → стало» йдуть в orbit_events (у документі — лише дні). */
       const track = (w: World, t: Topup[]) => {
         wrote = true;
+        archivePrev = bag.world;
+        archiveNext = w;
         pending.length = 0;
         pending.push(...diffEvents(bag.world, w, bag.topups, t));
         emission = emissionOf(bag.world, w, bag.topups, t, pending);
@@ -693,6 +697,10 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       await insertOrigins(sql, pending, Date.now());
       await insertPayouts(sql, pending);
       await insertEmission(sql, emission, massBefore);
+      if (archivePrev && archiveNext) {
+        const { archiveWrite } = await import("@/lib/orbit/social-db");
+        await archiveWrite(sql, archivePrev, archiveNext, Date.now());
+      }
       out.social = await loadSocial(sql, done.world, days);
       return done;
     });

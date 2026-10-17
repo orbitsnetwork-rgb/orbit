@@ -74,6 +74,10 @@ await step("money locked: visible, lock sheet, no dates/income; legacy routes 40
   const me = await text(p);
   check("Я: deposit + withdraw rows locked", /Ввід гривні/.test(me) && /Вивід на картку/.test(me) && /Після юриста/.test(me), me.match(/(Вв[^\n]*|Вив[^\n]*)/g)?.slice(0, 4).join(" | "));
   check("Я: no Stripe/top-up button", !/Поповнити (картою|через)/i.test(me));
+  check("Я: phone + birth masked by default", !/\+380\d{9}/.test(me) && !/1990/.test(me) && /••\.••\.••••/.test(me));
+  await p.getByRole("button", { name: "Показати дані" }).click();
+  check("Я: «Показати дані» reveals birth", /05\.05\.1990|\d{2}\.\d{2}\.\d{4}/.test(await text(p)));
+  await p.getByRole("button", { name: "Приховати дані" }).click();
   await shot(p, "04c_me_locks");
   p.allowErrors = true; // ці адреси навмисно відповідають 404
   for (const route of ["/create", "/map", "/hall", "/talk", "/open/abc"]) {

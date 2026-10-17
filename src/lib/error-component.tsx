@@ -14,7 +14,7 @@ export function AppErrorComponent({ error, reset }: ErrorComponentProps) {
   }, [error]);
 
   return (
-    <main className="lp" aria-labelledby="err-title">
+    <main className="lp" data-center aria-labelledby="err-title">
       <div className="lp-card">
         <TriangleAlert className="nf-mark" size={36} strokeWidth={1.5} aria-hidden />
         <h1 id="err-title" className="lp-title">Цей екран не відкрився</h1>
@@ -23,7 +23,7 @@ export function AppErrorComponent({ error, reset }: ErrorComponentProps) {
         <button type="button" className="lp-go" onClick={() => reset()}>
           Спробувати ще
         </button>
-        <a href="/" className="orbit-quiet">На головну</a>
+        <a href="/" className="lp-back">На головну</a>
       </div>
     </main>
   );

@@ -2254,4 +2254,13 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .lk-lang-on { padding: 6px 12px; border-radius: 999px; background: rgb(255 255 255 / .07); color: var(--text-1); font: 650 13px/1 var(--font-sans); }
 .lk-lang-more { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font: 600 13px/1.2 var(--font-sans); text-decoration: none; background: none; border: 0; padding: 6px 2px; }
 .nf-mark { display: block; margin: 0 auto 12px; }
+.lp[data-center] { place-items: center; padding-bottom: 18vh; }
+.lp[data-center] .lp-title { font-weight: 700; }
+.lp-back { color: var(--text-2); text-decoration: none; font: 600 14px/1.2 var(--font-sans); padding: 10px; }
 .as-lockline { display: flex; align-items: center; gap: 6px; }
+.sd { display: grid; gap: 8px; margin-top: 4px; }
+.sd-list { display: grid; gap: 6px; margin: 0; }
+.sd-list > div { display: flex; justify-content: space-between; gap: 12px; font: 500 13px/1.35 var(--font-sans); }
+.sd-list dt { color: var(--text-3); }
+.sd-list dd { margin: 0; color: var(--text-1); text-align: right; overflow-wrap: anywhere; }
+.sd-toggle { justify-self: start; background: none; border: 0; padding: 6px 0; color: var(--text-2); font: 600 13px/1.2 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

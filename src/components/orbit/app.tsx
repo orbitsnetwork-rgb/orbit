@@ -1206,10 +1206,32 @@ function shrink(file: File): Promise<string | null> {
 function SelfCard() {
   const self = useOrbits((state) => state.self);
   if (!self) return null;
+  return <SelfDetails self={self} />;
+}
+
+/** Особисті дані — приховані за замовчуванням (не світити телефон і дату народження при сторонніх). */
+function SelfDetails({ self }: { self: { given: string; family: string; email: string; phone: string; birth: string } }) {
+  const [open, setOpen] = useState(false);
+  const mask = (value: string, keep: number) => (value.length <= keep ? "•••" : `${"•".repeat(Math.min(6, value.length - keep))}${value.slice(-keep)}`);
+  const [at, domain] = self.email.split("@");
+  const birth = /^\d{4}-\d{2}-\d{2}$/.test(self.birth) ? self.birth.split("-").reverse().join(".") : self.birth;
+  const rows: Array<[string, string]> = [
+    ["Ім’я", `${self.given} ${self.family}`],
+    ["Пошта", open ? self.email : `${(at || "").slice(0, 2)}•••@${domain || ""}`],
+    ["Телефон", open ? self.phone : mask(self.phone, 2)],
+    ["Дата народження", open ? birth : "••.••.••••"],
+  ];
   return (
-    <p className="orbit-note">
-      {self.given} {self.family}. {self.email}. {self.phone}. {self.birth}.
-    </p>
+    <div className="sd">
+      <dl className="sd-list">
+        {rows.map(([k, v]) => (
+          <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+        ))}
+      </dl>
+      <button type="button" className="sd-toggle" onClick={() => setOpen((v) => !v)} aria-pressed={open}>
+        {open ? "Приховати дані" : "Показати дані"}
+      </button>
+    </div>
   );
 }
 

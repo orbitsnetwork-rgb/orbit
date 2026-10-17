@@ -87,7 +87,7 @@ export function PriceChart({ trades, price, now, initial = "7d" }: { trades: Tra
               <polygon points={`0,${H} ${line} ${W},${H}`} fill={`url(#pc-${gid})`} className="pc-area" />
               <polyline points={line} className="pc-line" vectorEffect="non-scaling-stroke" />
             </>
-          ) : (
+          ) : empty ? null : (
             <line x1="0" x2={W} y1={yAt(price)} y2={yAt(price)} className="pc-flat" vectorEffect="non-scaling-stroke" />
           )}
           {pick !== null && shown ? <line x1={xAt(pick)} x2={xAt(pick)} y1="0" y2={H} className="pc-cross" vectorEffect="non-scaling-stroke" /> : null}

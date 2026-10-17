@@ -7,7 +7,7 @@ import { ago } from "@/lib/orbit/inbox";
 import { dayDelta, perDay } from "@/lib/orbit/series";
 import { PriceChart } from "@/components/orbit/ui/price-chart";
 import { Avatar, Change, Empty, Progress, Segmented, Sparkline, Stat } from "@/components/orbit/ui/kit";
-import { sparks, spk } from "@/lib/orbit/copy";
+import { spk } from "@/lib/orbit/copy";
 import { DAY_MS, ORBIT_CAP, SELLER_SHARE, utcDay, type Account, type World } from "@/lib/orbit/engine";
 import { useOrbits } from "@/lib/orbit/store";
 import type { Trust } from "@/lib/orbit/social";
@@ -249,9 +249,9 @@ export function ConfirmSheet({
           <p className="orbit-kicker">Купити першу орбіту з черги</p>
           <h2 className="orbit-h">{oldest ? no(oldest.orbitId) : "—"}</h2>
           <div className="ex-lines">
-            <div><span>Ціна дня</span><b>{sparks(price)}</b></div>
-            <div><span>Баланс зараз</span><b>{sparks(user.balance)}</b></div>
-            <div><span>Баланс після</span><b data-bad={short ? "1" : "0"}>{short ? `бракує ${sparks(-after)}` : sparks(after)}</b></div>
+            <div><span>Ціна дня</span><b>{spk(price)}</b></div>
+            <div><span>Баланс зараз</span><b>{spk(user.balance)}</b></div>
+            <div><span>Баланс після</span><b data-bad={short ? "1" : "0"}>{short ? `бракує ${spk(-after)}` : spk(after)}</b></div>
             <div><span>Стабільність</span><b>+1</b></div>
           </div>
           <p className="orbit-note">Ціна одна для всіх і міняється опівночі за UTC (03:00 за Києвом). Тестовий режим.</p>
@@ -271,9 +271,9 @@ export function ConfirmSheet({
         <h2 className="orbit-h">{no(confirm.orbitId)}</h2>
         <div className="ex-lines">
           <div><span>Місце в черзі</span><b>{world.queue.length + 1}</b></div>
-          <div><span>Ціна дня зараз</span><b>{sparks(price)}</b></div>
-          <div><span>Тобі після продажу</span><b>≈ {sparks(get)}</b></div>
-          <div><span>Баланс після продажу</span><b>≈ {sparks(user.balance + get)}</b></div>
+          <div><span>Ціна дня зараз</span><b>{spk(price)}</b></div>
+          <div><span>Тобі після продажу</span><b>≈ {spk(get)}</b></div>
+          <div><span>Баланс після продажу</span><b>≈ {spk(user.balance + get)}</b></div>
         </div>
         <p className="orbit-note">
           Іскри прийдуть, коли орбіту куплять. Продаж іде за ціною дня в момент купівлі: {Math.round(SELLER_SHARE * 100)}% тобі, решта — у фонд і резерв. Поки орбіта не перша, її можна зняти.

@@ -88,7 +88,7 @@ export function ChargeResult({ outcome, onView, onRestart, onClose }: { outcome:
         </h1>
         <p className="cr-body" id="cr-body">
           {passed
-            ? `Вона вже у твоєму профілі. Можна тримати її або виставити в чергу. Учасники, які підтвердили запуск, отримали по ${WITNESS_OD} іскор ✦.`
+            ? `Вона вже у твоєму профілі. Можна тримати її або виставити в чергу. Учасники, які підтвердили запуск, отримали по ${WITNESS_OD} ✦.`
             : `Шанс був ${chance}%, але заряд не втримався. Ці 8 підтверджень не зберігаються. Новий запуск можна почати будь-коли — це нічого не коштує.`}
         </p>
         {passed ? <ThankList world={useOrbits.getState().world} creation={outcome.creation} /> : null}

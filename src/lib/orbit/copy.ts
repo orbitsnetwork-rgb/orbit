@@ -166,11 +166,6 @@ export function sparkWord(n: number) {
 
 const sparkFmt = new Intl.NumberFormat("uk-UA");
 
-/** «1 250 іскор» */
-export function sparks(n: number) {
-  return `${sparkFmt.format(n)} ${sparkWord(n)}`;
-}
-
 /** «1 250 ✦» — коротко для чисел у картках. */
 export function spk(n: number) {
   return `${sparkFmt.format(n)} ✦`;

@@ -25,10 +25,22 @@ export const Route = createFileRoute("/api/reconcile")({
         const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
         const bag = unpackDoc(rows[0]?.doc);
         const check = await social.reconcile(sql, adoptClock({ ...bag.world, sessionId: null }));
-        // v16: архів угод (0036) має збігатися з world.trades за кількістю — інакше дубль-запис десь пропущено.
+        // v16/v17: архів (0036) має збігатися зі світом: угоди поелементно, вікно журналу, кожен завершений запуск.
         const counts = await social.archiveCounts(sql);
-        const archive = { trades: counts.trades, worldTrades: bag.world.trades.length, log: counts.log, launches: counts.launches, ok: counts.trades === bag.world.trades.length };
-        if (!archive.ok) console.error("orbit reconcile: archive mismatch", archive.trades, archive.worldTrades);
+        const parity = social.archiveParity(bag.world, await social.archiveRead(sql));
+        const launches = await social.launchParity(sql, bag.world);
+        const archive = {
+          trades: counts.trades,
+          worldTrades: bag.world.trades.length,
+          log: counts.log,
+          launches: counts.launches,
+          tradesOk: parity.tradesOk,
+          logOk: parity.logOk,
+          launchesOk: launches.ok,
+          launchesMissing: launches.missing,
+          ok: parity.ok && launches.ok,
+        };
+        if (!archive.ok) console.error("orbit reconcile: archive mismatch", JSON.stringify(archive));
         if (!check.ok) console.error("orbit reconcile: mismatch", check.diff, check.unexplained);
         return Response.json({ ...check, archive, at: new Date().toISOString() }, { status: check.ok ? 200 : 409, headers: { "cache-control": "no-store" } });
       },

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { buyOldest, emptyWorld, listOrbit, register, type World } from "./engine.ts";
-import { archiveCounts, archiveWrite, ensureSocial } from "./social-db.ts";
+import { archiveCounts, archiveParity, archiveRead, archiveWrite, ensureSocial, launchParity } from "./social-db.ts";
 
 const mig = (name: string) => readFileSync(new URL(`../../../migrations/${name}`, import.meta.url), "utf8");
 function wrap(pg: PGlite) {
@@ -54,5 +54,19 @@ test("v16 archive: 0037 backfills trades/log/finished launches from the world ro
   const counts = await archiveCounts(sql);
   assert.equal(counts.trades, bought.trades.length);
   assert.equal(counts.log, 2); // backfilled line + «купив … ✦» (the listing line was written by its own earlier write)
+
+  // v17 step 2: read path. Write the listing step too (as the server does), then archive == world.
+  await archiveWrite(sql, w, listed, T0);
+  const hist = await archiveRead(sql);
+  assert.deepEqual(hist.trades, bought.trades);
+  assert.deepEqual(archiveParity(bought, hist), { tradesOk: true, logOk: true, ok: true });
+  // same lines (order within one millisecond follows insert order; here the listing was archived late on purpose)
+  assert.deepEqual(hist.log.map((r) => r.text).sort(), bought.log.map((r) => r.text).sort());
+  assert.equal((await launchParity(sql, bought)).ok, true);
+  // a lost dual-write is caught: screens fall back to the world row, reconcile reports it
+  await pg.query(`delete from orbit_trades where seq = 1`);
+  assert.equal(archiveParity(bought, await archiveRead(sql)).tradesOk, false);
+  await pg.query(`delete from orbit_launches where id = 'c-a-0'`);
+  assert.deepEqual(await launchParity(sql, bought), { worldFinals: 2, archived: 1, missing: 1, ok: false });
   await pg.close();
 });

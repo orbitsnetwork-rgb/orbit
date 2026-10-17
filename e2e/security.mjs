@@ -168,6 +168,7 @@ export async function securityPhase() {
     const j = await ok.json();
     check("reconcile: right token → 200 ok, diff 0", ok.status === 200 && j.ok === true && j.diff === 0, JSON.stringify(j));
     check("reconcile: aggregates only (no ids)", !JSON.stringify(j).includes("u-"));
+    check("reconcile: archive parity (trades, log window, finished launches)", j.archive?.ok === true && j.archive.tradesOk && j.archive.logOk && j.archive.launchesOk, JSON.stringify(j.archive));
   });
 
   await step("CSRF on server functions", async () => {

@@ -42,7 +42,7 @@ export type OrbitAction =
 type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
-export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string> };
+export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string>; /** v17: звідки історія (угоди, журнал) — з архівних таблиць чи, при розбіжності, зі світу. */ hist?: "archive" | "world" };
 
 const LOCKED = "Це ім’я відкрите на іншому пристрої. Потрібен його ключ.";
 
@@ -135,10 +135,27 @@ export function devMailCode() {
   return process.env.ORBIT_DEV_MAIL_CODE?.trim() === "1";
 }
 
-function reply(raw: OrbitReply, people: Identity[], social?: Social): OrbitReply {
+function reply(raw: OrbitReply, people: Identity[], social?: Social, hist?: Seen["hist"]): OrbitReply {
   const step = raw.self && raw.self.mailCode && !devMailCode() ? { ...raw, self: { ...raw.self, mailCode: null } } : raw;
   if (!step.world.sessionId) return { ...step, world: guestWorld(step.world), pub: statsOf(step.world) };
-  return { ...step, world: project(step.world, step.world.sessionId, people), mine: social?.mine, origins: social?.origins };
+  // v17, крок 2: угоди й журнал для екранів — з архівних таблиць (якщо збігаються зі світом), інакше зі світу.
+  const shown = hist ? { ...step.world, trades: hist.trades, log: hist.log.slice(0, step.world.log.length || 40) } : step.world;
+  return { ...step, world: project(shown, step.world.sessionId, people), mine: social?.mine, origins: social?.origins, hist: hist ? "archive" : "world" };
+}
+
+/** Історія з архіву для того, хто увійшов; при розбіжності зі світом — null (і запис у журнал сервера). */
+async function loadHistory(sql: import("@/lib/db").Sql, world: World): Promise<Seen["hist"]> {
+  if (!world.sessionId) return null;
+  try {
+    const { archiveRead, archiveParity } = await import("@/lib/orbit/social-db");
+    const hist = await archiveRead(sql);
+    const parity = archiveParity(world, hist);
+    if (parity.ok) return hist;
+    console.error("orbit archive: parity mismatch, serving history from the world row", JSON.stringify({ trades: parity.tradesOk, log: parity.logOk }));
+  } catch (error) {
+    console.error("orbit archive: read failed, serving history from the world row", error instanceof Error ? error.message : "unknown");
+  }
+  return null;
 }
 
 type Social = { mine: Mine; origins: Record<string, string> };
@@ -273,7 +290,7 @@ export const orbitAct = createServerFn({ method: "POST" })
     try {
       const out: Seen = { people: [] };
       const step = await act(await stamp(data), out);
-      return reply(step, out.people, out.social);
+      return reply(step, out.people, out.social, out.hist);
     } catch (error) {
       // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
       console.error("orbitAct failed", error instanceof Error ? error.message : "unknown");
@@ -305,6 +322,7 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   out.people = bag.people;
   const world = attach(clocked, self);
   out.social = await loadSocial(sql, world, bag.extra);
+  out.hist = await loadHistory(sql, world);
   return { world, self: own(bag.people, self) };
 }
 
@@ -326,7 +344,7 @@ async function stamp(data: Call): Promise<Call> {
 }
 
 /** Хто є хто — щоб показати іншим «Ім’я П.». Заповнює act. */
-type Seen = { people: Identity[]; social?: Social };
+type Seen = { people: Identity[]; social?: Social; hist?: import("@/lib/orbit/social-db").ArchiveHistory | null };
 
 async function act(data: Call, out: Seen): Promise<OrbitReply> {
     if (data.action.type === "pull") {
@@ -709,6 +727,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         await archiveWrite(sql, archivePrev, archiveNext, Date.now());
       }
       out.social = await loadSocial(sql, done.world, days);
+      out.hist = await loadHistory(sql, done.world);
       return done;
     });
 }

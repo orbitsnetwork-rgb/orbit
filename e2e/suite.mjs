@@ -321,6 +321,11 @@ await step("exchange buy + trust stats", async () => {
   await b.waitForTimeout(1500);
   await tab(b, "Я");
   check("buyer now owns a numbered orbit", await hasText(b, "з 8 000 000"));
+  // v17 крок 2: історія на екранах — з архівних таблиць; угода з buyer/seller уже там.
+  const r = lastWorld(b);
+  check("history served from archive tables (hist=archive)", r?.hist === "archive", r?.hist);
+  const t = r?.world?.trades?.at(-1);
+  check("archive trade carries buyer + seller", Boolean(t?.buyerId && t?.sellerId && t.buyerId !== t.sellerId), JSON.stringify(t));
 });
 await step("fund + payout history", async () => {
   L.advance(3 * 24 * H + H);
@@ -404,10 +409,12 @@ await step("thank phrase index validated server-side", async () => {
 await step("per-user projection", async () => {
   let checked = 0, leaks = [], payoutRows = 0;
   const secrets = [];
+  let worldHist = 0;
   for (const p of pages) for (const raw of p.bodies) {
     const d = L.decode(raw)?.result; const w = d?.world;
     if (!w?.accounts) continue;
     checked++;
+    if (w.sessionId && d.hist !== "archive") worldHist++;
     for (const a of w.accounts) if (a.id !== w.sessionId && (a.balance || a.toppedUp || a.starterPending || a.confirmsToday)) leaks.push(`${p.label}: account ${a.id} balance=${a.balance}`);
     for (const c of w.creations || []) if (c.userId !== w.sessionId && c.code) leaks.push(`${p.label}: foreign code`);
     if (d.self && w.sessionId && d.self.userId && d.self.userId !== w.sessionId) leaks.push(`${p.label}: self mismatch`);
@@ -417,6 +424,7 @@ await step("per-user projection", async () => {
     for (const cr of Object.keys(d.mine?.links || {})) if (w.creations?.find((c) => c.id === cr)?.userId !== w.sessionId) leaks.push(`${p.label}: foreign link ${cr}`);
   }
   check(`projection: ${checked} replies, no foreign balances/codes/keys/payouts/links`, checked > 20 && leaks.length === 0, leaks.slice(0, 5).join("; "));
+  check("every signed-in reply: history from archive (parity held all run)", worldHist === 0, `${worldHist} replies fell back to the world row`);
   check(`world.payouts carries only own rows (${payoutRows} seen)`, leaks.every((l) => !l.includes("payout")));
   const hostMail = lastWorld(host)?.self?.email;
   const foreign = pages.filter((p) => p !== host).some((p) => hostMail && p.bodies.some((b) => b.includes(hostMail)));

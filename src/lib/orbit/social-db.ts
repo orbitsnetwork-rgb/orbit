@@ -274,3 +274,48 @@ export async function archiveCounts(sql: Sql) {
   const [c] = await sql.query<{ n: string | number }>(`select count(*) as n from orbit_launches`, []);
   return { trades: Number(t?.n ?? 0), log: Number(l?.n ?? 0), launches: Number(c?.n ?? 0) };
 }
+
+export type ArchiveHistory = { trades: World["trades"]; log: World["log"] };
+
+/**
+ * v17, крок 2: історію для екранів читаємо з архівних таблиць (угоди — всі за порядком, журнал — 40 останніх).
+ * Рушій і формули далі працюють зі світом; рядок світу поки нічого не втрачає (крок 3 — окремо).
+ */
+export async function archiveRead(sql: Sql, logLimit = 40): Promise<ArchiveHistory> {
+  const trades = await sql.query<{ at: string | number; amount: number; orbit_id: number; buyer_id: string | null; seller_id: string | null }>(
+    `select at, amount, orbit_id, buyer_id, seller_id from orbit_trades order by seq asc`,
+    [],
+  );
+  const log = await sql.query<{ at: string | number; text: string }>(`select at, text from orbit_log order by at desc, id desc limit $1`, [logLimit]);
+  return {
+    trades: trades.map((row) => ({
+      at: Number(row.at),
+      amount: Number(row.amount),
+      orbitId: Number(row.orbit_id),
+      ...(row.buyer_id ? { buyerId: row.buyer_id } : {}),
+      ...(row.seller_id ? { sellerId: row.seller_id } : {}),
+    })),
+    log: log.map((row) => ({ at: Number(row.at), text: row.text })),
+  };
+}
+
+const tradeKey = (t: World["trades"][number]) => `${t.at}|${t.amount}|${t.orbitId}|${t.buyerId ?? ""}|${t.sellerId ?? ""}`;
+
+/** Звірка «архів = світ» (поки світ ще тримає всю історію). Будь-яка розбіжність → читаємо зі світу і пишемо в журнал. */
+export function archiveParity(world: World, hist: ArchiveHistory) {
+  const tradesOk = hist.trades.length === world.trades.length && hist.trades.every((t, i) => tradeKey(t) === tradeKey(world.trades[i]));
+  // Журнал в архіві може бути довшим за 40 рядків світу, тож звіряємо лише вікно, яке тримає світ.
+  const want = world.log.map((row) => `${row.at}|${row.text}`);
+  const have = new Set(hist.log.map((row) => `${row.at}|${row.text}`));
+  const logOk = want.every((key) => have.has(key)) && hist.log.length >= Math.min(world.log.length, 40);
+  return { tradesOk, logOk, ok: tradesOk && logOk };
+}
+
+/** Звірка завершених запусків: кожен done/failed у світі має рядок в orbit_launches з тим самим статусом. */
+export async function launchParity(sql: Sql, world: World) {
+  const finals = world.creations.filter((item) => item.status === "done" || item.status === "failed");
+  const rows = await sql.query<{ id: string; status: string }>(`select id, status from orbit_launches`, []);
+  const have = new Map(rows.map((row) => [row.id, row.status]));
+  const missing = finals.filter((item) => have.get(item.id) !== item.status).length;
+  return { worldFinals: finals.length, archived: rows.length, missing, ok: missing === 0 };
+}

@@ -140,7 +140,15 @@ await step("charge result + numbered orbit", async () => {
   check("charge succeeded (seeded)", await hasText(host, "№"));
   const thanks = host.getByRole("button", { name: /^Подякувати / });
   check("charge result: «Дякую» per confirmer", (await thanks.count()) >= 1, String(await thanks.count()));
-  if (await thanks.count()) { await thanks.first().click(); await host.waitForTimeout(800); check("thanks → «Подякувано»", await hasText(host, "Подякувано")); }
+  if (await thanks.count()) {
+    await thanks.first().click();
+    const pick = host.getByRole("group", { name: /^Фраза подяки для / });
+    check("thanks: phrase picker with 6 phrases", (await pick.getByRole("button").count()) === 6);
+    await shot(host, "11b_thank_phrases");
+    await pick.getByRole("button", { name: "Ти — частина моєї орбіти ✦" }).click();
+    await host.waitForTimeout(900);
+    check("thanks → «Подякувано»", await hasText(host, "Подякувано"));
+  }
   await host.keyboard.press("Escape");
   const close = host.getByRole("button", { name: /До моїх орбіт|Зрозуміло|Закрити/ });
   if (await close.count()) await close.first().click().catch(() => {});
@@ -156,11 +164,34 @@ await step("profile: badges, streak, crew, thanks", async () => {
   check("badge «Перша орбіта» earned", b.includes("Перша орбіта"));
   check("streak «Орбітальна серія»", b.includes("Орбітальна серія"));
   check("crew «Екіпаж» shown", b.includes("Екіпаж"));
+  check("crew streak shown and alive", /Серія екіпажу · [1-9]\d* (тиждень|тижні|тижнів) поспіль/.test(b), b.match(/Серія екіпажу[^\n]*/)?.[0]);
+  const week = host.getByLabel("Табель екіпажу за тиждень").first();
+  check("weekly crew report card (3 stats)", (await week.locator("dd").count()) === 3);
+  const wk = (await week.locator("dd").allInnerTexts()).map(Number);
+  check("weekly report: in-crew confirms ≥1, thanks ≥1", wk[0] >= 1 && wk[2] >= 1, wk.join("/"));
+  await week.scrollIntoViewIfNeeded(); await shot(host, "13c_crew_streak_week");
+  const recap = host.locator(".mr-card");
+  const rt = await recap.innerText();
+  check("month recap «Твій місяць на орбіті»", rt.includes("Твій місяць на орбіті"));
+  const nums = (await recap.locator("dd").allInnerTexts()).map(Number);
+  check("month recap: launches ≥1, orbits ≥1, 6 stats", nums.length === 6 && nums[1] >= 1 && nums[2] >= 1, nums.join("/"));
+  check("month recap shows no balances (no ✦ amounts)", !/\d\s*✦/.test(rt));
+  await recap.scrollIntoViewIfNeeded(); await shot(host, "13d_month_recap");
+  const [dl] = await Promise.all([host.waitForEvent("download", { timeout: 10000 }), recap.getByRole("button", { name: "Поділитися картинкою" }).click()]);
+  const png = (await import("node:fs")).readFileSync(await dl.path());
+  const isPng = png.subarray(1, 4).toString() === "PNG";
+  check("month recap image: PNG 1080×1350", isPng && png.readUInt32BE(16) === 1080 && png.readUInt32BE(20) === 1350, `${png.length}b`);
+  if (isPng) (await import("node:fs")).writeFileSync(join(L.SCREENS, `${L.VERSION}_month_card.png`), png);
   await shot(host, "13_profile_badges");
   await axe(host, "profile");
   const c = crew[1]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
   check("confirmer sees thanks count ≥1", /\n?[1-9]\d*\s*\n?подяк/.test(await text(c)));
   check("confirmer badge «Екіпаж вісімки»", await hasText(c, "Екіпаж вісімки"));
+  const g = crew[0]; await g.reload(); await g.waitForTimeout(1500);
+  await more(g, "Сповіщення");
+  check("thanked confirmer sees the chosen phrase", await hasText(g, "«Ти — частина моєї орбіти ✦»"));
+  await shot(g, "13b_thanks_inbox");
+  await L.closePages(g);
 });
 await step("wallet Поповнено/Отримано", async () => {
   const c = crew[2]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
@@ -272,6 +303,12 @@ await step("offline / empty / error states", async () => {
   await shot(e, "24_error");
   await e.unroute("**/_serverFn/**");
   e.errors = []; e.allowErrors = false;
+});
+await step("thank phrase index validated server-side", async () => {
+  // A forged phrase index must never reach anyone's inbox: only 0–5 are kept.
+  const evs = (lastWorld(crew[0]) ? crew[0].bodies.map((b) => L.decode(b)?.result?.mine?.events).filter(Boolean).at(-1) : []) || [];
+  const got = evs.filter((e) => e.t === "thanksGot");
+  check("thanksGot event carries p within 0–5", got.length >= 1 && got.every((e) => e.p === undefined || (Number.isInteger(e.p) && e.p >= 0 && e.p < 6)), JSON.stringify(got));
 });
 await step("per-user projection", async () => {
   let checked = 0, leaks = [];

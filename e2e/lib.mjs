@@ -8,7 +8,7 @@ export const RUN = process.env.ORBIT_E2E_RUN_DIR || "/workspace/e2e-run";
 export const SCREENS = process.env.ORBIT_E2E_SCREENS || "/workspace/screens";
 export const PORT = Number(process.env.ORBIT_E2E_PORT || 3917);
 export const BASE = `http://localhost:${PORT}`;
-export const VERSION = process.env.ORBIT_E2E_TAG || "ui_v14";
+export const VERSION = process.env.ORBIT_E2E_TAG || "ui_v15";
 const CLOCK = join(RUN, "clock");
 export const H = 60 * 60 * 1000;
 

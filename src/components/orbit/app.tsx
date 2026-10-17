@@ -625,13 +625,14 @@ function Field({
 /** До входу: лише загальні цифри світу, без імен і без того, хто кого підтвердив. */
 function GuestStats() {
   const pub = useOrbits((state) => state.pub);
-  if (!pub) return null;
+  // Місце тримаємо одразу (з «—»), щоб форма не стрибала, коли прийдуть цифри (CLS).
+  const show = (n: number | undefined) => (pub && n !== undefined ? money.format(n) : "—");
   return (
-    <div className="orbit-stats gs-stats" aria-label="Світ Орбіт зараз">
-      <div><b>{money.format(pub.people)}</b><span>учасників</span></div>
-      <div><b>{money.format(pub.orbits)}</b><span>орбіт</span></div>
-      <div><b>{money.format(pub.price)}</b><span>✦ ціна дня</span></div>
-      <div><b>{money.format(pub.queue)}</b><span>у черзі</span></div>
+    <div className="orbit-stats gs-stats" aria-label="Світ Орбіт зараз" aria-busy={!pub}>
+      <div><b>{show(pub?.people)}</b><span>учасників</span></div>
+      <div><b>{show(pub?.orbits)}</b><span>орбіт</span></div>
+      <div><b>{show(pub?.price)}</b><span>✦ ціна дня</span></div>
+      <div><b>{show(pub?.queue)}</b><span>у черзі</span></div>
     </div>
   );
 }

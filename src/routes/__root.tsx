@@ -3,6 +3,9 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { NotFound } from "@/components/orbit/not-found";
 import appCss from "../styles.css?url";
+// Шрифт — змінний Manrope (один файл на абетку). Preload, щоб текст не чекав, поки розбереться CSS.
+import fontCyr from "@fontsource-variable/manrope/files/manrope-cyrillic-wght-normal.woff2?url";
+import fontLat from "@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2?url";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -19,6 +22,8 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "preload", as: "font", type: "font/woff2", href: fontCyr, crossOrigin: "anonymous" },
+      { rel: "preload", as: "font", type: "font/woff2", href: fontLat, crossOrigin: "anonymous" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },

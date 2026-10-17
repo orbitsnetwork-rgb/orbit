@@ -1,18 +1,9 @@
 @import "tailwindcss" source(none);
 @source "./";
-@import "@fontsource/manrope/latin-400.css";
-@import "@fontsource/manrope/latin-600.css";
-@import "@fontsource/manrope/cyrillic-400.css";
-@import "@fontsource/manrope/cyrillic-600.css";
-@import "@fontsource/manrope/latin-500.css";
-@import "@fontsource/manrope/latin-700.css";
-@import "@fontsource/manrope/latin-800.css";
-@import "@fontsource/manrope/cyrillic-500.css";
-@import "@fontsource/manrope/cyrillic-700.css";
-@import "@fontsource/manrope/cyrillic-800.css";
+@import "@fontsource-variable/manrope/wght.css";
 
 @theme {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope Variable", "Manrope", ui-sans-serif, system-ui, sans-serif;
   --color-background-primary: #05070c;
   --color-background-secondary: #080d14;
   --color-bg: #05070c;

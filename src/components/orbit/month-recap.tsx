@@ -34,7 +34,7 @@ export async function drawRecap(r: MonthRecap, name: string): Promise<Blob | nul
   for (const [rad, a] of [[300, 0.55], [220, 0.35], [140, 0.2]] as const) { g.globalAlpha = a / 0.55; g.beginPath(); g.ellipse(W - 230, 260, rad, rad * 0.42, -0.35, 0, Math.PI * 2); g.stroke(); }
   g.globalAlpha = 1;
   g.fillStyle = "#f2c46d"; g.beginPath(); g.arc(W - 230, 260, 46, 0, Math.PI * 2); g.fill();
-  const sans = "Manrope, system-ui, sans-serif";
+  const sans = '"Manrope Variable", Manrope, system-ui, sans-serif';
   g.fillStyle = "#f2c46d"; g.font = `700 40px ${sans}`; g.fillText(r.month.charAt(0).toUpperCase() + r.month.slice(1), 90, 150);
   g.fillStyle = "#ffffff"; g.font = `800 84px ${sans}`;
   g.fillText("Твій місяць", 90, 470); g.fillText("на орбіті", 90, 565);

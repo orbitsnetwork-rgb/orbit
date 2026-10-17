@@ -26,7 +26,7 @@ async function stripeFetch(url: string, init: RequestInit): Promise<Response | n
 export async function openCheckout(userId: string, amount: number, origin: string) {
   const key = testKey();
   if (!key) return { error: "Тестове поповнення ще не підключено." as const };
-  if (!amountOk(amount)) return { error: "Сума 100, 500 або 1000 ОД." as const };
+  if (!amountOk(amount)) return { error: "Сума 100, 500 або 1000 ✦." as const };
   const body = new URLSearchParams();
   body.set("mode", "payment");
   body.set("success_url", `${origin}/?topup={CHECKOUT_SESSION_ID}`);
@@ -37,7 +37,7 @@ export async function openCheckout(userId: string, amount: number, origin: strin
   body.set("line_items[0][quantity]", "1");
   body.set("line_items[0][price_data][currency]", "usd");
   body.set("line_items[0][price_data][unit_amount]", String(amount));
-  body.set("line_items[0][price_data][product_data][name]", `${amount} ОД`);
+  body.set("line_items[0][price_data][product_data][name]", `${amount} іскор ✦ · Орбіти`);
   const response = await stripeFetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/x-www-form-urlencoded" },
@@ -91,8 +91,8 @@ export function creditTopup(world: World, topups: Topup[], paid: { id: string; u
     ...topups.filter((row) => row.id !== paid.id),
     { id: paid.id, userId: paid.userId, amount: paid.amount, status: "paid" as const, at: Date.now() },
   ];
-  const log = [{ at: Date.now(), text: `Поповнення ${paid.amount} ОД.` }, ...world.log].slice(0, LOG_KEEP);
-  return { world: { ...world, accounts, log }, topups: trimTopups(next), notice: `Зараховано ${paid.amount} ОД.` };
+  const log = [{ at: Date.now(), text: `Поповнення ${paid.amount} ✦.` }, ...world.log].slice(0, LOG_KEEP);
+  return { world: { ...world, accounts, log }, topups: trimTopups(next), notice: `Зараховано ${paid.amount} ✦.` };
 }
 
 export function signedEvent(raw: string, header: string | null) {

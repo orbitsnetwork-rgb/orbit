@@ -173,7 +173,6 @@ export function spk(n: number) {
   return `${sparkFmt.format(n)} ✦`;
 }
 
-/** Повідомлення з сервера ще кажуть «ОД». Показуємо їх як іскри, нічого не міняючи в рушії. */
 /** 14c: службові фрази рушія → людська мова без роду (рушій не чіпаємо, лише показ). */
 export function plainEvent(text: string) {
   return text
@@ -183,6 +182,7 @@ export function plainEvent(text: string) {
     .replace(/^(.+?) закрив вісімку підтверджень\. Заряд на 24 години\.?$/, "$1 · усі 8 підтверджень зібрано, заряд 24 години");
 }
 
+/** Рушій і старі записи журналу ще кажуть «ОД». Показуємо їх як іскри ✦, нічого не міняючи в рушії й базі. */
 export function sparkText(text: string) {
   return plainEvent(text)
     .replace(/(\d[\d\u00a0\u202f ]*)\s?ОД(?!\p{L})/gu, (_match, num: string) => {

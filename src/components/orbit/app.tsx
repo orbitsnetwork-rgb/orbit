@@ -801,6 +801,7 @@ const QUICK: { route: Route; label: string; icon: ReactNode }[] = [
 ];
 
 function Mine({ world, user }: { world: World; user: Account }) {
+  const links = useOrbits((state) => state.mine?.links);
   const creation = activeCreation(world, user.id);
   const wall = useWall(world.now);
   const tail = (
@@ -847,7 +848,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
         </Satellites>
         <Witnesses world={world} creation={creation} title="Підтвердили" />
         {live && creation.code ? (
-          <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} cr={creation.id} />
+          <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} cr={links?.[creation.id]} />
         ) : (
           <>
             {creation.code ? <p className="orbit-note ch-center">Код згас. Створи новий — він діятиме 10 хвилин.</p> : null}

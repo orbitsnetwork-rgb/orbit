@@ -144,6 +144,7 @@ type MarketRow = { id: string; icon: ReactNode; title: string; sub: string; valu
 
 /** «Ринок»: живі показники з даних світу, кожен — зі спарклайном за 14 днів і зміною. */
 export function Markets({ world, onTab }: { world: World; onTab: (tab: HomeTab) => void }) {
+  const fundRuns = useOrbits((state) => state.mine?.fundRuns);
   const rows = useMemo<MarketRow[]>(() => {
     const now = world.now;
     const price = priceSeries(world.trades, world.price, now, "30d");
@@ -152,7 +153,8 @@ export function Markets({ world, onTab }: { world: World; onTab: (tab: HomeTab) 
     const supply = minted.map((n) => (run += n));
     const deals = perDay(world.trades.map((t) => t.at), now);
     const listed = perDay(world.queue.map((q) => q.createdAt), now);
-    const paid = sumPerDay(world.payouts, now);
+    // P1: на клієнті лише свої виплати, тож графік фонду — з підсумків поділів.
+    const paid = sumPerDay((fundRuns ?? []).map((run) => ({ at: run.at, amount: run.total })), now);
     const recent = world.trades.filter((t) => t.at >= now - DAY_MS).length;
     return [
       { id: "price", icon: <OrbitIcon size={18} strokeWidth={1.8} />, title: "Орбіта", sub: "ціна дня", value: `${fmt.format(world.price)} ✦`, series: price.points.map((p) => p.v), chip: <Change pct={price.change} suffix="30Д" />, tone: price.change > 0 ? "up" : price.change < 0 ? "down" : "sun", tab: "market" },
@@ -161,7 +163,7 @@ export function Markets({ world, onTab }: { world: World; onTab: (tab: HomeTab) 
       { id: "queue", icon: <ListOrdered size={18} strokeWidth={1.8} />, title: "Черга", sub: "на продаж", value: fmt.format(world.queue.length), series: listed, chip: <Change abs={listed[listed.length - 1]} suffix="нових" />, tone: "sun", tab: "market" },
       { id: "fund", icon: <Coins size={18} strokeWidth={1.8} />, title: "Фонд", sub: "до поділу", value: `${fmt.format(world.fund)} ✦`, series: paid, chip: <Change abs={paid[paid.length - 1]} suffix="виплачено" />, tone: "up", tab: "flow" },
     ];
-  }, [world]);
+  }, [world, fundRuns]);
   return (
     <ul className="hm-mk">
       {rows.map((row) => (

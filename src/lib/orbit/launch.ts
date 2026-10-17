@@ -35,7 +35,7 @@ function allow(key: string, now: number, max: number) {
 export const launchLive = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => {
     const raw = (input ?? {}) as { cr?: unknown; c?: unknown };
-    return { cr: String(raw.cr ?? "").replace(/[^a-z0-9-]/gi, "").slice(0, 40), c: String(raw.c ?? "").replace(/\D/g, "").slice(0, 6) };
+    return { cr: String(raw.cr ?? "").replace(/[^a-z0-9_-]/gi, "").slice(0, 40), c: String(raw.c ?? "").replace(/\D/g, "").slice(0, 6) };
   })
   .handler(async ({ data }): Promise<LaunchLive> => {
     const server = await import("@tanstack/react-start/server");
@@ -44,14 +44,19 @@ export const launchLive = createServerFn({ method: "GET" })
     const now = Date.now();
     const empty: LaunchLive = { found: false, who: null, n: 0, need: 8, status: null, names: [], codeLive: false, chargeEndsAt: null, orbit: null, origin, now };
     const ip = server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
-    if (!data.cr.startsWith("c-") || !allow(`l:${ip}`, now, 150)) return empty;
+    // L1: лише випадковий slug з orbit_links; старі /l/<id заявки> більше нічого не показують (404, автору — перенаправлення).
+    if (!/^[A-Za-z0-9_-]{16}$/.test(data.cr) || !allow(`l:${ip}`, now, 150)) return empty;
     const checkCode = data.c.length === 6 && allow(`lc:${ip}`, now, 20);
     try {
       const [{ getSql }, { unpackDoc, shortName }, E] = await Promise.all([import("@/lib/db"), import("@/lib/orbit/access"), import("@/lib/orbit/engine")]);
       const sql = await getSql();
+      const { ensureSocial, crOfSlug } = await import("@/lib/orbit/social-db");
+      await ensureSocial(sql);
+      const crId = await crOfSlug(sql, data.cr);
+      if (!crId) return empty;
       const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
       const bag = unpackDoc(rows[0]?.doc);
-      const item = bag.world.creations.find((row) => row.id === data.cr);
+      const item = bag.world.creations.find((row) => row.id === crId);
       if (!item) return empty;
       const nameOf = (id: string) => {
         const person = bag.people.find((row) => row.userId === id);
@@ -59,8 +64,6 @@ export const launchLive = createServerFn({ method: "GET" })
       };
       let orbit: number | null = null;
       if (item.status === "done") {
-        const { ensureSocial } = await import("@/lib/orbit/social-db");
-        await ensureSocial(sql);
         const hit = await sql.query<{ orbit: number }>(`select orbit from orbit_origins where cr = $1 limit 1`, [item.id]);
         orbit = hit[0] ? Number(hit[0].orbit) : null;
       }

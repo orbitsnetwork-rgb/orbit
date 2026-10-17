@@ -7,6 +7,9 @@ import * as L from "./lib.mjs";
 const { check } = L;
 const BASE_REV = process.env.ORBIT_E2E_BASE_REV || "939bf74";
 const DAY = 86_400_000, H = 3_600_000;
+const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/** Deterministic key in the 939bf74 mintKey format. */
+const oldKey = (i) => { let o = ""; for (let j = 0; j < 12; j++) o += ALPHA[(i * 7 + j * 13 + 3) % 32]; return `${o.slice(0, 4)}-${o.slice(4, 8)}-${o.slice(8, 12)}`; };
 
 async function oldModules() {
   const dir = join(L.RUN, "old");
@@ -43,7 +46,7 @@ export async function buildOldWorld(wall = Date.now() + L.clock()) {
     // plaintext keys (as at 939bf74), identities, one unconfirmed mail, a paid Stripe top-up
     const keys = {}, people = [];
     ids.forEach((id, i) => {
-      keys[id] = `OLD${String(i).padStart(2, "0")}-KEYS-${String.fromCharCode(65 + i)}${String.fromCharCode(65 + i)}`.slice(0, 14);
+      keys[id] = oldKey(i); // the 939bf74 mintKey format (XXXX-XXXX-XXXX, no 0/1/I/O)
       people.push({ userId: id, given: `Old${String.fromCharCode(65 + i)}`, family: "Колишній", birth: "1985-02-02", email: `old${i}@example.test`, phone: `+38063${String(1000000 + i).slice(-7)}`, confirmed: i !== 23, mailCode: i === 23 ? "123456" : null });
     });
     const topper = ids[5];

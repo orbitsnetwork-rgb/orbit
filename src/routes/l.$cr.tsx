@@ -1,13 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, QrCode, Send, Share2 } from "lucide-react";
 import { launchLive, type LaunchLive } from "@/lib/orbit/launch";
+import { useOrbits } from "@/lib/orbit/store";
 
 /** 18: жива сторінка запуску для посилань: відкривається в браузері, без встановлення. Коду на сторінці немає. */
 export const Route = createFileRoute("/l/$cr")({
   validateSearch: (search: Record<string, unknown>) => search as { c?: string | number },
   loaderDeps: ({ search }) => ({ c: search.c === undefined || search.c === null ? "" : String(search.c) }),
-  loader: ({ params, deps }) => launchLive({ data: { cr: params.cr, c: deps.c } }),
+  // L1: невідомий slug або старе /l/<id заявки> → 404 (сторінка «не знайдено»).
+  loader: async ({ params, deps }) => {
+    const d = await launchLive({ data: { cr: params.cr, c: deps.c } });
+    if (!d.found) throw notFound();
+    return d;
+  },
+  notFoundComponent: LaunchMissing,
   head: ({ loaderData }) => {
     const d = loaderData;
     const title = d?.found && d.who ? `Запуск ${d.who} · ${d.n} з ${d.need}` : "Орбіти — запускаємо разом";
@@ -28,6 +35,37 @@ export const Route = createFileRoute("/l/$cr")({
   },
   component: LaunchPage,
 });
+
+/**
+ * L1: старі посилання /l/<id заявки> більше не відкриваються для всіх. Якщо це запуск самої людини
+ * (сервер дав їй slug у mine.links лише для власних заявок), перенаправляємо її на нове посилання.
+ */
+function LaunchMissing() {
+  const params = useParams({ strict: false }) as { cr?: string };
+  const cr = params.cr ?? "";
+  const slug = useOrbits((state) => (cr.startsWith("c-") ? state.mine?.links?.[cr] : undefined));
+  const navigate = useNavigate();
+  const [looked, setLooked] = useState(false);
+  useEffect(() => {
+    if (!cr.startsWith("c-") || looked) return;
+    setLooked(true);
+    void useOrbits.getState().refresh().catch(() => undefined);
+  }, [cr, looked]);
+  useEffect(() => {
+    if (!slug) return;
+    const c = new URLSearchParams(window.location.search).get("c");
+    void navigate({ to: "/l/$cr", params: { cr: slug }, search: c ? { c } : {}, replace: true });
+  }, [slug, navigate]);
+  return (
+    <main className="lp" aria-labelledby="lp-title">
+      <div className="lp-card">
+        <h1 id="lp-title" className="lp-title">Запуск не знайдено</h1>
+        <p className="lp-sub">Можливо, посилання неповне або запуск уже давно завершився.</p>
+        <Link to="/" className="lp-go">Відкрити Орбіти</Link>
+      </div>
+    </main>
+  );
+}
 
 const STATUS: Record<string, string> = { collecting: "Збираємо екіпаж", charging: "Заряджається", done: "Орбіта народилась", failed: "Цього разу не вийшло" };
 

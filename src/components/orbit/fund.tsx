@@ -65,14 +65,15 @@ export function Fund({ world, user }: { world: World; user: Account }) {
   const today = world.trades.filter((trade) => trade.at >= world.now - DAY_MS).reduce((sum, trade) => sum + Math.floor(trade.amount * FUND_SHARE), 0);
   const log = useOrbits((state) => state.mine);
   // Повна історія — з окремої таблиці orbit_payouts; у світі лишаються лише останні 30 рядків.
-  const totalPaid = log?.fundPaidTotal ?? world.payouts.reduce((sum, row) => sum + row.amount, 0);
-  const lastAt = world.payouts[0]?.at ?? 0;
-  const last = world.payouts.filter((row) => row.at === lastAt);
+  // P1: сервер віддає лише свої рядки виплат; про інших — тільки підсумки поділів (fundRuns: коли, скільки людей, скільки ✦).
   const minePaid = log?.payouts ?? world.payouts.filter((row) => row.userId === user.id);
   const runs = log?.fundRuns ?? [];
-  const bars = useMemo(() => sumPerDay(runs.length ? runs.map((run) => ({ at: run.at, amount: run.total })) : world.payouts, world.now, 14), [runs, world.payouts, world.now]);
+  const totalPaid = log?.fundPaidTotal ?? runs.reduce((sum, run) => sum + run.total, 0);
+  const lastRun = runs[0] ?? null;
+  const lastMine = lastRun ? minePaid.filter((row) => row.at === lastRun.at) : [];
+  const bars = useMemo(() => sumPerDay(runs.map((run) => ({ at: run.at, amount: run.total })), world.now, 14), [runs, world.now]);
   const top = Math.max(1, ...bars);
-  const rows = list === "last" ? last : minePaid;
+  const rows = list === "last" ? lastMine : minePaid;
 
   return (
     <div className="orbit-stack fd">
@@ -120,7 +121,7 @@ export function Fund({ world, user }: { world: World; user: Account }) {
       <div className="k-grid2">
         <Stat icon={<HandCoins size={16} strokeWidth={2} />} tone="aurora" value={`${fmt.format(totalPaid)} ✦`} label="виплачено всього" />
         <Stat icon={<Users size={16} strokeWidth={2} />} tone="ion" value={fmt.format(active.length)} label="учасників у поділі" />
-        <Stat icon={<CalendarClock size={16} strokeWidth={2} />} tone="nebula" value={fmt.format(runs.length || new Set(world.payouts.map((row) => row.at)).size)} label="поділів в історії" />
+        <Stat icon={<CalendarClock size={16} strokeWidth={2} />} tone="nebula" value={fmt.format(runs.length)} label="поділів в історії" />
         <Stat icon={<Percent size={16} strokeWidth={2} />} value={`${String(Math.round(FUND_SHARE * 1000) / 10).replace(".", ",")}%`} label="з кожної угоди у фонд" />
       </div>
 
@@ -141,8 +142,16 @@ export function Fund({ world, user }: { world: World; user: Account }) {
       <section className="orbit-block fd-list" aria-labelledby="fd-list-title">
         <h2 id="fd-list-title" className="visually-hidden">Виплати</h2>
         <Segmented label="Список виплат" value={list} onChange={setList} options={[{ id: "last", label: "Останній поділ" }, { id: "mine", label: `Мої · ${minePaid.length}` }]} />
+        {list === "last" && lastRun ? (
+          <p className="fd-last" data-testid="fd-last">
+            {day(lastRun.at)}: {fmt.format(lastRun.total)} ✦ між {fmt.format(lastRun.n)} {lastRun.n === 1 ? "учасником" : "учасниками"}
+            {lastMine.length ? "" : " · тебе в цьому поділі не було"}
+          </p>
+        ) : null}
         {rows.length === 0 ? (
-          <Empty icon={<Hourglass size={20} strokeWidth={1.6} />} title={list === "mine" ? "Твоїх виплат ще немає" : "Поділів ще не було"} text="Фонд ділиться між власниками орбіт, які заходили за останні 3 дні." />
+          list === "last" && lastRun ? null : (
+            <Empty icon={<Hourglass size={20} strokeWidth={1.6} />} title={list === "mine" ? "Твоїх виплат ще немає" : "Поділів ще не було"} text="Фонд ділиться між власниками орбіт, які заходили за останні 3 дні." />
+          )
         ) : (
           <ul className="ex-trades">
             {rows.slice(0, 10).map((row, i) => {

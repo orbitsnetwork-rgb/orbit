@@ -7,6 +7,7 @@ const { check, step, shot, text, hasText, tab, more, H } = L;
 const pages = [];
 const person = async (label) => { const p = await L.newPerson(label); pages.push(p); return p; };
 const lastWorld = (p) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const d = L.decode(p.bodies[i]); const w = d?.result?.world; if (w?.accounts) return d.result; } return null; };
+const linkOf = (p, cr) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const l = L.decode(p.bodies[i])?.result?.mine?.links?.[cr]; if (l) return l; } return null; };
 const axeIssues = [];
 async function axe(page, where) {
   await page.waitForTimeout(900); // let entrance animations finish (opacity fades trip color-contrast)
@@ -121,14 +122,32 @@ await step("collect 8 confirms over 3 days", async () => {
   check("launch charging after 8 confirms", await hasText(host, "Усі 8 супутників") || await hasText(host, "Залишилось"));
   await shot(host, "09_charging");
 });
-await step("share link /l/:cr", async () => {
+await step("share link /l/:slug", async () => {
+  const slug = linkOf(host, crId());
+  check("author gets an unguessable /l slug (16 base64url chars)", /^[A-Za-z0-9_-]{16}$/.test(slug || ""), slug);
+  const old = await fetch(`${L.BASE}/l/${crId()}`);
+  const oldHtml = await old.text();
+  check("old /l/<launch id> → 404 for others, no launch data", old.status === 404 && oldHtml.includes("Запуск не знайдено") && !oldHtml.includes("Ганна Ш."), String(old.status));
+  const guess = await fetch(`${L.BASE}/l/AAAAAAAAAAAAAAAA`);
+  check("random slug → 404", guess.status === 404, String(guess.status));
+  host.allowErrors = true; // the 404 document itself logs "Failed to load resource: 404" — expected here
+  await host.goto(`${L.BASE}/l/${crId()}`);
+  await host.waitForURL((u) => u.pathname === `/l/${slug}`, { timeout: 10000 }).catch(() => {});
+  check("old /l/<launch id> redirects the author to the new link", new URL(host.url()).pathname === `/l/${slug}`, host.url());
+  await host.goto(L.BASE + "/"); await host.waitForTimeout(1200);
+  host.allowErrors = false;
   const p = await person("viewer");
-  await p.goto(`${L.BASE}/l/${crId()}`);
+  p.allowErrors = true;
+  const viewerOld = await p.goto(`${L.BASE}/l/${crId()}`);
+  await p.waitForTimeout(1500);
+  check("old link in another person's browser: 404 page, no redirect", viewerOld.status() === 404 && new URL(p.url()).pathname === `/l/${crId()}` && (await hasText(p, "Запуск не знайдено")), p.url());
+  p.allowErrors = false;
+  await p.goto(`${L.BASE}/l/${slug}`);
   check("/l page shows status + 8 з 8", (await hasText(p, "Заряджається")) && (await hasText(p, "8")));
   check("/l page has no code", !/\b\d{6}\b/.test(await text(p)));
   await shot(p, "10_live_link");
   await axe(p, "/l live launch");
-  const html = await (await fetch(`${L.BASE}/l/${crId()}`)).text();
+  const html = await (await fetch(`${L.BASE}/l/${slug}`)).text();
   const og = html.match(/<meta[^>]+og:title[^>]*>/)?.[0] || "";
   check("/l og:title shows «8 з 8»", og.includes("Ганна Ш.") && og.includes("8 з 8"), og);
 });
@@ -311,7 +330,7 @@ await step("thank phrase index validated server-side", async () => {
   check("thanksGot event carries p within 0–5", got.length >= 1 && got.every((e) => e.p === undefined || (Number.isInteger(e.p) && e.p >= 0 && e.p < 6)), JSON.stringify(got));
 });
 await step("per-user projection", async () => {
-  let checked = 0, leaks = [];
+  let checked = 0, leaks = [], payoutRows = 0;
   const secrets = [];
   for (const p of pages) for (const raw of p.bodies) {
     const d = L.decode(raw)?.result; const w = d?.world;
@@ -321,8 +340,12 @@ await step("per-user projection", async () => {
     for (const c of w.creations || []) if (c.userId !== w.sessionId && c.code) leaks.push(`${p.label}: foreign code`);
     if (d.self && w.sessionId && d.self.userId && d.self.userId !== w.sessionId) leaks.push(`${p.label}: self mismatch`);
     for (const k of ["keys", "devices", "people", "topups"]) if (k in w) leaks.push(`${p.label}: world.${k}`);
+    for (const row of w.payouts || []) { payoutRows++; if (row.userId !== w.sessionId) leaks.push(`${p.label}: foreign payout ${row.userId}`); }
+    for (const row of d.mine?.payouts || []) if (row.userId !== w.sessionId) leaks.push(`${p.label}: foreign mine.payout`);
+    for (const cr of Object.keys(d.mine?.links || {})) if (w.creations?.find((c) => c.id === cr)?.userId !== w.sessionId) leaks.push(`${p.label}: foreign link ${cr}`);
   }
-  check(`projection: ${checked} replies, no foreign balances/codes/keys`, checked > 20 && leaks.length === 0, leaks.slice(0, 5).join("; "));
+  check(`projection: ${checked} replies, no foreign balances/codes/keys/payouts/links`, checked > 20 && leaks.length === 0, leaks.slice(0, 5).join("; "));
+  check(`world.payouts carries only own rows (${payoutRows} seen)`, leaks.every((l) => !l.includes("payout")));
   const hostMail = lastWorld(host)?.self?.email;
   const foreign = pages.filter((p) => p !== host).some((p) => hostMail && p.bodies.some((b) => b.includes(hostMail)));
   check("host email never sent to others", hostMail && !foreign);

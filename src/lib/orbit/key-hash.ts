@@ -40,14 +40,46 @@ function same(a: string, b: string) {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
-/** Перевірка ключа для старого (текст) і нового (хеш) запису. */
-export function verifyKey(keys: Record<string, string>, id: string | null, key: string | null): boolean {
+/** Формат, який видає mintKey (access.ts) — інших ключів у системі не було. */
+export const KEY_RE = /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/;
+export function plausibleKey(key: string | null | undefined): key is string {
+  return typeof key === "string" && KEY_RE.test(key);
+}
+
+/**
+ * R7: дешевий фільтр перед scrypt (≈50 мс CPU). Невдалі scrypt-перевірки рахуються на мережу (gate) в пам’яті процесу:
+ * понад FAIL_MAX за 10 хв — scrypt більше не запускаємо (вважаємо ключ хибним). Вже перевірені ключі (cache) проходять завжди.
+ */
+const FAILS = new Map<string, { n: number; start: number }>();
+export const FAIL_MAX = 60;
+const FAIL_WINDOW = 10 * 60_000;
+function budgetLeft(gate: string, now: number) {
+  const row = FAILS.get(gate);
+  return !row || now - row.start > FAIL_WINDOW || row.n < FAIL_MAX;
+}
+function spend(gate: string, now: number) {
+  const row = FAILS.get(gate);
+  if (!row || now - row.start > FAIL_WINDOW) {
+    if (FAILS.size > 5000) FAILS.clear();
+    FAILS.set(gate, { n: 1, start: now });
+  } else row.n += 1;
+}
+/** Лише для тестів. */
+export function resetFails() {
+  FAILS.clear();
+}
+
+/** Перевірка ключа для старого (текст) і нового (хеш) запису. gate — мережа запиту (для R7). */
+export function verifyKey(keys: Record<string, string>, id: string | null, key: string | null, gate?: string): boolean {
   if (!id || !key) return false;
   const stored = keys[id];
   if (typeof stored !== "string") return false;
   if (!isHashed(stored)) return same(stored, key);
   const memo = createHash("sha256").update(`${id}\n${key}\n${stored}`).digest("base64url");
   if (cache.has(memo)) return true;
+  if (!plausibleKey(key)) return false;
+  const now = Date.now();
+  if (gate !== undefined && !budgetLeft(gate, now)) return false;
   const [, , salt, hash] = stored.split("$");
   if (!salt || !hash) return false;
   const want = Buffer.from(hash, "base64url");
@@ -56,7 +88,7 @@ export function verifyKey(keys: Record<string, string>, id: string | null, key: 
   if (okay) {
     if (cache.size > 5000) cache.clear();
     cache.set(memo, true);
-  }
+  } else if (gate !== undefined) spend(gate, now);
   return okay;
 }
 

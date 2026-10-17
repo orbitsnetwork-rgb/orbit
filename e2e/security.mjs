@@ -71,7 +71,9 @@ export async function securityPhase() {
     const x = await L.apiRegister('<img src=x onerror=alert(1)>', { family: '"><b>', ip: "10.5.0.1" });
     check("html-like name accepted as plain text", Boolean(x.id), x.reply?.error);
     const s = await L.act({ type: "start" }, { sessionId: x.id, sessionKey: x.key, cookie: x.cookie, ip: "10.5.0.1" });
-    const cr = s.reply?.world?.creations?.find((c) => c.userId === x.id)?.id;
+    const crReal = s.reply?.world?.creations?.find((c) => c.userId === x.id)?.id;
+    const cr = s.reply?.mine?.links?.[crReal];
+    check("start reply carries the author's /l slug", /^[A-Za-z0-9_-]{16}$/.test(cr || ""), cr);
     const html = await (await fetch(`${L.BASE}/l/${cr}`)).text();
     check("/l SSR: name escaped in <title>/og (no raw tag)", !html.includes("<img src=x") && /&lt;img src=x onerror=alert\(1\)&gt;|&lt;img/.test(html), (html.match(/<title>[^<]*<\/title>/) || [""])[0]);
     const p = await L.newPerson("xss");
@@ -83,6 +85,23 @@ export async function securityPhase() {
     check("/l page: no emails in HTML", !html.includes("@example.test"));
     await L.shot(p, "30_xss_name_launch_page");
     await p.context().close();
+  });
+
+  await step("R7: bogus session keys don't burn scrypt CPU", async () => {
+    const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const rnd = () => Array.from({ length: 3 }, () => Array.from({ length: 4 }, () => A[Math.floor(Math.random() * 32)]).join("")).join("-");
+    const ip = "10.8.0.1";
+    await L.act({ type: "pull" }, { sessionId: v.id, sessionKey: v.key, ip: "10.8.0.9" }); // a real client has verified its key before
+    const timed = async (n, key) => { const t = performance.now(); for (let i = 0; i < n; i++) await L.act({ type: "pull" }, { sessionId: v.id, sessionKey: key(), ip }); return (performance.now() - t) / n; };
+    const malformed = await timed(10, () => "not-a-key-" + Math.random());
+    const before = await timed(10, rnd);
+    await timed(55, rnd);
+    const after = await timed(10, rnd);
+    check(`well-formed wrong keys are throttled per network (ms/req: malformed ${malformed.toFixed(0)}, before ${before.toFixed(0)}, after budget ${after.toFixed(0)})`, after < before * 0.7 && malformed < before * 0.7);
+    const still = await L.act({ type: "pull" }, { sessionId: v.id, sessionKey: v.key, ip });
+    check("real (already verified) key still works from the throttled network", still.reply?.world?.sessionId === v.id);
+    const other = await L.act({ type: "pull" }, { sessionId: v.id, sessionKey: v.key, ip: "10.8.0.2" });
+    check("other networks unaffected", other.reply?.world?.sessionId === v.id);
   });
 
   await step("transparency + reconcile endpoint", async () => {

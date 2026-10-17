@@ -2811,3 +2811,4 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .mr-grid dt { order: 2; color: var(--text-3); font: 500 12px/15px var(--font-sans); }
 .mr-grid dd { order: 1; margin: 0; color: var(--text-1); font: 800 22px/26px var(--font-sans); font-variant-numeric: tabular-nums; }
 .mr-share { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--space-700); color: var(--text-1); font: 700 14px/1 var(--font-sans); }
+.fd-last { margin: 0; font-size: 0.9rem; color: var(--orbit-dim, inherit); }

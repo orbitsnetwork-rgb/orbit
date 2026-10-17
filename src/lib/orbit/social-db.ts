@@ -11,6 +11,7 @@ import schema from "../../../migrations/0031_orbit_social.sql?raw";
 import payoutSchema from "../../../migrations/0032_orbit_payouts.sql?raw";
 // @ts-ignore — vite raw import
 import emissionSchema from "../../../migrations/0033_orbit_emission.sql?raw";
+import linkSchema from "../../../migrations/0034_orbit_links.sql?raw";
 import type { DaySnap, Emission, Transparency } from "@/lib/orbit/emission";
 import type { World } from "@/lib/orbit/engine";
 
@@ -18,7 +19,7 @@ const g = globalThis as { __orbitSocialReady__?: Promise<void> };
 
 export function ensureSocial(sql: Sql): Promise<void> {
   g.__orbitSocialReady__ ??= (async () => {
-    for (const stmt of (String(schema) + ";" + String(payoutSchema) + ";" + String(emissionSchema)).replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
+    for (const stmt of (String(schema) + ";" + String(payoutSchema) + ";" + String(emissionSchema) + ";" + String(linkSchema)).replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
   })().catch((error) => {
     g.__orbitSocialReady__ = undefined;
     throw error;
@@ -194,4 +195,32 @@ export async function readTrust(sql: Sql, sellers: string[], now: number): Promi
     t.done = t.listed ? Math.round((t.sold / t.listed) * 100) : null;
   }
   return out;
+}
+
+/** L1: формат публічного посилання — 16 символів base64url (96 біт випадковості). */
+export const SLUG_RE = /^[A-Za-z0-9_-]{16}$/;
+
+/** Посилання /l/<slug> для власних заявок: наявні беремо, яких бракує — створюємо (випадковий slug). */
+export async function linksFor(sql: Sql, crs: string[], at: number): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  if (!crs.length) return out;
+  const read = async () => {
+    const rows = await sql.query<{ slug: string; cr: string }>(`select slug, cr from orbit_links where cr = any($1::text[])`, [crs]);
+    for (const row of rows) out[row.cr] = row.slug;
+  };
+  await read();
+  const missing = crs.filter((cr) => !out[cr]);
+  if (!missing.length) return out;
+  const { randomBytes } = await import("node:crypto");
+  for (const cr of missing) {
+    await sql.query(`insert into orbit_links (slug, cr, at) values ($1, $2, $3) on conflict do nothing`, [randomBytes(12).toString("base64url"), cr, at]);
+  }
+  await read(); // паралельний запит міг створити свій slug першим — беремо той, що в таблиці
+  return out;
+}
+
+export async function crOfSlug(sql: Sql, slug: string): Promise<string | null> {
+  if (!SLUG_RE.test(slug)) return null;
+  const rows = await sql.query<{ cr: string }>(`select cr from orbit_links where slug = $1 limit 1`, [slug]);
+  return rows[0]?.cr ?? null;
 }

@@ -195,6 +195,8 @@ export type Mine = {
   payouts?: { at: number; userId: string; amount: number }[];
   myPaidTotal?: number;
   fundRuns?: FundRun[];
+  /** L1: публічні посилання на власні запуски: id заявки → slug для /l/<slug>. */
+  links?: Record<string, string>;
   fundPaidTotal?: number;
   /** 20: показники довіри продавців з черги (лише показ, без порогів). */
   trust?: Record<string, Trust>;

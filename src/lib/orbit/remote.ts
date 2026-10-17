@@ -149,9 +149,12 @@ function crsFor(world: World, userId: string) {
 async function loadSocial(sql: import("@/lib/db").Sql, world: World, extra: Extra): Promise<Social | undefined> {
   const userId = world.sessionId;
   if (!userId) return undefined;
-  const { ensureSocial, readMine } = await import("@/lib/orbit/social-db");
+  const { ensureSocial, readMine, linksFor } = await import("@/lib/orbit/social-db");
   await ensureSocial(sql);
-  return readMine(sql, userId, extra.days[userId] ?? null, crsFor(world, userId), world.queue.slice(0, 12).map((row) => row.userId), world.now);
+  const social = await readMine(sql, userId, extra.days[userId] ?? null, crsFor(world, userId), world.queue.slice(0, 12).map((row) => row.userId), world.now);
+  // L1: посилання /l/<slug> бачить і створює лише автор — для своїх 5 останніх заявок.
+  const own = world.creations.filter((item) => item.userId === userId).slice(-5).map((item) => item.id);
+  return { ...social, mine: { ...social.mine, links: await linksFor(sql, own, world.now) } };
 }
 
 export function statsOf(world: World): PublicStats {
@@ -212,6 +215,8 @@ export function project(world: World, selfId: string | null, people: Identity[] 
     creations: world.creations.map((item) =>
       item.userId === selfId ? item : { ...item, code: null, codeExpires: 0, codeDay: "", codesToday: 0 },
     ),
+    // P1: чужі виплати фонду не йдуть на клієнт — лише свої рядки; підсумки поділів — з orbit_payouts (mine.fundRuns).
+    payouts: selfId ? world.payouts.filter((row) => row.userId === selfId) : [],
   };
 }
 
@@ -286,7 +291,7 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   const clocked = adoptClock(stored);
   if (!sameWorld(stored, clocked)) return null;
   const K = await import("@/lib/orbit/key-hash");
-  const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
+  const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey, `v:${data.ip ?? "unknown"}`) ? data.sessionId : null;
   out.people = bag.people;
   const world = attach(clocked, self);
   out.social = await loadSocial(sql, world, bag.extra);
@@ -326,7 +331,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const rows = await (await getSql()).query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
       const pre = rows[0] ? unpackDoc(rows[0].doc) : null;
       const K = await import("@/lib/orbit/key-hash");
-      if (pre && K.verifyKey(pre.keys, data.sessionId, data.sessionKey)) {
+      if (pre && K.verifyKey(pre.keys, data.sessionId, data.sessionKey, `v:${data.ip ?? "unknown"}`)) {
         if (data.action.type === "topup") {
           const { getRequestUrl } = await import("@tanstack/react-start/server");
           // Адресу повернення беремо з налаштувань сайту, а не з заголовка Host.
@@ -375,7 +380,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       };
       const clocked = adoptClock({ ...bag.world, sessionId: null });
       const K = await import("@/lib/orbit/key-hash");
-      const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey) ? data.sessionId : null;
+      const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey, `v:${data.ip ?? "unknown"}`) ? data.sessionId : null;
       // 11: старий текстовий ключ при вдалій перевірці замінюється на scrypt-хеш (запишеться з найближчим записом).
       bag.keys = K.upgradeKey(bag.keys, self, data.sessionKey);
       bag.keys = K.hashSome(bag.keys, 3);
@@ -463,7 +468,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         const userId = email
           ? (bag.people.find((row) => row.email === email)?.userId ?? null)
           : K.findByKey(bag.keys, data.key);
-        if (!userId || !K.verifyKey(bag.keys, userId, data.key) || !clocked.accounts.some((account) => account.id === userId)) {
+        if (!userId || !K.verifyKey(bag.keys, userId, data.key, `v:${data.ip ?? "unknown"}`) || !clocked.accounts.some((account) => account.id === userId)) {
           loginMiss();
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
             packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
@@ -482,7 +487,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         return { ...opened, world: attach(sharedMail, userId), self: own(bag.people, userId) };
       }
       if (data.action.type === "enter") bag.keys = K.upgradeKey(bag.keys, data.action.id, data.key);
-      if (data.action.type === "enter" && !K.verifyKey(bag.keys, data.action.id, data.key)) {
+      if (data.action.type === "enter" && !K.verifyKey(bag.keys, data.action.id, data.key, `v:${data.ip ?? "unknown"}`)) {
         loginMiss();
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
           packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),

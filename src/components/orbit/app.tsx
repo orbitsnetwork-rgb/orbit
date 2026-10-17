@@ -39,7 +39,15 @@ const Soon = quiet(SoonLazy as React.ComponentType<React.ComponentProps<typeof S
 const Checklist = quiet(ChecklistLazy as React.ComponentType<React.ComponentProps<typeof ChecklistLazy>>);
 const CodeShare = quiet(CodeShareLazy as React.ComponentType<React.ComponentProps<typeof CodeShareLazy>>);
 const ChargeResult = quiet(lazy(() => import("@/components/orbit/charge-result").then((m) => ({ default: m.ChargeResult }))) as React.ComponentType<React.ComponentProps<typeof import("@/components/orbit/charge-result").ChargeResult>>);
-const Onboarding = quiet(lazy(() => import("@/components/orbit/onboarding").then((m) => ({ default: m.Onboarding }))) as React.ComponentType<React.ComponentProps<typeof import("@/components/orbit/onboarding").Onboarding>>);
+const OnboardingLazy = lazy(() => import("@/components/orbit/onboarding").then((m) => ({ default: m.Onboarding })));
+/** Поки чанк знайомства вантажиться, головну вже накриває такий самий темний екран — нічого не «вискакує» поверх. */
+function Onboarding(props: React.ComponentProps<typeof OnboardingLazy>) {
+  return (
+    <Suspense fallback={<div className="ob-screen" role="status" aria-busy="true" data-ob-wait=""><span className="visually-hidden">Завантажуємо…</span></div>}>
+      <OnboardingLazy {...props} />
+    </Suspense>
+  );
+}
 const Fund = lazy(() => import("@/components/orbit/fund").then((m) => ({ default: m.Fund })));
 const PagesLazy = lazy(() => import("@/components/orbit/pages").then((m) => ({ default: m.Pages })));
 function Pages(props: React.ComponentProps<typeof PagesLazy>) {
@@ -77,6 +85,7 @@ import { Starfield } from "@/components/orbit/space/starfield";
 import { onboardingDue } from "@/components/orbit/onboarding-due";
 import { OrbitRings } from "@/components/orbit/space/orbit-rings";
 import { useCountUp } from "@/lib/orbit/count-up";
+import { launchPreview } from "@/lib/orbit/share";
 import { catchInvite, dropInvite, INVITE_EVENT, readInvite } from "@/lib/orbit/invite";
 import { buzz, VIBRATE } from "@/lib/orbit/feel";
 
@@ -207,14 +216,21 @@ export function OrbitApp() {
     if (again) useOrbits.setState({ fresh: again });
   }, [userId]);
   const keyScreen = Boolean(fresh && user && fresh.id === user.id);
+  // Рішення про знайомство приймаємо один раз, коли акаунт уже є у світі (раніше світ міг прийти пізніше за userId —
+  // тоді знайомство або губилось, або з’являлось поверх головної через кілька секунд).
+  const hasAccount = useOrbits((state) => Boolean(userId && state.world.accounts.some((row) => row.id === userId)));
+  const decided = useRef<string | null>(null);
   useEffect(() => {
+    if (!userId || !hasAccount || keyScreen) return;
+    if (decided.current === userId) return;
+    decided.current = userId;
     // Знайомство — після екрана ключа, один раз для акаунта на цьому пристрої.
     const w = useOrbits.getState().world;
     const account = userId ? w.accounts.find((row) => row.id === userId) : undefined;
     // Хто вже має орбіту чи запуск, знайомства не потребує.
     const veteran = Boolean(userId && (w.orbits.some((o) => o.ownerId === userId) || w.creations.some((c) => c.userId === userId)));
-    setIntro(Boolean(account && !keyScreen && !veteran && onboardingDue(account.id, account.createdAt, Date.now())));
-  }, [userId, keyScreen]);
+    setIntro(Boolean(account && !veteran && onboardingDue(account.id, account.createdAt, Date.now())));
+  }, [userId, hasAccount, keyScreen]);
   useEffect(() => {
     // Прийшли за посиланням з кодом — відкриваємо «Запуск», де код уже в полі. Нічого не надсилаємо.
     if (!userId || keyScreen) return;
@@ -397,6 +413,21 @@ function Gate({
   useEffect(() => {
     if (live?.who) setHost(live);
   }, [live]);
+  useEffect(() => {
+    // Гостьовий банер: якщо лоадер уже перечитався без ?c= (або форма відкрилась пізніше), питаємо прев’ю за кодом із сесії.
+    if (!invited || host?.who) return;
+    const code = readInvite()?.code;
+    if (!code) return;
+    let alive = true;
+    void launchPreview({ data: { c: code } })
+      .then((p) => {
+        if (alive && p.who) setHost(p);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [invited, host?.who]);
   useEffect(() => {
     const read = () => setInvited(Boolean(readInvite()));
     read();

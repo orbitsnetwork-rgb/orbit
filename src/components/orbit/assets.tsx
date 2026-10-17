@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Hexagon } from "lucide-react";
+import { Eye, EyeOff, Hexagon, Lock } from "lucide-react";
 import { useState } from "react";
 import { Page } from "@/components/orbit/more";
 import type { Tab } from "@/components/orbit/pages";
@@ -52,11 +52,16 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
           <div><span>У черзі</span><b>{listed}</b></div>
           <div><span>За ціною дня</span><b>{show(spk(value))}</b></div>
         </div>
-        <div className="as-split as-wallet" aria-label="Склад балансу">
-          <div><span>Поповнено</span><b>{show(spk(split.toppedUp))}</b></div>
-          <div><span>Отримано</span><b>{show(spk(split.earned))}</b></div>
-        </div>
-        <p className="orbit-note as-small">«Поповнено» — частина балансу з тестових поповнень (до вимкнення оплати); купівля списує спершу її. Поповнення й вивід — після юридичного оформлення.</p>
+        {split.toppedUp > 0 ? (
+          <>
+            <div className="as-split as-wallet" aria-label="Склад балансу">
+              <div><span>Поповнено</span><b>{show(spk(split.toppedUp))}</b></div>
+              <div><span>Отримано</span><b>{show(spk(split.earned))}</b></div>
+            </div>
+            <p className="orbit-note as-small">«Поповнено» — частина з тестових поповнень, зроблених до вимкнення оплати; купівля списує спершу її.</p>
+          </>
+        ) : null}
+        <p className="orbit-note as-small as-lockline"><Lock size={12} strokeWidth={2.4} aria-hidden /> Купівля ✦, ввід і вивід — після юридичного оформлення.</p>
         {user.starterPending ? <p className="orbit-note as-small as-pending">Ще {fmt.format(user.starterPending)} ✦ стартових — після першого внеску: успішного підтвердження або власної орбіти.</p> : null}
         <p className="orbit-note as-small">Оцінка — кількість орбіт × ціна дня. Це не гроші і не обіцянка продажу.</p>
       </section>

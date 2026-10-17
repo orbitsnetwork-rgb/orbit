@@ -1341,6 +1341,7 @@ body {
   transition: transform 90ms var(--ease), filter 90ms var(--ease);
 }
 .orbit-go:disabled { opacity: 1; background: var(--space-700); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
+.orbit-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 16px; text-align: center; }
 .orbit-app button:active:not(:disabled), .ky-go:active:not(:disabled), .cs-share:active, .cs-mini:active, .ky-act:active, .cr-second:active {
   transform: scale(.98);
   filter: brightness(.96);
@@ -1671,7 +1672,7 @@ body {
 .pc-hi { top: 2px; }
 .pc-lo { bottom: 2px; }
 .pc-empty { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 4px; text-align: center; color: var(--text-2); font: 600 13.5px/1.3 var(--font-sans); }
-.pc-empty svg { color: var(--text-3); }
+.pc-empty svg { color: var(--text-3); width: 18px; height: 18px; flex: none; }
 .pc-empty small { color: var(--text-3); font-weight: 500; font-size: 12px; }
 .pc-axis { display: flex; justify-content: space-between; margin-top: -4px; color: var(--text-3); font: 600 11px/1 var(--font-sans); }
 .pc-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; }
@@ -2251,5 +2252,6 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .k-action-lock { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: var(--space-850); color: #f3c48d; border: 1px solid rgb(240 166 90 / .35); }
 .lk-lang { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .lk-lang-on { padding: 6px 12px; border-radius: 999px; background: rgb(255 255 255 / .07); color: var(--text-1); font: 650 13px/1 var(--font-sans); }
-.lk-lang-more { display: inline-flex; align-items: center; gap: 8px; }
+.lk-lang-more { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font: 600 13px/1.2 var(--font-sans); text-decoration: none; background: none; border: 0; padding: 6px 2px; }
 .nf-mark { display: block; margin: 0 auto 12px; }
+.as-lockline { display: flex; align-items: center; gap: 6px; }

@@ -54,6 +54,40 @@ await step("gate + key screen", async () => {
   await axe(p, "home");
 });
 
+await step("money locked: visible, lock sheet, no dates/income; legacy routes 404", async () => {
+  const p = await person("locks");
+  await L.register(p, "Ліна"); await L.passKey(p); await L.skipIntro(p); await p.waitForTimeout(1200);
+  const buy = p.getByRole("button", { name: /Купити ✦/ }).first();
+  check("home: «Купити ✦» visible", await buy.isVisible().catch(() => false));
+  await buy.click();
+  const sheet = p.locator(".lk-sheet");
+  await sheet.waitFor({ timeout: 4000 }).catch(() => {});
+  const st = (await sheet.innerText().catch(() => "")) || "";
+  check("lock sheet says «Після юридичного оформлення»", /Після юридичного оформлення/.test(st), st.slice(0, 120));
+  check("lock sheet: no dates", !/\b20\d\d\b|січн|лютого|берез|квітн|травн|червн|липн|серпн|вересн|жовтн|листопад|грудн/i.test(st), st.slice(0, 200));
+  check("lock sheet: no income promises", !/дохід гарант|заробиш|прибут/i.test(st));
+  await shot(p, "04b_lock_sheet");
+  await axe(p, "lock sheet");
+  await p.getByRole("button", { name: "Зрозуміло" }).click();
+  check("lock sheet closes", (await p.locator(".lk-sheet").count()) === 0);
+  await tab(p, "Я");
+  const me = await text(p);
+  check("Я: deposit + withdraw rows locked", /Ввід гривні/.test(me) && /Вивід на картку/.test(me) && /Після юриста/.test(me), me.match(/(Вв[^\n]*|Вив[^\n]*)/g)?.slice(0, 4).join(" | "));
+  check("Я: no Stripe/top-up button", !/Поповнити (картою|через)/i.test(me));
+  await shot(p, "04c_me_locks");
+  p.allowErrors = true; // ці адреси навмисно відповідають 404
+  for (const route of ["/create", "/map", "/hall", "/talk", "/open/abc"]) {
+    await p.goto(L.BASE + route); await p.waitForTimeout(800);
+    check(`legacy ${route} → not-found page`, await hasText(p, "Цієї сторінки немає"));
+  }
+  p.allowErrors = false;
+  await shot(p, "04d_not_found");
+  await axe(p, "not found");
+  await p.getByRole("link", { name: /Відкрити Орбіти/ }).click(); await p.waitForTimeout(1500);
+  check("not-found → back home", !(await hasText(p, "Цієї сторінки немає")));
+  await L.closePages(p);
+});
+
 // ───────── Phase 2: dev mail flag on, full launch with 8 confirms ─────────
 await L.startServer({ ORBIT_DEV_MAIL_CODE: "1", ORBIT_E2E_SEED: "7" });
 const host = await person("host");
@@ -245,13 +279,13 @@ await step("profile: badges, streak, crew, thanks", async () => {
   await shot(g, "13b_thanks_inbox");
   await L.closePages(g);
 });
-await step("wallet Поповнено/Отримано", async () => {
+await step("wallet: no top-ups → no split, lock line", async () => {
   const c = crew[2]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
   let b = await text(c);
   check("confirmer got starter+reward (>0 ✦)", /\n(2\d\d|1\d\d) ✦/.test(b) || /22\d ✦/.test(b), b.match(/\d+ ✦/g)?.join(","));
   await more(c, "Активи"); b = await text(c);
-  check("wallet shows «Отримано»", /Отримано/i.test(b));
-  check("wallet shows «Поповнено»", /Поповнено/i.test(b));
+  check("wallet: no «Поповнено» tile without top-ups", !/Поповнено/i.test(b));
+  check("wallet: lock line «після юридичного оформлення»", /ввід і вивід — після юридичного оформлення/.test(b));
   check("no «Зароблено» wording", !b.includes("Зароблено"));
   await shot(c, "14_wallet");
   await L.closePages(c);

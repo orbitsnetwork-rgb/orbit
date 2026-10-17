@@ -85,7 +85,8 @@ await step("money locked: visible, lock sheet, no dates/income; legacy routes 40
   await axe(p, "not found");
   await p.getByRole("link", { name: /Відкрити Орбіти/ }).click(); await p.waitForTimeout(1500);
   check("not-found → back home", !(await hasText(p, "Цієї сторінки немає")));
-  await L.closePages(p);
+  p.allowErrors = true; // далі сервер перезапускається — ця вкладка більше не потрібна
+  await p.close().catch(() => {});
 });
 
 // ───────── Phase 2: dev mail flag on, full launch with 8 confirms ─────────

@@ -44,6 +44,7 @@ export async function startServer(extraEnv = {}, { fresh = false } = {}) {
   proc.stdout.on("data", (d) => (proc.logs += d));
   proc.stderr.on("data", (d) => (proc.logs += d));
   for (let i = 0; i < 100; i++) {
+    if (proc.exitCode !== null) throw new Error("server exited on start\n" + proc.logs);
     try { const r = await fetch(BASE + "/"); if (r.ok) return server; } catch {}
     await new Promise((r) => setTimeout(r, 200));
   }
@@ -52,8 +53,15 @@ export async function startServer(extraEnv = {}, { fresh = false } = {}) {
 export async function stopServer() {
   if (!server) return;
   const s = server; server = null; lastLogs += s.logs;
+  const gone = () => s.exitCode !== null || s.signalCode !== null;
   s.kill("SIGTERM");
-  await new Promise((r) => { s.once("exit", r); setTimeout(r, 3000); });
+  await new Promise((r) => { if (gone()) return r(); s.once("exit", r); setTimeout(r, 3000); });
+  if (!gone()) { // PGlite can hold SIGTERM; a survivor would keep the port and answer for the next server
+    s.kill("SIGKILL");
+    await new Promise((r) => { if (gone()) return r(); s.once("exit", r); setTimeout(r, 3000); });
+  }
+  for (let i = 0; i < 50; i++) { try { await fetch(BASE + "/"); } catch { return; } await new Promise((r) => setTimeout(r, 100)); }
+  throw new Error("old e2e server still answers on port " + PORT);
 }
 export const serverLogs = () => lastLogs + (server?.logs || "");
 

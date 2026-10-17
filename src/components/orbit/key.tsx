@@ -164,6 +164,8 @@ export function KeyScreen({ userId, name, secret, onDone }: { userId: string; na
   const titleId = useId();
   useLockScroll();
   useEffect(() => head.current?.focus({ preventScroll: true }), []);
+  // Поки людина зберігає ключ, підвантажуємо знайомство — щоб воно не «вискакувало» поверх головної.
+  useEffect(() => { void import("@/components/orbit/onboarding").catch(() => {}); }, []);
   return (
     <div className="ky-screen" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="ky-inner">

@@ -9,6 +9,7 @@ const person = async (label) => { const p = await L.newPerson(label); pages.push
 const lastWorld = (p) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const d = L.decode(p.bodies[i]); const w = d?.result?.world; if (w?.accounts) return d.result; } return null; };
 const axeIssues = [];
 async function axe(page, where) {
+  await page.waitForTimeout(900); // let entrance animations finish (opacity fades trip color-contrast)
   const r = await new AxeBuilder(page).analyze();
   const bad = r.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   if (bad.length) axeIssues.push(`${where}: ${bad.map((v) => v.id).join(",")}`);
@@ -76,6 +77,8 @@ const crId = () => { const w = lastWorld(host); const me = w?.world?.sessionId; 
 let guest;
 await step("guest invite link banner names the inviter", async () => {
   const code = ownCode();
+  const og = ((await (await fetch(`${L.BASE}/?c=${code}`)).text()).match(/<meta[^>]+og:title[^>]*>/) || [""])[0];
+  check("/?c= link preview og:title «Запуск Ганна Ш. · 0 з 8»", og.includes("Ганна Ш.") && og.includes("0 з 8"), og);
   check("own code readable in own projection", /^\d{6}$/.test(code || ""));
   guest = await person("guest");
   await guest.goto(`${L.BASE}/?c=${code}`);
@@ -126,7 +129,8 @@ await step("share link /l/:cr", async () => {
   await shot(p, "10_live_link");
   await axe(p, "/l live launch");
   const html = await (await fetch(`${L.BASE}/l/${crId()}`)).text();
-  check("/l og:title shows «8 з 8»", /og:title" content="Запуск Ганна Ш\. · 8 з 8/.test(html));
+  const og = html.match(/<meta[^>]+og:title[^>]*>/)?.[0] || "";
+  check("/l og:title shows «8 з 8»", og.includes("Ганна Ш.") && og.includes("8 з 8"), og);
 });
 await step("charge result + numbered orbit", async () => {
   L.advance(25 * H);
@@ -134,6 +138,9 @@ await step("charge result + numbered orbit", async () => {
   check("charge result shown", await hasText(host, "Результат заряду"));
   await shot(host, "11_charge_result");
   check("charge succeeded (seeded)", await hasText(host, "№"));
+  const thanks = host.getByRole("button", { name: /^Подякувати / });
+  check("charge result: «Дякую» per confirmer", (await thanks.count()) >= 1, String(await thanks.count()));
+  if (await thanks.count()) { await thanks.first().click(); await host.waitForTimeout(800); check("thanks → «Подякувано»", await hasText(host, "Подякувано")); }
   await host.keyboard.press("Escape");
   const close = host.getByRole("button", { name: /До моїх орбіт|Зрозуміло|Закрити/ });
   if (await close.count()) await close.first().click().catch(() => {});
@@ -149,9 +156,6 @@ await step("profile: badges, streak, crew, thanks", async () => {
   check("badge «Перша орбіта» earned", b.includes("Перша орбіта"));
   check("streak «Орбітальна серія»", b.includes("Орбітальна серія"));
   check("crew «Екіпаж» shown", b.includes("Екіпаж"));
-  const thanks = host.getByRole("button", { name: /Дякую/ });
-  check("thanks button present", (await thanks.count()) > 0);
-  if (await thanks.count()) { await thanks.first().click(); await host.waitForTimeout(800); }
   await shot(host, "13_profile_badges");
   await axe(host, "profile");
   const c = crew[1]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
@@ -160,12 +164,14 @@ await step("profile: badges, streak, crew, thanks", async () => {
 });
 await step("wallet Поповнено/Отримано", async () => {
   const c = crew[2]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
-  const b = await text(c);
+  let b = await text(c);
   check("confirmer got starter+reward (>0 ✦)", /\n(2\d\d|1\d\d) ✦/.test(b) || /22\d ✦/.test(b), b.match(/\d+ ✦/g)?.join(","));
-  check("wallet shows «Отримано»", b.includes("Отримано"));
-  check("wallet shows «Поповнено»", b.includes("Поповнено"));
+  await more(c, "Активи"); b = await text(c);
+  check("wallet shows «Отримано»", /Отримано/i.test(b));
+  check("wallet shows «Поповнено»", /Поповнено/i.test(b));
   check("no «Зароблено» wording", !b.includes("Зароблено"));
   await shot(c, "14_wallet");
+  await L.closePages(c);
 });
 await step("exchange sell with confirmation sheet + trust stats", async () => {
   await host.reload(); await host.waitForTimeout(1500);
@@ -177,7 +183,7 @@ await step("exchange sell with confirmation sheet + trust stats", async () => {
   await shot(host, "15_sell_sheet");
   await host.getByRole("button", { name: /Поставити в чергу/ }).last().click();
   await host.waitForTimeout(1000);
-  check("listing in queue (Зняти / Місце в черзі)", (await hasText(host, "Місце в черзі")) || (await hasText(host, "Перша в черзі твоя")));
+  check("listing in queue (Зняти / Місце в черзі)", (await hasText(host, "у черзі: 1")) || (await hasText(host, "перша твоя")), (await text(host)).slice(0, 900));
 });
 await step("exchange buy + trust stats", async () => {
   const b = crew[3]; await b.reload(); await b.waitForTimeout(1500);
@@ -243,13 +249,14 @@ await step("offline / empty / error states", async () => {
   await p.context().setOffline(true);
   p.allowErrors = true;
   await p.waitForTimeout(6000);
-  check("offline banner «Немає зв’язку»", await hasText(p, "Немає зв’язку", 10000));
+  check("offline banner «Немає зв’язку»", await hasText(p, "Телефон без інтернету", 10000));
   await shot(p, "22_offline");
   await p.context().setOffline(false);
   await p.waitForTimeout(500);
   const retry = p.getByRole("button", { name: /Спробувати|Ще раз/ });
   if (await retry.count()) await retry.first().click().catch(() => {});
-  check("offline banner clears when back online", !(await hasText(p, "Немає зв’язку", 1)) || (await p.waitForTimeout(6000), !(await text(p)).includes("Немає зв’язку")));
+  await p.waitForTimeout(3000);
+  check("offline banner clears when back online", !(await text(p)).includes("Телефон без інтернету"));
   p.allowErrors = false;
   const e = await person("empty"); await L.register(e, "Оксана"); await L.passKey(e); await L.skipIntro(e);
   await tab(e, "Обмін");

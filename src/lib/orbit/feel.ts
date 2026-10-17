@@ -16,6 +16,9 @@ export function vibrateOn() {
 export function buzz(pattern: number | number[]) {
   if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
   if (!vibrateOn()) return;
+  // Без жодного дотику браузер блокує вібрацію і пише помилку в консоль (напр. результат заряду після перезавантаження).
+  const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+  if (activation && !activation.hasBeenActive) return;
   try {
     navigator.vibrate(pattern);
   } catch {

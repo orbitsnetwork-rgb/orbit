@@ -145,7 +145,7 @@ export async function tab(page, name) {
 export async function more(page, item) {
   await tab(page, "Я");
   await page.getByRole("button", { name: /^Ще/ }).first().click();
-  await page.getByRole("button", { name: new RegExp("^" + item) }).first().click();
+  await page.getByRole("button", { name: new RegExp("^" + item) }).last().click();
   await page.waitForTimeout(700);
 }
 export async function closePages(page) {

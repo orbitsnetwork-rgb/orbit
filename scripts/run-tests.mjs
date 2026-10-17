@@ -41,11 +41,15 @@ function run(args) {
   const pass = [...out.matchAll(/^\s*ok \d+ - /gm)].length;
   const known = fails.filter((f) => KNOWN.has(f));
   const real = fails.filter((f) => !KNOWN.has(f));
+  if (r.status !== 0 && fails.length === 0) real.push(`runner exited ${r.status}: ${out.split("\n").slice(0, 3).join(" ")}`);
+  if (pass === 0) real.push(`no tests ran for: ${args.slice(-3).join(" ")}…`);
   if (real.length) process.stdout.write(out);
   return { pass, known, real };
 }
 const a = run(["--test", ...mjs]);
-const b = run(["--experimental-strip-types", "--test", ...ts]);
+// Node ≥22.6 strips types itself; on Node 20 a tiny TypeScript loader does it (scripts/ts-hooks.mjs).
+const strip = Number(process.versions.node.split(".")[0]) >= 23 ? [] : ["--import", "./scripts/ts-register.mjs"];
+const b = run([...strip, "--test", ...ts]);
 const real = [...a.real, ...b.real], known = [...a.known, ...b.known];
 for (const f of known) console.log(`KNOWN (platform template): ${f}`);
 for (const f of real) console.log(`FAIL: ${f}`);

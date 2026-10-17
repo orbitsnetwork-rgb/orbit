@@ -134,8 +134,9 @@ export function diffEvents(prev: World, next: World, prevTopups: Topup[] = [], n
   const traded = new Set<number>();
   for (const trade of next.trades.slice(prev.trades.length)) {
     traded.add(trade.orbitId);
-    const buyer = next.orbits.find((orbit) => orbit.id === trade.orbitId)?.ownerId;
-    const seller = prev.orbits.find((orbit) => orbit.id === trade.orbitId)?.ownerId;
+    // v16: рушій пише покупця й продавця в угоду; старі угоди — за власником орбіти до/після.
+    const buyer = trade.buyerId ?? next.orbits.find((orbit) => orbit.id === trade.orbitId)?.ownerId;
+    const seller = trade.sellerId ?? prev.orbits.find((orbit) => orbit.id === trade.orbitId)?.ownerId;
     if (buyer) out.push([buyer, { t: "buy", at: trade.at, orbit: trade.orbitId, amt: -trade.amount, other: seller }]);
     if (seller) out.push([seller, { t: "sold", at: trade.at, orbit: trade.orbitId, amt: Math.floor(trade.amount * SELLER_SHARE), n: trade.amount }]);
   }

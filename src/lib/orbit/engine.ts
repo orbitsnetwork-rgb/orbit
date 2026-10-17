@@ -64,7 +64,8 @@ export type Creation = {
 
 export type Listing = { id: string; orbitId: number; userId: string; createdAt: number };
 
-export type Trade = { at: number; amount: number; orbitId: number };
+/** buyerId/sellerId — з v16 (старі угоди їх не мають). На формули не впливають. */
+export type Trade = { at: number; amount: number; orbitId: number; buyerId?: string; sellerId?: string };
 
 export type Payout = { at: number; userId: string; amount: number };
 
@@ -249,7 +250,7 @@ function rollPrice(world: World): World {
     world.orbits.length < PRICE_FLOOR_UNTIL
       ? MIN_PRICE
       : Math.max(MIN_PRICE, Math.min(Math.round(prev * (1 + PRICE_DAILY_CAP)), Math.max(Math.round(prev * (1 - PRICE_DAILY_CAP)), target)));
-  return note({ ...world, price, priceDay: day }, `Ціна на добу ${day}: ${price} ОД.`);
+  return note({ ...world, price, priceDay: day }, `Ціна на добу ${day}: ${price} ✦.`);
 }
 
 function distribute(world: World): World {
@@ -267,7 +268,7 @@ function distribute(world: World): World {
   }
   next = note(
     { ...next, fund: world.fund - spent, lastDistributionAt: world.now, payouts: [...payouts, ...world.payouts].slice(0, 30) },
-    `Фонд поділено: ${spent} ОД між ${payouts.length}.`,
+    `Фонд поділено: ${spent} ✦ між ${payouts.length}.`,
   );
   return next;
 }
@@ -314,6 +315,36 @@ function nameOf(world: World, id: string) {
   return world.accounts.find((account) => account.id === id)?.name ?? "хтось";
 }
 
+/** Випадкове ціле 0…n-1 з криптографічного джерела (без зсуву по модулю). */
+function secureInt(n: number): number {
+  const limit = Math.floor(0x1_0000_0000 / n) * n;
+  const box = new Uint32Array(1);
+  for (;;) {
+    globalThis.crypto.getRandomValues(box);
+    if (box[0] < limit) return box[0] % n;
+  }
+}
+
+/** Код підтвердження: 6 цифр, crypto-random і не збігається з жодним іншим живим кодом. */
+function liveCode(world: World): string {
+  const live = new Set(world.creations.filter((item) => item.status === "collecting" && item.code && world.now < item.codeExpires).map((item) => item.code));
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const code = String(100000 + secureInt(900000));
+    if (!live.has(code)) return code;
+  }
+  return String(100000 + secureInt(900000));
+}
+
+/** Унікальний id лота: час + номер орбіти (+ суфікс, якщо такий id уже є в черзі). Детерміновано, без випадковості. */
+function listingId(world: World, orbitId: number): string {
+  const base = `q-${world.now.toString(36)}-${orbitId}`;
+  const taken = new Set(world.queue.map((item) => item.id));
+  if (!taken.has(base)) return base;
+  let n = 1;
+  while (taken.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
+
 export function register(world: World, rawName: string): Step {
   const name = rawName.trim().slice(0, 32);
   if (name.length < 2) return { world, error: "Ім’я — щонайменше дві літери." };
@@ -337,7 +368,7 @@ export function register(world: World, rawName: string): Step {
   };
   const next = note(
     { ...base, accounts: [...base.accounts, account], sessionId: account.id },
-    `${name} у системі. Стабільність 0. Стартові ${STARTER_OD} ОД — після першого внеску.`,
+    `${name} у системі. Стабільність 0. Стартові ${STARTER_OD} ✦ — після першого внеску.`,
   );
   return { world: next, notice: `Можна підтверджувати одразу. До стабільності 20 — один код на добу. Стартові ${STARTER_OD} ✦ — після першого успішного підтвердження або власної орбіти.` };
 }
@@ -377,7 +408,7 @@ export function issueCode(world: World): Step {
   const day = utcDay(base.now);
   const used = creation.codeDay === day ? creation.codesToday : 0;
   if (used >= CODES_PER_DAY) return { world: base, error: "Сьогодні вже 3 коди. Завтра можна знову." };
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = liveCode(base);
   const nextCreation: Creation = { ...creation, code, codeExpires: base.now + CODE_MS, codeDay: day, codesToday: used + 1 };
   return {
     world: note(
@@ -436,7 +467,7 @@ export function listOrbit(world: World, orbitId: number): Step {
   const orbit = base.orbits.find((item) => item.id === orbitId && item.ownerId === user.id);
   if (!orbit) return { world: base, error: "Ця орбіта не твоя." };
   if (base.queue.some((item) => item.orbitId === orbitId)) return { world: base, error: "Вона вже в черзі." };
-  const listing: Listing = { id: `q-${base.now.toString(36)}`, orbitId, userId: user.id, createdAt: base.now };
+  const listing: Listing = { id: listingId(base, orbitId), orbitId, userId: user.id, createdAt: base.now };
   return { world: note(touch({ ...base, queue: [...base.queue, listing] }, user.id), `${user.name} поставив #${orbitId} у чергу.`) };
 }
 
@@ -464,7 +495,7 @@ export function buyOldest(world: World): Step {
   const buyer = base.accounts.find((account) => account.id === user.id) ?? user;
   if (listing.userId === buyer.id) return { world: base, error: "Перша в черзі твоя. Купити її собі не можна." };
   const price = base.price;
-  if (buyer.balance < price) return { world: base, error: `Не вистачає ОД. Потрібно ${price}.` };
+  if (buyer.balance < price) return { world: base, error: `Не вистачає ✦. Потрібно ${price}.` };
   const sellerCut = Math.floor(price * SELLER_SHARE);
   const fundCut = Math.floor(price * FUND_SHARE);
   const reserveCut = price - sellerCut - fundCut;
@@ -472,7 +503,7 @@ export function buyOldest(world: World): Step {
     ...base,
     queue: base.queue.slice(1),
     orbits: base.orbits.map((orbit) => (orbit.id === listing.orbitId ? { ...orbit, ownerId: buyer.id, createdAt: base.now } : orbit)),
-    trades: [...base.trades, { at: base.now, amount: price, orbitId: listing.orbitId }],
+    trades: [...base.trades, { at: base.now, amount: price, orbitId: listing.orbitId, buyerId: buyer.id, sellerId: listing.userId }],
     fund: base.fund + fundCut,
     reserve: base.reserve + reserveCut,
   };
@@ -490,7 +521,7 @@ export function buyOldest(world: World): Step {
     stability: frozen ? account.stability : account.stability + STABILITY_BUY,
     lastActiveAt: next.now,
   }));
-  next = note(next, `${buyer.name} купив #${listing.orbitId} за ${price} ОД. Продавцю ${sellerCut}. У фонд ${fundCut}.`);
+  next = note(next, `${buyer.name} купив #${listing.orbitId} за ${price} ✦. Продавцю ${sellerCut}. У фонд ${fundCut}.`);
   return { world: next };
 }
 

@@ -191,7 +191,8 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
   }
 
   // Купівлі: з журналу і з орбіт, які зараз у тебе (час купівлі = час власності).
-  const buyText = new RegExp(`^${name} купив #(\\d+) за (\\d+) ОД`);
+  // До v16 рушій писав «ОД», з v16 — «✦»: приймаємо обидва.
+  const buyText = new RegExp(`^${name} купив #(\\d+) за (\\d+) (?:ОД|✦)`);
   for (const ev of events) {
     if (ev.t !== "buy" || ev.orbit === undefined) continue;
     seen.add(`${ev.orbit}-${ev.at}`);
@@ -219,7 +220,7 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
   // Продажі: виставлено → продано / знято. Журнал тримає останні події.
   const listText = new RegExp(`^${name} поставив #(\\d+) у чергу\\.`);
   const cancelText = new RegExp(`^${name} зняв #(\\d+) з черги\\.`);
-  const sold = /^.+ купив #(\d+) за (\d+) ОД\. Продавцю (\d+)\./;
+  const sold = /^.+ купив #(\d+) за (\d+) (?:ОД|✦)\. Продавцю (\d+)\./;
   const open = new Map<number, number>();
   for (const ev of [...events].reverse()) {
     if (ev.orbit === undefined) continue;

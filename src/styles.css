@@ -2819,3 +2819,30 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .cw-goal[data-reached="1"] .cw-goal-row b { color: var(--aurora, #7ef0c3); }
 .ch-who li[data-inperson="1"] .ch-ip { margin-left: 4px; font-size: 0.72rem; padding: 1px 6px; border-radius: 999px; background: rgba(126, 240, 195, 0.14); color: #9ff5d2; white-space: nowrap; }
 .cs-ip-hint { font-size: 0.78rem; opacity: 0.8; margin: 4px 0 0; }
+
+/* v16 · замочок для запланованого (гроші ззовні, P2P, 2FA…): показуємо, але не обіцяємо */
+.lk-badge { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 3px 8px; border-radius: 999px; font: 700 10.5px/1.2 var(--font-sans); letter-spacing: .01em; white-space: nowrap; }
+.lk-badge[data-kind="soon"] { background: rgb(139 123 255 / .16); color: #c9c1ff; }
+.lk-badge[data-kind="legal"] { background: rgb(240 166 90 / .13); color: #f3c48d; }
+.lk-list { display: grid; gap: 10px; }
+.lk-head { display: flex; align-items: center; justify-content: space-between; color: var(--text-3); }
+.lk-note { margin: 0; font-size: 12.5px; }
+.lk-rows { display: grid; gap: 6px; }
+.lk-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 56px; padding: 8px 10px; border: 1px dashed rgb(255 255 255 / .1); border-radius: 14px; background: rgb(255 255 255 / .02); color: var(--text-1); text-align: left; cursor: pointer; }
+.lk-row:hover { background: rgb(255 255 255 / .04); }
+.lk-row:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+.lk-row-ico { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: rgb(255 255 255 / .05); color: var(--text-3); }
+.lk-row-text { display: grid; gap: 2px; min-width: 0; }
+.lk-row-text b { font: 650 14px/1.25 var(--font-sans); color: var(--text-2, var(--text-1)); }
+.lk-row-text small { font: 500 12px/1.3 var(--font-sans); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lk-sheet { text-align: center; justify-items: center; }
+.lk-sheet .ky-body { text-align: center; margin: 0; }
+.lk-sheet .orbit-go { width: 100%; margin-top: 6px; }
+.lk-glyph { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px; background: radial-gradient(circle at 30% 30%, rgb(240 166 90 / .28), rgb(139 123 255 / .14)); color: #f3c48d; box-shadow: 0 0 32px rgb(240 166 90 / .18); }
+.lk-kicker { margin: 0; }
+.k-action[data-locked="1"] { opacity: .78; }
+.k-action[data-locked="1"] .k-action-ico { position: relative; }
+.k-action-lock { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: var(--space-850); color: #f3c48d; border: 1px solid rgb(240 166 90 / .35); }
+.lk-lang { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lk-lang-on { padding: 6px 12px; border-radius: 999px; background: rgb(255 255 255 / .07); color: var(--text-1); font: 650 13px/1 var(--font-sans); }
+.lk-lang-more { display: inline-flex; align-items: center; gap: 8px; }

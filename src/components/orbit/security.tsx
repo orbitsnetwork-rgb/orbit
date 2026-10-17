@@ -5,6 +5,8 @@ import { SUPPORT_MAIL } from "@/lib/orbit/docs";
 import type { Account, World } from "@/lib/orbit/engine";
 import { deviceKeys, useOrbits } from "@/lib/orbit/store";
 import { useLeave } from "@/components/orbit/key";
+import { LockedList } from "@/components/orbit/locked";
+import { SECURITY_LOCKS } from "@/lib/orbit/locked";
 
 const SAVED = (id: string) => `orbits-keysaved-${id}`;
 
@@ -45,13 +47,6 @@ function mask(key: string) {
   return key.replace(/[A-Z0-9]/g, "•");
 }
 
-const SOON = [
-  { title: "Вхід з кодом (2FA)", text: "Другий крок після ключа" },
-  { title: "PIN або відбиток", text: "Блокування додатка на телефоні" },
-  { title: "Вийти на всіх пристроях", text: "Потрібна дія на сервері" },
-  { title: "Заблокувати акаунт", text: "Якщо телефон украли" },
-  { title: "Антифішинговий код", text: "Твоє слово в кожному нашому листі" },
-];
 
 export function Security({ world, user, onBack, onClose }: { world: World; user: Account; onBack: () => void; onClose?: () => void }) {
   const self = useOrbits((state) => state.self);
@@ -73,7 +68,7 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
     { ok: Boolean(self?.confirmed), title: "Пошта підтверджена", hint: self?.confirmed ? hideMail(self.email) : "Код на пошті — на вкладці «Ціна»" },
     { ok: Boolean(key), title: "Ключ на цьому телефоні", hint: key ? "Вхід без пошти" : "Увійди ключем, щоб зберегти" },
     { ok: saved, title: "Ключ записано окремо", hint: saved ? "Позначено тобою" : "Не лише в телефоні" },
-    { ok: false, title: "Вхід з кодом (2FA)", hint: "У розробці", soon: true },
+    { ok: false, title: "Вхід з кодом (2FA)", hint: "Скоро", soon: true },
   ];
   const score = checks.filter((row) => row.ok).length;
   const level = score >= 3 ? "Добрий" : score === 2 ? "Середній" : "Низький";
@@ -96,7 +91,7 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
               <b>{row.title}</b>
               <small>{row.hint}</small>
             </span>
-            <span className="visually-hidden">{row.ok ? "Готово" : row.soon ? "У розробці" : "Не зроблено"}</span>
+            <span className="visually-hidden">{row.ok ? "Готово" : row.soon ? "Скоро" : "Не зроблено"}</span>
           </div>
         ))}
       </div>
@@ -204,18 +199,7 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
       </button>
       {leave.sheet}
 
-      <section className="ex-soon" aria-label="Скоро">
-        <p className="orbit-kicker">Скоро · без дат</p>
-        {SOON.map((item) => (
-          <div key={item.title} className="ex-soon-row">
-            <div>
-              <b>{item.title}</b>
-              <p className="orbit-note">{item.text}</p>
-            </div>
-            <button type="button" className="ex-soon-btn" disabled aria-disabled="true">У розробці</button>
-          </div>
-        ))}
-      </section>
+      <LockedList ids={SECURITY_LOCKS} title="Скоро" note="Без дат." className="ex-soon" />
     </Page>
   );
 }

@@ -5,6 +5,8 @@ import type { Account, World } from "@/lib/orbit/engine";
 import { ago, setToasts, toastsOn, useInbox, type Note, type Topic } from "@/lib/orbit/inbox";
 import { clock } from "@/lib/orbit/ledger";
 import { useOrbits } from "@/lib/orbit/store";
+import { LockedRow, LockedSheet } from "@/components/orbit/locked";
+import type { LockId } from "@/lib/orbit/locked";
 
 type Filter = "all" | "me" | Exclude<Topic, "me">;
 const TABS: { id: Filter; label: string }[] = [
@@ -22,6 +24,7 @@ export function Inbox({ world, user, onBack, onClose }: { world: World; user: Ac
   const inbox = useInbox(world, user);
   const [filter, setFilter] = useState<Filter>("all");
   const [pops, setPops] = useState(true);
+  const [lock, setLock] = useState<LockId | null>(null);
   useEffect(() => setPops(toastsOn()), []);
   const rows = inbox.notes.filter((note) => (filter === "all" ? true : filter === "me" ? note.mine : note.topic === filter));
   const unreadHere = rows.filter(inbox.isUnread).length;
@@ -79,13 +82,8 @@ export function Inbox({ world, user, onBack, onClose }: { world: World; user: Ac
               }}
             />
           </label>
-          <div className="nt-switch" aria-disabled="true">
-            <span>
-              <b>Push і пошта</b>
-              <small>Сповіщення на телефон, коли додаток закритий</small>
-            </span>
-            <span className="ex-soon-btn">У розробці</span>
-          </div>
+          <LockedRow id="pushMail" onOpen={setLock} />
+          {lock ? <LockedSheet id={lock} onClose={() => setLock(null)} /> : null}
         </div>
       </section>
       <p className="orbit-note as-small">Журнал світу тримає останні 40 подій. Позначки «прочитано» живуть на цьому телефоні.</p>

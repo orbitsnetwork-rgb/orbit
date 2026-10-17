@@ -56,7 +56,7 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
           <div><span>Поповнено</span><b>{show(spk(split.toppedUp))}</b></div>
           <div><span>Отримано</span><b>{show(spk(split.earned))}</b></div>
         </div>
-        <p className="orbit-note as-small">«Поповнено» — частина балансу з тестових поповнень; купівля списує спершу її. Виводу немає.</p>
+        <p className="orbit-note as-small">«Поповнено» — частина балансу з тестових поповнень (до вимкнення оплати); купівля списує спершу її. Поповнення й вивід — після юридичного оформлення.</p>
         {user.starterPending ? <p className="orbit-note as-small as-pending">Ще {fmt.format(user.starterPending)} ✦ стартових — після першого внеску: успішного підтвердження або власної орбіти.</p> : null}
         <p className="orbit-note as-small">Оцінка — кількість орбіт × ціна дня. Це не гроші і не обіцянка продажу.</p>
       </section>

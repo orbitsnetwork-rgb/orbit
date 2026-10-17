@@ -1,7 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
 import { orbitNo } from "@/lib/orbit/traits";
-import { createPortal } from "react-dom";
-import { Avatar, Segmented } from "@/components/orbit/ui/kit";
+import { Avatar } from "@/components/orbit/ui/kit";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, ThanksDue, daysWith } from "@/components/orbit/person-extras";
@@ -10,11 +9,13 @@ import { MonthRecapCard } from "@/components/orbit/month-recap";
 import { OrbitDays } from "@/components/orbit/badges";
 import { NumberedOrbits } from "@/components/orbit/orbit-card";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
-import { AlertCircle, CheckCircle2, Clock3, CreditCard, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, ListOrdered, QrCode, Rocket, ShieldCheck, ShoppingCart, Tag } from "lucide-react";
 import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { ArrowLeftRight, Bell, CircleHelp, FileText, GraduationCap, Shield, Telescope, Trophy, Hexagon, History as HistoryIcon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import type { Confirm } from "@/components/orbit/exchange";
 import { Row, type Route } from "@/components/orbit/more";
+import { LockBadge, LockedRow, LockedSheet } from "@/components/orbit/locked";
+import type { LockId } from "@/lib/orbit/locked";
 import { rememberTopup } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { toastsOn, useInbox } from "@/lib/orbit/inbox";
@@ -23,7 +24,6 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } 
 // 14: важкі екрани — окремими чанками, вантажаться при першому відкритті.
 const ExchangeLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.Exchange })));
 const ConfirmSheetLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.ConfirmSheet })));
-const SoonLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.Soon })));
 const ChecklistLazy = lazy(() => import("@/components/orbit/checklist").then((m) => ({ default: m.Checklist })));
 const CodeShareLazy = lazy(() => import("@/components/orbit/code-share").then((m) => ({ default: m.CodeShare })));
 function quiet<P extends object>(C: React.ComponentType<P>) {
@@ -36,7 +36,6 @@ function quiet<P extends object>(C: React.ComponentType<P>) {
   };
 }
 const ConfirmSheet = quiet(ConfirmSheetLazy as React.ComponentType<React.ComponentProps<typeof ConfirmSheetLazy>>);
-const Soon = quiet(SoonLazy as React.ComponentType<React.ComponentProps<typeof SoonLazy>>);
 const Checklist = quiet(ChecklistLazy as React.ComponentType<React.ComponentProps<typeof ChecklistLazy>>);
 const CodeShare = quiet(CodeShareLazy as React.ComponentType<React.ComponentProps<typeof CodeShareLazy>>);
 const ChargeResult = quiet(lazy(() => import("@/components/orbit/charge-result").then((m) => ({ default: m.ChargeResult }))) as React.ComponentType<React.ComponentProps<typeof import("@/components/orbit/charge-result").ChargeResult>>);
@@ -61,19 +60,17 @@ function Pages(props: React.ComponentProps<typeof PagesLazy>) {
 import { registerShell } from "@/lib/orbit/pwa";
 import { NudgeButton } from "@/components/orbit/nudge";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
-import { readLang, sparks, sparkText, sparkWord, spk, t, writeLang, type Lang } from "@/lib/orbit/copy";
+import { readLang, sparkText, sparkWord, spk, t, type Lang } from "@/lib/orbit/copy";
 import {
   activeCreation,
   chanceOf,
   CHARGE_MS,
   CODES_PER_DAY,
   DAY_MS,
-  FUND_PERIOD_MS,
   me,
   STABILITY_CONFIRM,
   STABILITY_FAIL,
   WITNESS_OD,
-  previewShare,
   utcDay,
   type Account,
   type World,
@@ -155,7 +152,6 @@ export function OrbitApp() {
   const bad = useOrbits((state) => state.bad);
   const registerPerson = useOrbits((state) => state.registerPerson);
   const enterMail = useOrbits((state) => state.enterMail);
-  const enterId = useOrbits((state) => state.enterId);
   const ready = useOrbits((state) => state.ready);
   const fresh = useOrbits((state) => state.fresh);
   const lang = useLang();
@@ -255,7 +251,7 @@ export function OrbitApp() {
     );
   }
   if (!user) {
-    return <Gate world={world} flash={flash} bad={bad} ready={ready} lang={lang} onCreate={registerPerson} onMail={enterMail} onOld={enterId} />;
+    return <Gate flash={flash} bad={bad} ready={ready} lang={lang} onCreate={registerPerson} onMail={enterMail} />;
   }
 
   if (keyScreen && fresh) {
@@ -377,23 +373,19 @@ function TopBalance({ balance, hidden, onOpen }: { balance: number; hidden: bool
 }
 
 function Gate({
-  world,
   flash,
   bad,
   ready,
   lang,
   onCreate,
   onMail,
-  onOld,
 }: {
-  world: World;
   flash: string;
   bad: boolean;
   ready: boolean;
   lang: Lang;
   onCreate: (input: { name: string; family: string; birth: string; email: string; phone: string }) => void;
   onMail: (email: string, key: string) => void;
-  onOld: (id: string, key: string) => void;
 }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -645,13 +637,14 @@ function GuestStats() {
 }
 
 function LangRow({ lang }: { lang: Lang }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="flex gap-3">
-      {(["uk", "en", "ru", "pl", "de"] as const).map((item) => (
-        <button key={item} type="button" className="orbit-quiet" onClick={() => writeLang(item)}>
-          {item === lang ? item.toUpperCase() : item}
-        </button>
-      ))}
+    <div className="lk-lang">
+      <span className="lk-lang-on" aria-current="true">{lang === "uk" ? "Українська" : lang.toUpperCase()}</span>
+      <button type="button" className="orbit-quiet lk-lang-more" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        English · Polski · Deutsch <LockBadge id="languages" />
+      </button>
+      {open ? <LockedSheet id="languages" onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }
@@ -660,7 +653,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
   const lang = useLang();
   const wall = useWall(world.now);
   const pendingMail = useOrbits((state) => state.self)?.confirmed === false;
-  const [topup, setTopup] = useState(false);
+  const [lock, setLock] = useState<LockId | null>(null);
   const [sheet, setSheet] = useState<Confirm>(null);
   const [sheetBusy, setSheetBusy] = useState(false);
   const runSheet = async (job: () => Promise<void>) => {
@@ -707,7 +700,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
   return (
     <div className="orbit-stack hm">
       {isNewcomer(world, user) && !pendingMail ? <FirstStep onTab={onTab} /> : null}
-      <WalletCard world={world} user={user} onTab={onTab} onTopup={() => setTopup(true)} />
+      <WalletCard world={world} user={user} onTab={onTab} onLocked={() => setLock("buy")} />
       {!pendingMail ? <Checklist world={world} user={user} onTab={onTab} /> : null}
       <section className="orbit-block hm-price" aria-labelledby="hm-price-title">
         <div className="hm-hero">
@@ -741,7 +734,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
           </>
         )}
       </section>
-      <Banners world={world} user={user} onTab={onTab} onOpen={onOpen} />
+      <Banners world={world} user={user} onTab={onTab} onOpen={onOpen} onLocked={() => setLock("deposit")} />
       <MarketsCard world={world} onTab={onTab} />
       <Activity world={world} user={user} onOpen={onOpen} />
       <nav className="hm-quick orbit-block" aria-label="Швидкий доступ">
@@ -752,7 +745,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
           </button>
         ))}
       </nav>
-      {topup ? <TopupSheet onClose={() => setTopup(false)} /> : null}
+      {lock ? <LockedSheet id={lock} onClose={() => setLock(null)} /> : null}
       {sheet ? (
         <ConfirmSheet
           world={world}
@@ -765,31 +758,6 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
         />
       ) : null}
     </div>
-  );
-}
-
-/** Шторка «Купити іскри ✦» з головної: та сама тестова оплата, що й у профілі. */
-function TopupSheet({ onClose }: { onClose: () => void }) {
-  const title = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    title.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return createPortal(
-    <div className="ky-scrim" onClick={onClose}>
-      <div className="ky-sheet hm-topup" role="dialog" aria-modal="true" aria-labelledby="hm-topup-title" onClick={(event) => event.stopPropagation()}>
-        <span className="ky-handle" aria-hidden />
-        <h2 id="hm-topup-title" ref={title} tabIndex={-1} className="ky-title">Купити іскри ✦</h2>
-        <p className="ky-body">Тестовий режим: оплата через Stripe у тестовому середовищі, справжні гроші не списуються. Іскри — тестові одиниці.</p>
-        <TopupRow />
-        <button type="button" className="cr-second" onClick={onClose}>Скасувати</button>
-      </div>
-    </div>,
-    document.body,
   );
 }
 
@@ -1039,6 +1007,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
   const local = world.accounts.filter((account) => held[account.id]);
   const [hidden] = useHidden();
   const leave = useLeave(user.id, user.name);
+  const [lock, setLock] = useState<LockId | null>(null);
   return (
     <div className="orbit-stack">
       <section className="orbit-block pr-hero" aria-labelledby="pr-name">
@@ -1069,12 +1038,16 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
           <button type="button" className="k-ghost" onClick={() => onOpen("history")}><HistoryIcon size={16} strokeWidth={1.8} aria-hidden /> Історія</button>
           <button type="button" className="k-ghost" onClick={() => onOpen("assets")}><Wallet size={16} strokeWidth={1.8} aria-hidden /> Активи</button>
         </div>
-        <TopupRow />
+        <div className="lk-rows pr-locks">
+          <LockedRow id="buy" onOpen={setLock} />
+          <LockedRow id="deposit" onOpen={setLock} />
+          <LockedRow id="withdraw" onOpen={setLock} />
+        </div>
+        {lock ? <LockedSheet id={lock} onClose={() => setLock(null)} /> : null}
       </section>
       <OrbitCards world={world} user={user} onAll={() => onOpen("assets")} />
       <MyCrews world={world} userId={user.id} />
       <MonthRecapCard world={world} user={user} />
-      <Soon />
       <section className="orbit-block">
         <p className="orbit-kicker">Ключ</p>
         {ownKey ? (
@@ -1162,23 +1135,6 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
         </button>
         {leave.sheet}
       </section>
-    </div>
-  );
-}
-
-function TopupRow() {
-  const [amount, setAmount] = useState(100);
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="grid gap-3">
-      <p className="orbit-kicker">Тестове поповнення</p>
-      <Segmented label="Сума поповнення" value={String(amount)} onChange={(id) => setAmount(Number(id))} options={[100, 500, 1000].map((value) => ({ id: String(value), label: `${value} ✦` }))} />
-      <button type="button" className="orbit-go k-go" disabled={busy} onClick={() => { setBusy(true); void useOrbits.getState().topup(amount).finally(() => setBusy(false)); }}>
-        {busy ? <span className="k-spin" aria-hidden /> : <CreditCard size={18} strokeWidth={2} aria-hidden />}
-        {busy ? "Відкриваємо оплату…" : `Поповнити на ${sparks(amount)}`}
-      </button>
-      <p className="ex-hint">Stripe у тестовому режимі: справжні гроші не списуються.</p>
-      <Notice />
     </div>
   );
 }

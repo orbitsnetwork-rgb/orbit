@@ -1,4 +1,6 @@
-import { BellRing, CreditCard, Download, KeyRound, Landmark, MonitorSmartphone, UserX, Users } from "lucide-react";
+import { Download } from "lucide-react";
+import { LockedList } from "@/components/orbit/locked";
+import { HUB_LOCKS } from "@/lib/orbit/locked";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { useInstall } from "@/lib/orbit/pwa";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
@@ -115,23 +117,13 @@ export function Row({ icon, title, sub, onClick, badge, badgeOn }: { icon: React
   );
 }
 
-const SOON_HUB = [
-  { title: "Вхід з кодом (2FA)", text: "Другий крок при вході.", icon: <KeyRound size={16} strokeWidth={1.8} /> },
-  { title: "Вийти на всіх пристроях", text: "Потрібна дія на сервері.", icon: <MonitorSmartphone size={16} strokeWidth={1.8} /> },
-  { title: "Закрити акаунт кнопкою", text: "Зараз — листом.", icon: <UserX size={16} strokeWidth={1.8} /> },
-  { title: "Ввід гривні", text: "Після юридичної перевірки.", icon: <Landmark size={16} strokeWidth={1.8} /> },
-  { title: "Вивід на картку", text: "Після юридичної перевірки.", icon: <CreditCard size={16} strokeWidth={1.8} /> },
-  { title: "Обмін P2P", text: "Угоди між людьми.", icon: <Users size={16} strokeWidth={1.8} /> },
-  { title: "Сповіщення про ціну", text: "Push на телефон.", icon: <BellRing size={16} strokeWidth={1.8} /> },
-  { title: "Експорт історії", text: "Файл CSV.", icon: <Download size={16} strokeWidth={1.8} /> },
-];
 
 type Entry = { route: Route | "mail"; title: string; sub: string; icon: ReactNode; tone: "sun" | "ion" | "nebula" | "aurora" | "mars"; group: "mine" | "world" | "rules"; auth?: boolean; badge?: string };
 
 function entries(docs: number, unread: number): Entry[] {
   return [
     { route: "assets", title: "Активи", sub: "Баланс, мої орбіти, статуси", icon: <Wallet size={18} strokeWidth={1.7} />, tone: "sun", group: "mine", auth: true },
-    { route: "history", title: "Історія", sub: "Поповнення, купівлі, продажі, заряди, фонд", icon: <HistoryIcon size={18} strokeWidth={1.7} />, tone: "ion", group: "mine", auth: true },
+    { route: "history", title: "Історія", sub: "Купівлі, продажі, заряди, фонд", icon: <HistoryIcon size={18} strokeWidth={1.7} />, tone: "ion", group: "mine", auth: true },
     { route: "inbox", title: "Сповіщення", sub: "Події світу і про мене", icon: <Bell size={18} strokeWidth={1.7} />, tone: "nebula", group: "mine", auth: true, badge: unread ? String(unread > 99 ? "99+" : unread) : undefined },
     { route: "security", title: "Безпека", sub: "Ключ, пристрій, вихід", icon: <Shield size={18} strokeWidth={1.7} />, tone: "aurora", group: "mine", auth: true },
     { route: "explorer", title: "Оглядач", sub: "Будь-яка орбіта за номером", icon: <Telescope size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
@@ -222,18 +214,7 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onO
               </section>
             );
           })}
-          <section className="mh-soon" aria-labelledby="mh-soon-title">
-            <h2 id="mh-soon-title">Скоро <small>без дат</small></h2>
-            <ul>
-              {SOON_HUB.map((item) => (
-                <li key={item.title}>
-                  <span aria-hidden>{item.icon}</span>
-                  <b>{item.title}</b>
-                  <small>{item.text}</small>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <LockedList ids={HUB_LOCKS} title="Скоро" note="Без дат. Гроші ззовні — після юридичного оформлення." className="mh-locks" />
         </>
       )}
     </Page>

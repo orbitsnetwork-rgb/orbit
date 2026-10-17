@@ -19,7 +19,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 
 const EMPTY: Record<Filter, { text: string; go?: { label: string; tab: "market" | "mine" | "me" } }> = {
   all: { text: "Поки порожньо" },
-  topup: { text: "Поповнень на цьому телефоні ще не було", go: { label: "Тестове поповнення", tab: "me" } },
+  topup: { text: "Поповнень не було. Купівля іскор відкриється після юридичного оформлення." },
   buy: { text: "Купівель ще не було", go: { label: "До обміну", tab: "market" } },
   sell: { text: "Продажів ще не було", go: { label: "До обміну", tab: "market" } },
   charge: { text: "Зарядів ще не було", go: { label: "Відкрити заявку", tab: "mine" } },
@@ -176,7 +176,7 @@ export function History({ world, user, onBack, onClose, onGo }: { world: World; 
         </div>
       )}
       <p className="orbit-note hi-foot">
-        Журнал світу тримає останні 40 подій, тож давні продажі можуть не показуватися. Поповнення видно на телефоні, де ти платив. Повна історія і файл CSV — у розробці.
+        Журнал світу тримає останні 40 подій, тож давні продажі можуть не показуватися. Тестові поповнення видно на телефоні, де ти платив. Файл CSV — скоро.
       </p>
       {open ? <Detail entry={open} onClose={() => setOpen(null)} /> : null}
     </Page>

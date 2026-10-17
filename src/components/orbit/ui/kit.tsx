@@ -1,6 +1,6 @@
 /** Спільні елементи інтерфейсу v8: спарклайни, чипи змін, сегменти, аватари, ряд дій, банери, стрічка, скелетони. */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight, ChevronRight, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronRight, Lock, Minus } from "lucide-react";
 import { reducedMotion } from "@/lib/orbit/feel";
 
 const fmt = new Intl.NumberFormat("uk-UA");
@@ -87,12 +87,15 @@ export function Avatar({ id, name, size = 36, badge, me = false }: { id: string;
 }
 
 /** Ряд швидких дій як у біржових застосунках: кругла іконка + підпис. */
-export function ActionRow({ items, label }: { items: { id: string; label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; tone?: "sun" | "ion" | "nebula" | "aurora"; hint?: string }[]; label: string }) {
+export function ActionRow({ items, label }: { items: { id: string; label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; tone?: "sun" | "ion" | "nebula" | "aurora"; hint?: string; locked?: boolean }[]; label: string }) {
   return (
     <nav className="k-actions" aria-label={label}>
       {items.map((item) => (
-        <button key={item.id} type="button" className="k-action" data-tone={item.tone ?? "sun"} disabled={item.disabled} onClick={item.onClick} aria-describedby={item.hint ? `${item.id}-hint` : undefined}>
-          <span className="k-action-ico" aria-hidden>{item.icon}</span>
+        <button key={item.id} type="button" className="k-action" data-tone={item.tone ?? "sun"} data-locked={item.locked ? "1" : undefined} disabled={item.disabled} onClick={item.onClick} aria-haspopup={item.locked ? "dialog" : undefined} aria-describedby={item.hint ? `${item.id}-hint` : undefined}>
+          <span className="k-action-ico" aria-hidden>
+            {item.icon}
+            {item.locked ? <span className="k-action-lock"><Lock size={10} strokeWidth={2.6} /></span> : null}
+          </span>
           <span className="k-action-label">{item.label}</span>
           {item.hint ? <span id={`${item.id}-hint`} className="visually-hidden">{item.hint}</span> : null}
         </button>

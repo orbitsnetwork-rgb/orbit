@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { packDoc, unpackDoc } from "@/lib/orbit/access";
 import { creditTopup, signedEvent } from "@/lib/orbit/stripe";
+import { knownSession, paymentsEnabled } from "@/lib/orbit/payments";
 import { diffEvents } from "@/lib/orbit/social";
 
 export const Route = createFileRoute("/api/stripe")({
@@ -22,9 +23,18 @@ export const Route = createFileRoute("/api/stripe")({
         const orphan = await withTransaction(async (sql) => {
           const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world' for update`, []);
           const bag = unpackDoc(rows[0]?.doc);
-          const done = creditTopup(bag.world, bag.topups, { id, userId, amount });
           const social = await import("@/lib/orbit/social-db");
           await social.ensureSocial(sql);
+          if (!paymentsEnabled() && !knownSession(bag.topups, id)) {
+            // Гроші ззовні вимкнено (ORBIT_PAYMENTS_ENABLED≠1), а цю сесію наш сервер не відкривав: не зараховуємо,
+            // лишаємо рядок для ручного розбору й відповідаємо 200, щоб Stripe не повторював 3 доби.
+            await sql.query(
+              `insert into orbit_orphans (session_id, user_id, amount, reason) select $1::text, $2::text, $3::int, $4::text where not exists (select 1 from orbit_orphans where session_id = $1::text)`,
+              [id, userId, amount, "payments disabled: unknown session"],
+            );
+            return "ignored" as const;
+          }
+          const done = creditTopup(bag.world, bag.topups, { id, userId, amount });
           if (done.error) {
             // K4: гроші отримано, а імені немає — не мовчимо. Запис для ручного розбору, і 500, щоб Stripe повторив.
             // R4: Stripe повторює вебхук до 3 діб — один рядок на сесію, а не на кожну спробу.
@@ -44,6 +54,7 @@ export const Route = createFileRoute("/api/stripe")({
           await social.archiveWrite(sql, bag.world, done.world, Date.now());
           return false;
         });
+        if (orphan === "ignored") return new Response("disabled", { status: 200 });
         if (orphan) {
           console.error("stripe webhook: orphan payment, account not found", id);
           return new Response("orphan", { status: 500 });

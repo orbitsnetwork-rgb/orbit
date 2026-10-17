@@ -17,6 +17,7 @@ import {
   type World,
 } from "@/lib/orbit/engine";
 import { creditTopup, openCheckout, readCheckout } from "@/lib/orbit/stripe";
+import { knownSession, paymentsEnabled, PAYMENTS_OFF } from "@/lib/orbit/payments";
 import { phraseIndex } from "@/lib/orbit/pulse";
 import { diffEvents, markDay, type Ev, type Extra, type Mine } from "@/lib/orbit/social";
 
@@ -341,7 +342,11 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const pre = rows[0] ? unpackDoc(rows[0].doc) : null;
       const K = await import("@/lib/orbit/key-hash");
       if (pre && K.verifyKey(pre.keys, data.sessionId, data.sessionKey, `v:${data.ip ?? "unknown"}`)) {
-        if (data.action.type === "topup") {
+        if (data.action.type === "topup" && !paymentsEnabled()) {
+          // Гроші ззовні вимкнено до юридичного оформлення: до Stripe навіть не звертаємось.
+        } else if (data.action.type === "confirmTopup" && !paymentsEnabled() && !knownSession(pre.topups, data.action.sessionId)) {
+          // Вимкнено: перевіряємо лише вже розпочаті раніше сесії.
+        } else if (data.action.type === "topup") {
           const { getRequestUrl } = await import("@tanstack/react-start/server");
           // Адресу повернення беремо з налаштувань сайту, а не з заголовка Host.
           const site = process.env.URL?.trim() ?? "";
@@ -581,6 +586,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         return { world: base, notice: `Нагадали ${to.length} ${to.length === 1 ? "людині" : "людям"} ✦`, self: mine };
       }
       if (data.action.type === "topup" && self) {
+        if (!paymentsEnabled()) return { world: base, error: PAYMENTS_OFF, self: own(bag.people, self) };
         if (!opened) return { world: base, error: "Спробуй ще раз.", self: own(bag.people, self) };
         if ("error" in opened) return { world: base, error: opened.error, self: own(bag.people, self) };
         const topups: Topup[] = [
@@ -593,6 +599,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         return { world: base, url: opened.url, notice: "Відкриваю тестову оплату.", self: own(bag.people, self) };
       }
       if (data.action.type === "confirmTopup" && self) {
+        if (!paymentsEnabled() && !knownSession(bag.topups, data.action.sessionId)) return { world: base, error: PAYMENTS_OFF, self: own(bag.people, self) };
         const paid = paidEarly ?? { error: "Спробуй ще раз." as const };
         if ("error" in paid) return { world: base, error: paid.error, self: own(bag.people, self) };
         if (paid.userId !== self) return { world: base, error: "Це не твоя оплата.", self: own(bag.people, self) };
@@ -671,7 +678,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       let keys = bag.keys;
       let devices = bag.devices;
       let people = bag.people;
-      let topups = bag.topups;
+      const topups = bag.topups;
       let key: string | undefined;
       if (data.action.type === "register" && fresh && !step.error && step.world.sessionId && data.device) {
         key = mintKey();

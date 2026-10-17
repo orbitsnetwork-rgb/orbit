@@ -55,7 +55,7 @@ type OrbitState = {
   cancel: (orbitId: number) => Promise<void>;
   /** expected — ціна, яку людина бачила у вікні підтвердження. */
   buy: (expected: number) => Promise<void>;
-  topup: (amount: number) => Promise<void>;
+  /** Лише повернення з уже розпочатої раніше оплати (?topup=cs_…). Нових оплат клієнт не відкриває: гроші ззовні вимкнено до юридичного оформлення. */
   confirmTopup: (sessionId: string) => Promise<void>;
   /** «Дякую» підтверджувачу успішного запуску. */
   thank: (cr: string, to: string, p?: number) => Promise<void>;
@@ -249,7 +249,6 @@ export const useOrbits = create<OrbitState>()(() => ({
   list: (orbitId) => send({ type: "list", orbitId }).then(() => undefined),
   cancel: (orbitId) => send({ type: "cancel", orbitId }).then(() => undefined),
   buy: (expected) => send({ type: "buy", price: expected }).then(() => undefined),
-  topup: (amount) => send({ type: "topup", amount }).then(() => undefined),
   confirmTopup: (sessionId) => send({ type: "confirmTopup", sessionId }).then(() => undefined),
   thank: (cr, to, p) => send({ type: "thank", cr, to, ...(p === undefined ? {} : { p }) }).then(() => undefined),
   nudge: (cr) => send({ type: "nudge", cr }).then(() => undefined),

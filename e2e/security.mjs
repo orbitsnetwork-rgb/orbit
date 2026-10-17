@@ -25,6 +25,17 @@ export async function securityPhase() {
       L.check(`headers ${path}: X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy`, h("x-frame-options") === "DENY" && h("x-content-type-options") === "nosniff" && h("referrer-policy") === "strict-origin-when-cross-origin" && h("permissions-policy").includes("camera=()"));
     }
   });
+  await step("payments OFF by default (ORBIT_PAYMENTS_ENABLED unset): no new sessions, unknown webhook not credited", async () => {
+    const t = await L.act({ type: "topup", amount: 100 }, { sessionId: v.id, sessionKey: v.key, cookie: v.cookie });
+    check("topup action → disabled response (legal review), no Checkout URL", /юридичного оформлення/.test(t.reply?.error || "") && !t.reply?.url, t.reply?.error);
+    const c = await L.act({ type: "confirmTopup", sessionId: "cs_never_opened" }, { sessionId: v.id, sessionKey: v.key, cookie: v.cookie });
+    check("confirmTopup for a session we never opened → disabled", /юридичного оформлення/.test(c.reply?.error || ""), c.reply?.error);
+    const unknown = session("cs_e2e_off", v.id, 100);
+    const r = await hook(unknown, sign(unknown));
+    check("webhook while OFF: unknown session → 200 'disabled' (no Stripe retries)", r.status === 200 && (await r.text()) === "disabled");
+    check("webhook while OFF: unknown session NOT credited", (await balanceOf(v))?.balance === 0);
+  });
+  await L.startServer({ ORBIT_DEV_MAIL_CODE: "1", STRIPE_WEBHOOK_SECRET: WEBHOOK, ORBIT_ADMIN_TOKEN: ADMIN, ORBIT_PAYMENTS_ENABLED: "1" });
   await step("stripe webhook: signature + idempotency", async () => {
     const body = session("cs_e2e_1", v.id, 500);
     check("webhook: unsigned → 400", (await hook(body)).status === 400);
@@ -41,6 +52,13 @@ export async function securityPhase() {
     const orphan = session("cs_e2e_orphan", "u-nobody", 100);
     check("webhook: orphan → 500 (Stripe retries)", (await hook(orphan, sign(orphan))).status === 500);
     check("webhook: orphan retry → 500", (await hook(orphan, sign(orphan))).status === 500);
+  });
+  await L.startServer({ ORBIT_DEV_MAIL_CODE: "1", STRIPE_WEBHOOK_SECRET: WEBHOOK, ORBIT_ADMIN_TOKEN: ADMIN });
+  await step("payments OFF again: an already-started session is still handled safely (idempotent, no double credit)", async () => {
+    const body = session("cs_e2e_1", v.id, 500);
+    check("webhook while OFF: known session → 200", (await hook(body, sign(body))).status === 200);
+    const a = await balanceOf(v);
+    check("webhook while OFF: known session not credited twice", a?.balance === 500, JSON.stringify({ b: a?.balance }));
   });
 
   await step("login rate limits", async () => {

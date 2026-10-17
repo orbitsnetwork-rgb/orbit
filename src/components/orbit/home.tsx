@@ -24,7 +24,7 @@ function leftShort(ms: number) {
 }
 
 /** Картка гаманця: баланс з «оком», скільки це орбіт, і чотири швидкі дії. */
-export function Wallet({ world, user, onTab, onTopup }: { world: World; user: Account; onTab: (tab: HomeTab) => void; onTopup: () => void }) {
+export function Wallet({ world, user, onTab, onLocked }: { world: World; user: Account; onTab: (tab: HomeTab) => void; onLocked: () => void }) {
   const [hidden, toggle] = useHidden();
   const shown = useCountUp(user.balance);
   const mine = world.orbits.filter((orbit) => orbit.ownerId === user.id).length;
@@ -49,7 +49,7 @@ export function Wallet({ world, user, onTab, onTopup }: { world: World; user: Ac
       <ActionRow
         label="Швидкі дії"
         items={[
-          { id: "act-buy", label: "Купити ✦", icon: <Plus size={20} strokeWidth={2} />, onClick: onTopup, tone: "sun", hint: "Тестове поповнення іскор" },
+          { id: "act-buy", label: "Купити ✦", icon: <Plus size={20} strokeWidth={2} />, onClick: onLocked, tone: "sun", hint: "Купівля іскор — після юридичного оформлення", locked: true },
           { id: "act-launch", label: creation ? "Мій запуск" : "Запустити", icon: <Rocket size={20} strokeWidth={1.8} />, onClick: () => onTab("mine"), tone: "nebula" },
           { id: "act-swap", label: "Обмін", icon: <ArrowLeftRight size={20} strokeWidth={1.8} />, onClick: () => onTab("market"), tone: "ion" },
           { id: "act-share", label: "Код", icon: canShare ? <Share2 size={20} strokeWidth={1.8} /> : <QrCode size={20} strokeWidth={1.8} />, onClick: () => onTab("mine"), tone: "aurora", hint: canShare ? "Поділитися кодом підтвердження" : "Ввести чи створити код підтвердження" },
@@ -187,7 +187,7 @@ export function Markets({ world, onTab }: { world: World; onTab: (tab: HomeTab) 
 }
 
 /** Банери: навчання, лідер рейтингу, поділ фонду, перша орбіта, «Скоро». */
-export function Banners({ world, user, onTab, onOpen }: { world: World; user: Account; onTab: (tab: HomeTab) => void; onOpen: (route: Route) => void }) {
+export function Banners({ world, user, onTab, onOpen, onLocked }: { world: World; user: Account; onTab: (tab: HomeTab) => void; onOpen: (route: Route) => void; onLocked?: () => void }) {
   const items = useMemo<Banner[]>(() => {
     const ranked = [...world.accounts].sort((a, b) => b.stability - a.stability || a.createdAt - b.createdAt);
     const leader = ranked[0];
@@ -199,9 +199,9 @@ export function Banners({ world, user, onTab, onOpen }: { world: World; user: Ac
     out.push({ id: "learn", kicker: `Навчання · ${LESSONS.length} уроків`, title: "Як працює орбіта", text: "Короткі уроки з тестом наприкінці: ціна дня, черга, фонд і заряд.", cta: "Почати урок", icon: <GraduationCap size={44} strokeWidth={1.3} />, tone: "ion", onClick: () => onOpen("learn") });
     if (leader && leader.stability > 0) out.push({ id: "leader", kicker: "Рейтинг", title: `Лідер стабільності — ${leader.name}`, text: `${leader.stability} стабільності. ${place ? `Ти на ${place} місці з ${ranked.length}.` : ""}`, cta: "Весь рейтинг", icon: <Trophy size={44} strokeWidth={1.3} />, tone: "sun", onClick: () => onOpen("leaders") });
     out.push({ id: "fund", kicker: "Фонд", title: `Поділ через ${leftShort(due - world.now)}`, text: `У фонді ${fmt.format(world.fund)} ✦. Він ділиться між активними учасниками.`, cta: "До фонду", icon: <Hourglass size={44} strokeWidth={1.3} />, tone: "aurora", onClick: () => onTab("flow") });
-    out.push({ id: "soon", kicker: "Дорожня карта", title: "Ввід гривні й вивід на картку", text: "Після юридичної перевірки. Зараз — лише тестові іскри, без справжніх грошей.", cta: "У розробці", icon: <Landmark size={44} strokeWidth={1.3} />, tone: "nebula", soon: true });
+    out.push({ id: "soon", kicker: "Гроші", title: "Купівля ✦, ввід і вивід — після юриста", text: "Провайдера оплати оберемо після юридичного оформлення. Без дат і без обіцянок доходу.", cta: "Чому замочок", icon: <Landmark size={44} strokeWidth={1.3} />, tone: "nebula", soon: true, onClick: onLocked });
     return out;
-  }, [world, user.id, onTab, onOpen]);
+  }, [world, user.id, onTab, onOpen, onLocked]);
   return <Carousel items={items} label="Оголошення" />;
 }
 

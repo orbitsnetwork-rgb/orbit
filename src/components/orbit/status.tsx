@@ -48,8 +48,8 @@ export function Status({ world, onBack, onClose }: { world: World; onBack: () =>
     { title: "Обмін", sub: `У черзі ${world.queue.length} · ціна ${spk(world.price)}`, state: live },
     { title: "Заявки і заряди", sub: `Шанс заряду зараз ${Math.round(chanceOf(world.orbits.length) * 100)}%`, state: live },
     { title: "Фонд", sub: `У фонді ${spk(world.fund)}`, state: live },
-    { title: "Поповнення", sub: "Справжні гроші не списуються", state: "test" },
-    { title: "Вивід", sub: "Іскри не є грошима", state: "off" },
+    { title: "Поповнення", sub: "Після юридичного оформлення", state: "off" },
+    { title: "Вивід", sub: "Після юридичного оформлення · іскри не є грошима", state: "off" },
   ];
   const head = link === "down" ? "down" : link === "slow" ? "slow" : "ok";
 

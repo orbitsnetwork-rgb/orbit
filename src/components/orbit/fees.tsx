@@ -79,9 +79,9 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
               <Tr name="Купівля орбіти" value="0%" note="Платиш рівно ціну дня" />
               <Tr name="Продаж орбіти" value={`${cut.fund + cut.reserve} ✦`} note={`За ціни ${world.price} ✦: ${cut.seller} продавцю · ${cut.fund} у фонд · ${cut.reserve} у резерв (${pctOf(cut.seller)} / ${pctOf(cut.fund)} / ${pctOf(cut.reserve)})`} />
               <Tr name="Заявка, коди, заряд" value="0%" note="Безкоштовно" />
-              <Tr name="Тестове поповнення" value="0%" note="Справжні гроші не списуються" />
+              <Tr name="Купівля іскор ✦" value="—" note="Після юридичного оформлення" soon />
               <Tr name="Зберігання, вхід" value="0%" note="Без плати за бездіяльність" />
-              <Tr name="Вивід на картку" value="—" note="Вимкнено. Колись — лише поповнена частина" soon />
+              <Tr name="Ввід гривні · вивід на картку" value="—" note="Після юридичного оформлення" soon />
             </div>
           </section>
 
@@ -137,7 +137,7 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
               <Tr name="Заряд" value={`${Math.round(CHARGE_MS / 3_600_000)} год`} note="Після восьмого підтвердження" />
               <Tr name="Нових імен з пристрою" value={String(NAMES_PER_DEVICE)} note="На добу" />
               <Tr name="Купівля і продаж" value="пошта" note="Лише з підтвердженою поштою" />
-              <Tr name="Ліміти за рівнями перевірки" value="—" note="У розробці, разом зі справжніми грошима" soon />
+              <Tr name="Ліміти за рівнями перевірки" value="—" note="Після юридичного оформлення" soon />
             </div>
           </section>
         </div>

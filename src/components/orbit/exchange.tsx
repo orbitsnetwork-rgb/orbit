@@ -1,6 +1,8 @@
 import { orbitNo } from "@/lib/orbit/traits";
 import { useEffect, useState } from "react";
-import { ArrowLeftRight, Coins, CreditCard, Landmark, ListOrdered, Orbit as OrbitIcon, ShoppingCart, Tag, Users, Wallet } from "lucide-react";
+import { ArrowLeftRight, Coins, ListOrdered, Orbit as OrbitIcon, ShoppingCart, Tag, Wallet } from "lucide-react";
+import { LockedList } from "@/components/orbit/locked";
+import { MONEY_LOCKS } from "@/lib/orbit/locked";
 import { ago } from "@/lib/orbit/inbox";
 import { dayDelta, perDay } from "@/lib/orbit/series";
 import { PriceChart } from "@/components/orbit/ui/price-chart";
@@ -252,7 +254,7 @@ export function ConfirmSheet({
             <div><span>Баланс після</span><b data-bad={short ? "1" : "0"}>{short ? `бракує ${sparks(-after)}` : sparks(after)}</b></div>
             <div><span>Стабільність</span><b>+1</b></div>
           </div>
-          <p className="orbit-note">Ціна одна для всіх і міняється о 00:00 UTC. Тестовий режим.</p>
+          <p className="orbit-note">Ціна одна для всіх і міняється опівночі за UTC (03:00 за Києвом). Тестовий режим.</p>
           <button type="button" className="orbit-go k-go" disabled={busy || short || !oldest} onClick={() => onBuy(price)}>
             {busy ? <><span className="k-spin" aria-hidden /> Купуємо…</> : `Купити за ${spk(price)}`}
           </button>
@@ -285,29 +287,9 @@ export function ConfirmSheet({
   );
 }
 
-const SOON = [
-  { title: "Ввід гривні", text: "Купівля іскор за гривні. Зараз лише тестове поповнення.", icon: <Landmark size={18} strokeWidth={1.8} /> },
-  { title: "Вивід на картку", text: "Після юридичної перевірки. Без обіцянок доходу.", icon: <CreditCard size={18} strokeWidth={1.8} /> },
-  { title: "Обмін P2P", text: "Власна ціна в оголошенні, угоди між людьми.", icon: <Users size={18} strokeWidth={1.8} /> },
-];
-
-/** «Скоро»: чесна дорожня карта. Без функцій, без дат. */
+/** Гроші ззовні й P2P: показуємо із замочком, без дат і без обіцянок доходу. */
 export function Soon() {
-  return (
-    <section className="ex-soon orbit-block" aria-labelledby="ex-soon-title">
-      <h2 id="ex-soon-title" className="ex-h">Скоро</h2>
-      {SOON.map((item) => (
-        <div key={item.title} className="ex-soon-row">
-          <span className="ex-soon-ico" aria-hidden>{item.icon}</span>
-          <div>
-            <b>{item.title}</b>
-            <p className="orbit-note">{item.text}</p>
-          </div>
-          <span className="k-soon">У розробці</span>
-        </div>
-      ))}
-    </section>
-  );
+  return <LockedList ids={MONEY_LOCKS} title="Гроші й P2P" note="Купівля ✦, ввід гривні й вивід — після юридичного оформлення. Провайдера ще не обрано." className="ex-soon" />;
 }
 
 /** 20: показники довіри продавця. Лише показ — жодних порогів чи обмежень. */

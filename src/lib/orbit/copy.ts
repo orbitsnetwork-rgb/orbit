@@ -1,4 +1,6 @@
 export type Lang = "uk" | "en" | "ru" | "pl" | "de";
+/** Мови з повним перекладом. Решта — із замочком «Скоро». */
+export const LANGS_READY: readonly Lang[] = ["uk"];
 
 const rows = {
   uk: {
@@ -137,9 +139,10 @@ export type CopyKey = keyof (typeof rows)["uk"];
 
 export function readLang(): Lang {
   if (typeof window === "undefined") return "uk";
+  // v16: інші мови перекладені лише частково (меню й вхід) — це «наполовину», тому поки закриті замочком.
+  // Хто раніше обрав іншу мову, бачить українську, доки переклад не буде повним.
   const value = localStorage.getItem("orbits-lang");
-  if (value === "en" || value === "ru" || value === "pl" || value === "de" || value === "uk") return value;
-  return "uk";
+  return (LANGS_READY as readonly string[]).includes(value ?? "") ? (value as Lang) : "uk";
 }
 
 export function writeLang(lang: Lang) {

@@ -120,11 +120,13 @@ function nextMidnight(ms: number) {
   return dayStart(ms) + DAY_MS;
 }
 
+/** Годинник за сервером: зсув «сервер − пристрій» береться з кожної відповіді, тож неправильний час на телефоні не ламає таймери. */
 function useWall(serverNow: number) {
   const [now, setNow] = useState(serverNow);
   useEffect(() => {
-    setNow(Date.now());
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    const skew = serverNow - Date.now();
+    setNow(Date.now() + skew);
+    const id = window.setInterval(() => setNow(Date.now() + skew), 1000);
     return () => window.clearInterval(id);
   }, [serverNow]);
   return now;
@@ -971,7 +973,7 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
           {said.text}
         </p>
       ) : null}
-      <p className="orbit-note cs-note" id="cs-confirm-note">
+      <p className="orbit-note cs-note" id="cs-confirm-note" hidden={Boolean(said?.text && !said.bad)}>
         Якщо запуск пройде, ти отримаєш {WITNESS_OD} ✦ і +{STABILITY_CONFIRM} до стабільності. Якщо ні — −{STABILITY_FAIL} стабільності.
       </p>
     </section>

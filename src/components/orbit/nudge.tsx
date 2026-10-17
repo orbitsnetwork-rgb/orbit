@@ -13,6 +13,7 @@ export function NudgeButton({ world, creation, userId, now }: { world: World; cr
   const wait = Math.max(0, lastAt + NUDGE_EVERY_MS - now);
   const targets = nudgeTargets(world, userId, creation.id).length;
   const hours = Math.ceil(wait / 3_600_000);
+  const waitText = hours >= 24 ? `${Math.floor(hours / 24)} д ${hours % 24} год` : `${hours} год`;
   return (
     <section className="orbit-block nd" aria-labelledby="nd-title">
       <div className="nd-row">
@@ -21,7 +22,7 @@ export function NudgeButton({ world, creation, userId, now }: { world: World; cr
           <h2 id="nd-title">Нагадати екіпажу</h2>
           <small>
             {wait > 0
-              ? `Уже нагадали. Наступне — через ${hours} год.`
+              ? `Уже нагадали. Наступне — через ${waitText}.`
               : targets
                 ? `${targets} ${targets === 1 ? "людина знає" : "людей знають"} тебе з минулих запусків, але ще не підтвердили.`
                 : "Нагадування отримають ті, з ким ви вже підтверджували одне одного."}

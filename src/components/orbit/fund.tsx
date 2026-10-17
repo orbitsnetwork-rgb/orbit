@@ -15,7 +15,8 @@ const TIERS = [
 ];
 
 function leftLong(ms: number) {
-  const m = Math.max(0, Math.ceil(ms / 60_000));
+  if (ms <= 0) return "ось-ось";
+  const m = Math.ceil(ms / 60_000);
   const h = Math.floor(m / 60);
   const d = Math.floor(h / 24);
   if (d >= 1) return `${d} д ${h % 24} год`;
@@ -90,7 +91,7 @@ export function Fund({ world, user }: { world: World; user: Account }) {
           </Ring>
         </div>
         <Progress value={Math.round(passed * 100)} max={100} label="Скільки минуло до поділу" tone="aurora" />
-        <p className="ex-hint">Поділ раз на 3 дні · наступний {day(due)}. З кожної угоди {String(Math.round(FUND_SHARE * 1000) / 10).replace(".", ",")}% іде у фонд.</p>
+        <p className="ex-hint">Поділ раз на 3 дні · наступний {due > world.now ? day(due) : "ось-ось"}. З кожної угоди {String(Math.round(FUND_SHARE * 1000) / 10).replace(".", ",")}% іде у фонд.</p>
       </section>
 
       <section className="orbit-block fd-share" aria-labelledby="fd-share-title">
@@ -134,7 +135,7 @@ export function Fund({ world, user }: { world: World; user: Account }) {
             ))}
           </div>
         ) : (
-          <Empty icon={<Coins size={20} strokeWidth={1.6} />} title="Виплат ще не було" text={`Перший поділ через ${leftLong(due - world.now)}.`} />
+          <Empty icon={<Coins size={20} strokeWidth={1.6} />} title="Виплат ще не було" text={due > world.now ? `Перший поділ через ${leftLong(due - world.now)}.` : "Перший поділ — ось-ось."} />
         )}
         <div className="pc-axis" aria-hidden><span>14 днів тому</span><span>сьогодні</span></div>
       </section>

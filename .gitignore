@@ -12,3 +12,5 @@ artifacts/
 .neon/
 neon.json
 .grok/
+.output/
+.netlify/

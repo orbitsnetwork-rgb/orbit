@@ -17,6 +17,7 @@ import {
   type World,
 } from "@/lib/orbit/engine";
 import { creditTopup, openCheckout, readCheckout } from "@/lib/orbit/stripe";
+import { phraseIndex } from "@/lib/orbit/pulse";
 import { diffEvents, markDay, type Ev, type Extra, type Mine } from "@/lib/orbit/social";
 
 export type OrbitAction =
@@ -91,7 +92,11 @@ function clean(input: unknown): Call {
   if (type === "confirmMail") {
     return { sessionId, sessionKey, key, device, action: { type, code: String(action.code ?? "").replace(/\D/g, "").slice(0, 6) } };
   }
-  if (type === "enter") return { sessionId, sessionKey, key, device, action: { type, id: String(action.id ?? "") } };
+  if (type === "enter") {
+    // R3: id акаунта завжди «u-…» до 40 символів — довгі рядки не потрапляють у ключі лімітів документа.
+    const id = String(action.id ?? "").slice(0, 40);
+    return { sessionId, sessionKey, key, device, action: { type, id: /^u-[a-z0-9-]+$/i.test(id) ? id : "" } };
+  }
   if (type === "accept") return { sessionId, sessionKey, key, device, action: { type, code: String(action.code ?? "") } };
   if (type === "list" || type === "cancel") return { sessionId, sessionKey, key, device, action: { type, orbitId: Number(action.orbitId) } };
   if (type === "topup") return { sessionId, sessionKey, key, device, action: { type, amount: Number(action.amount) } };
@@ -101,8 +106,7 @@ function clean(input: unknown): Call {
   if (type === "nudge") return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40) } };
   if (type === "thank") {
     // v15: готова фраза — лише номер 0–5 (текст живе в клієнті), будь-що інше відкидаємо.
-    const phrase = Number(action.p);
-    const p = Number.isInteger(phrase) && phrase >= 0 && phrase < 6 ? phrase : undefined;
+    const p = phraseIndex(action.p);
     return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40), to: String(action.to ?? "").slice(0, 40), ...(p === undefined ? {} : { p }) } };
   }
   if (type === "buy") {
@@ -217,6 +221,8 @@ const RULES = {
   mail: [5, 60 * MIN, 60 * MIN],
   code: [10, 60 * MIN, 30 * MIN],
   key: [10, 60 * MIN, 60 * MIN],
+  /** R1: усі невдалі входи з однієї мережі (будь-які акаунти) — щедріше, бо мобільні мережі ділять IP. */
+  keyIp: [30, 60 * MIN, 60 * MIN],
   probe: [30, 60 * MIN, 30 * MIN],
   /** Реєстрації з однієї IP-адреси: 10 спроб на годину (мобільні мережі ділять IP, тож не менше). REG_PER_IP_HOUR змінює число. */
   reg: [10, 60 * MIN, 60 * MIN],
@@ -411,16 +417,28 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         }
         miss(tag, "reg");
       }
+      // R1/R2: ліміти входу й перевірки пошти — за мережею (ipTag), а не за пристроєм: без cookie пристрій новий на кожен запит,
+      // тож ліміт «за пристроєм» обходився, а кожен новий id ще й роздував документ. Ключ акаунта (60 біт) не підбирається,
+      // тому лічильник «акаунт + мережа» не дає чужій мережі заблокувати вхід власнику, а спільного кошика «k:» (вхід без пошти) більше немає.
+      const net = data.ip ?? "unknown";
+      let loginTarget: string | null = null;
       if (data.action.type === "probe") {
-        const blocked = await gate(`p:${data.device ?? "none"}`, "probe");
+        const blocked = await gate(`p:${net}`, "probe");
         if (blocked) return blocked;
-        miss(`p:${data.device ?? "none"}`, "probe");
+        miss(`p:${net}`, "probe");
       }
       if (data.action.type === "enterMail" || data.action.type === "enter") {
-        const target = data.action.type === "enter" ? data.action.id : data.action.email.trim().toLowerCase();
-        const blocked = (await gate(`k:${target}`, "key")) ?? (await gate(`kd:${data.device ?? "none"}`, "key"));
+        const raw = data.action.type === "enter" ? data.action.id : data.action.email.trim().toLowerCase();
+        // Кошик на акаунт створюємо лише для справжніх акаунтів — вигадані пошти не додають записів у документ.
+        const known = data.action.type === "enter" ? bag.world.accounts.some((a) => a.id === raw) : Boolean(raw) && bag.people.some((p) => p.email === raw);
+        loginTarget = known ? `k:${raw}|${net}` : null;
+        const blocked = (loginTarget ? await gate(loginTarget, "key") : null) ?? (await gate(`ki:${net}`, "keyIp"));
         if (blocked) return blocked;
       }
+      const loginMiss = () => {
+        if (loginTarget) miss(loginTarget, "key");
+        miss(`ki:${net}`, "keyIp");
+      };
       if (data.action.type === "confirmMail" && self) {
         const blocked = await gate(`m:${self}`, "mail");
         if (blocked) return blocked;
@@ -445,14 +463,13 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           ? (bag.people.find((row) => row.email === email)?.userId ?? null)
           : K.findByKey(bag.keys, data.key);
         if (!userId || !K.verifyKey(bag.keys, userId, data.key) || !clocked.accounts.some((account) => account.id === userId)) {
-          miss(`k:${email}`, "key");
-          miss(`kd:${data.device ?? "none"}`, "key");
+          loginMiss();
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
             packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
           ]);
           return { world: base, error: LOCKED };
         }
-        limits = forgive(limits, `k:${email}`);
+        if (loginTarget) limits = forgive(limits, loginTarget);
         bag.keys = K.upgradeKey(bag.keys, userId, data.key);
         seen = markSeen(seen, data.device, userId);
         daily(userId);
@@ -465,8 +482,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       }
       if (data.action.type === "enter") bag.keys = K.upgradeKey(bag.keys, data.action.id, data.key);
       if (data.action.type === "enter" && !K.verifyKey(bag.keys, data.action.id, data.key)) {
-        miss(`k:${data.action.id}`, "key");
-        miss(`kd:${data.device ?? "none"}`, "key");
+        loginMiss();
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
           packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
         ]);

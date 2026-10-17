@@ -167,3 +167,47 @@ export async function skipIntro(page) {
   const s = page.getByRole("button", { name: "Пропустити" });
   try { await s.first().waitFor({ timeout: 4000 }); await s.first().click(); } catch {}
 }
+
+// ---------- direct server-fn calls (security tests) ----------
+export function encode(data) {
+  let i = 0;
+  const enc = (v) => {
+    if (v === null || v === undefined) return { t: 2, s: 0 };
+    if (typeof v === "string") return { t: 1, s: v };
+    if (typeof v === "number") return { t: 0, s: v };
+    if (typeof v === "boolean") return { t: 2, s: v ? 2 : 3 };
+    const id = i++;
+    if (Array.isArray(v)) return { t: 9, i: id, a: v.map(enc), o: 0 };
+    const k = Object.keys(v);
+    return { t: 10, i: id, p: { k, v: k.map((x) => enc(v[x])) }, o: 0 };
+  };
+  return JSON.stringify({ t: enc({ data }), f: 127, m: [] });
+}
+export let ACT_URL = "";
+export async function findActUrl() {
+  if (ACT_URL) return ACT_URL;
+  const p = await newPerson("probe-url");
+  const got = new Promise((ok) => p.on("request", (r) => { if (r.url().includes("/_serverFn/") && r.method() === "POST") ok(r.url()); }));
+  await p.goto(BASE + "/");
+  ACT_URL = await got;
+  await p.context().close();
+  return ACT_URL;
+}
+/** Call orbitAct like the app does. ip → X-Forwarded-For (local server honours it; Netlify uses its own header). */
+export async function act(action, { sessionId = null, sessionKey = null, key = null, device = null, ip = "10.9.9.9", cookie, origin } = {}) {
+  const url = await findActUrl();
+  const headers = { "content-type": "application/json", "x-tsr-serverfn": "true", accept: "application/json", "x-forwarded-for": ip };
+  if (cookie) headers.cookie = cookie;
+  if (origin) headers.origin = origin;
+  const r = await fetch(url, { method: "POST", headers, body: encode({ sessionId, sessionKey, key, device, action }) });
+  const raw = await r.text();
+  return { status: r.status, raw, reply: decode(raw)?.result ?? null, setCookie: r.headers.get("set-cookie") };
+}
+let regN = 0;
+export async function apiRegister(given, opts = {}) {
+  regN += 1;
+  const email = opts.email || `api${Date.now() % 1e7}${regN}@example.test`;
+  const r = await act({ type: "register", name: given, family: opts.family || "Апі", birth: "1990-01-01", email, phone: `+38067${String(Date.now() + regN * 104729).slice(-7)}` }, { ip: opts.ip || `10.1.${regN % 250}.${(regN * 7) % 250}` });
+  const id = r.reply?.world?.sessionId;
+  return { id, key: r.reply?.key, email, cookie: r.setCookie?.split(";")[0], reply: r.reply, raw: r.raw };
+}

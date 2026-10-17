@@ -94,3 +94,9 @@ export const THANK_PHRASES = [
   "Ти зробив(-ла) мій день",
 ] as const;
 export const phraseOf = (p: unknown) => (Number.isInteger(p) && (p as number) >= 0 && (p as number) < THANK_PHRASES.length ? THANK_PHRASES[p as number] : null);
+
+/** Номер фрази з клієнта: лише ціле 0–5, інакше undefined (сервер, clean()). */
+export function phraseIndex(raw: unknown): number | undefined {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" && /^\d$/.test(raw) ? Number(raw) : NaN;
+  return Number.isInteger(n) && n >= 0 && n < THANK_PHRASES.length ? n : undefined;
+}

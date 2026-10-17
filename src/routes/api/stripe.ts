@@ -27,7 +27,11 @@ export const Route = createFileRoute("/api/stripe")({
           await social.ensureSocial(sql);
           if (done.error) {
             // K4: гроші отримано, а імені немає — не мовчимо. Запис для ручного розбору, і 500, щоб Stripe повторив.
-            await sql.query(`insert into orbit_orphans (session_id, user_id, amount, reason) values ($1, $2, $3, $4)`, [id, userId, amount, done.error]);
+            // R4: Stripe повторює вебхук до 3 діб — один рядок на сесію, а не на кожну спробу.
+            await sql.query(
+              `insert into orbit_orphans (session_id, user_id, amount, reason) select $1::text, $2::text, $3::int, $4::text where not exists (select 1 from orbit_orphans where session_id = $1::text)`,
+              [id, userId, amount, done.error],
+            );
             return true;
           }
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [

@@ -21,7 +21,10 @@ function secret(): string {
   if (set && set.length >= 16) return set;
   if (!warned) {
     warned = true;
-    console.warn("DEVICE_SECRET is not set: device cookies are signed with a per-process random secret.");
+    // R5: на продакшені без секрету кожен екземпляр функції має свій секрет — cookie пристрою і відбиток IP
+    // «скидаються» між запитами, ліміти слабшають. Кричимо в журнал помилок, щоб це помітили після деплою.
+    const prod = process.env.CONTEXT === "production" || process.env.NODE_ENV === "production";
+    (prod ? console.error : console.warn)("DEVICE_SECRET is not set (or < 16 chars): device cookies are signed with a per-process random secret.");
   }
   fallback ??= randomBytes(32).toString("hex");
   return fallback;

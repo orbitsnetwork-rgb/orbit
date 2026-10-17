@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { crewStreak, crewWeek, monthRecap, phraseOf, weekStart, THANK_PHRASES } from "./pulse.ts";
+import { crewStreak, crewWeek, monthRecap, phraseIndex, phraseOf, weekStart, THANK_PHRASES } from "./pulse.ts";
 
 const D = 86_400_000;
 const mon = Date.UTC(2026, 9, 12); // Monday
@@ -55,4 +55,9 @@ test("thank phrases: 6, index-only", () => {
   assert.equal(phraseOf(6), null);
   assert.equal(phraseOf("1"), null);
   assert.equal(phraseOf(1.5), null);
+});
+
+test("phraseIndex sanitises client input", () => {
+  for (const ok of [0, 5, "3"]) assert.equal(typeof phraseIndex(ok), "number");
+  for (const bad of [6, -1, 1.5, "7", "1e0", "", null, undefined, {}, [], "0x1", Infinity, NaN]) assert.equal(phraseIndex(bad), undefined);
 });

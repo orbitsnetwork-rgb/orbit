@@ -16,16 +16,17 @@ const cache = new Map<string, true>();
 
 function pepper() {
   const set = process.env.DEVICE_SECRET?.trim();
-  return set && set.length >= 16 ? set : "orbit-dev-only-lookup";
+  return set && set.length >= 16 ? set : DEV_PEPPER;
 }
 
 export function isHashed(stored: string | undefined): boolean {
   return typeof stored === "string" && stored.startsWith(PREFIX);
 }
 
-export function lookupOf(key: string) {
-  return createHmac("sha256", pepper()).update(`key:${key}`).digest("hex").slice(0, 16);
+export function lookupOf(key: string, with_ = pepper()) {
+  return createHmac("sha256", with_).update(`key:${key}`).digest("hex").slice(0, 16);
 }
+const DEV_PEPPER = "orbit-dev-only-lookup";
 
 export function hashKey(key: string): string {
   const salt = randomBytes(16);
@@ -62,9 +63,10 @@ export function verifyKey(keys: Record<string, string>, id: string | null, key: 
 /** Акаунт за самим ключем: спершу за lookup (без перебору scrypt), потім серед старих текстових ключів. */
 export function findByKey(keys: Record<string, string>, key: string | null): string | null {
   if (!key) return null;
-  const look = lookupOf(key);
+  // R5: ключі, захешовані до появи DEVICE_SECRET (lookup з dev-рядком), теж знаходяться. Перевіряє все одно scrypt.
+  const looks = new Set([lookupOf(key), lookupOf(key, DEV_PEPPER)]);
   for (const [id, stored] of Object.entries(keys)) {
-    if (isHashed(stored) ? stored.split("$")[1] === look && verifyKey(keys, id, key) : same(stored, key)) return id;
+    if (isHashed(stored) ? looks.has(stored.split("$")[1]) && verifyKey(keys, id, key) : same(stored, key)) return id;
   }
   return null;
 }

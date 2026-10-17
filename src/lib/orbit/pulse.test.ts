@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { crewStreak, crewWeek, monthRecap, phraseIndex, phraseOf, weekStart, THANK_PHRASES } from "./pulse.ts";
+import { CREW_GOAL, crewGoal, crewStreak, crewWeek, monthRecap, phraseIndex, phraseOf, weekStart, THANK_PHRASES } from "./pulse.ts";
 
 const D = 86_400_000;
 const mon = Date.UTC(2026, 9, 12); // Monday
@@ -60,4 +60,12 @@ test("thank phrases: 6, index-only", () => {
 test("phraseIndex sanitises client input", () => {
   for (const ok of [0, 5, "3"]) assert.equal(typeof phraseIndex(ok), "number");
   for (const bad of [6, -1, 1.5, "7", "1e0", "", null, undefined, {}, [], "0x1", Infinity, NaN]) assert.equal(phraseIndex(bad), undefined);
+});
+
+test("crewGoal: 12 in-crew confirmations a week, cosmetic progress", () => {
+  assert.equal(CREW_GOAL, 12);
+  assert.deepEqual(crewGoal({ confirms: 0 }), { goal: 12, done: 0, left: 12, reached: false, pct: 0 });
+  assert.deepEqual(crewGoal({ confirms: 5 }), { goal: 12, done: 5, left: 7, reached: false, pct: 42 });
+  assert.deepEqual(crewGoal({ confirms: 15 }), { goal: 12, done: 15, left: 0, reached: true, pct: 100 });
+  assert.equal(crewGoal({ confirms: -3 }).done, 0);
 });

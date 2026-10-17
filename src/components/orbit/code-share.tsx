@@ -34,9 +34,11 @@ function Countdown({ leftMs }: { leftMs: number }) {
 type Said = { text: string; tone: "ok" | "warn" } | null;
 
 /** Живий код: велико, таймер, «Поділитися», посилання, QR. */
-export function CodeShare({ code, expires, now, cr }: { code: string; expires: number; now: number; cr?: string }) {
+export function CodeShare({ code, expires, now, cr, qrToken }: { code: string; expires: number; now: number; cr?: string; qrToken?: string }) {
   const leftMs = Math.max(0, expires - now);
   const link = inviteLink(code);
+  // QR на екрані несе короткий токен (60–90 с): скан поруч дає позначку «підтвердив особисто». У поширених посиланнях його немає.
+  const qrLink = inviteLink(code, undefined, qrToken);
   const [said, setSaid] = useState<Said>(null);
   const [done, setDone] = useState<"" | "link" | "code">("");
   const [qr, setQr] = useState(false);
@@ -51,6 +53,13 @@ export function CodeShare({ code, expires, now, cr }: { code: string; expires: n
       setSaid(null);
     }
   }, [code]);
+  const shownQr = useRef(qrLink);
+  useEffect(() => {
+    if (shownQr.current !== qrLink) {
+      shownQr.current = qrLink;
+      setSvg("");
+    }
+  }, [qrLink]);
   useEffect(() => {
     if (!done) return;
     const id = window.setTimeout(() => setDone(""), 1800);
@@ -60,7 +69,7 @@ export function CodeShare({ code, expires, now, cr }: { code: string; expires: n
     if (!qr || svg) return;
     let alive = true;
     void import("qrcode")
-      .then((lib) => lib.toString(link, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#0a0c14", light: "#f2f1ec" } }))
+      .then((lib) => lib.toString(qrLink, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#0a0c14", light: "#f2f1ec" } }))
       .then((out) => {
         if (alive) setSvg(out);
       })
@@ -70,7 +79,7 @@ export function CodeShare({ code, expires, now, cr }: { code: string; expires: n
     return () => {
       alive = false;
     };
-  }, [qr, svg, link]);
+  }, [qr, svg, qrLink]);
 
   const message = `Підтверди мій запуск в Орбітах. Код ${groupCode(code)} діє до ${clock(expires)}.`;
 
@@ -145,6 +154,7 @@ export function CodeShare({ code, expires, now, cr }: { code: string; expires: n
             <span className="cs-qr-wait" aria-label="Готуємо QR" />
           )}
           <p>Наведи камеру телефона учасника на QR. Код підставиться сам, підтвердження — кнопкою.</p>
+          {qrToken ? <p className="cs-ip-hint" data-testid="qr-inperson">Скан цього QR поруч додає позначку «підтвердив особисто». Лише позначка — іскор не змінює.</p> : null}
         </div>
       ) : null}
       <p className="cs-said" data-tone={said?.tone ?? "none"} role="status" aria-live="polite">

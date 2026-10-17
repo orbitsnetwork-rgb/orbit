@@ -802,6 +802,7 @@ const QUICK: { route: Route; label: string; icon: ReactNode }[] = [
 
 function Mine({ world, user }: { world: World; user: Account }) {
   const links = useOrbits((state) => state.mine?.links);
+  const qrNow = useOrbits((state) => state.mine?.qr);
   const creation = activeCreation(world, user.id);
   const wall = useWall(world.now);
   const tail = (
@@ -848,7 +849,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
         </Satellites>
         <Witnesses world={world} creation={creation} title="Підтвердили" />
         {live && creation.code ? (
-          <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} cr={links?.[creation.id]} />
+          <CodeShare code={creation.code} expires={creation.codeExpires} now={wall} cr={links?.[creation.id]} qrToken={qrNow?.cr === creation.id ? qrNow.t : undefined} />
         ) : (
           <>
             {creation.code ? <p className="orbit-note ch-center">Код згас. Створи новий — він діятиме 10 хвилин.</p> : null}
@@ -898,6 +899,7 @@ function Mine({ world, user }: { world: World; user: Account }) {
 function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | null }) {
   const [digits, setDigits] = useState("");
   const [fromLink, setFromLink] = useState(false);
+  const [inviteQ, setInviteQ] = useState<{ code: string; q: string } | null>(null);
   const [own, setOwn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState<{ text: string; bad: boolean } | null>(null);
@@ -919,6 +921,7 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
       }
       setDigits(invite.code);
       setFromLink(true);
+      setInviteQ(invite.q ? { code: invite.code, q: invite.q } : null);
       setOwn(false);
       window.requestAnimationFrame(() => {
         box.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -933,7 +936,7 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
   async function submit() {
     if (typed.length !== 6 || busy) return;
     setBusy(true);
-    await useOrbits.getState().accept(typed);
+    await useOrbits.getState().accept(typed, inviteQ && inviteQ.code === typed ? inviteQ.q : undefined);
     const state = useOrbits.getState();
     setBusy(false);
     setSaid({ text: sparkText(state.flash), bad: state.bad });
@@ -941,6 +944,7 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
       buzz([12, 60, 18]);
       setDigits("");
       setFromLink(false);
+      setInviteQ(null);
       dropInvite();
     } else buzz([30, 40, 30]);
   }
@@ -1005,7 +1009,8 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
   );
 }
 
-function Witnesses({ world, creation, title }: { world: World; creation: { confirms: { witnessId: string }[] }; title: string }) {
+function Witnesses({ world, creation, title }: { world: World; creation: { id: string; confirms: { witnessId: string }[] }; title: string }) {
+  const inPerson = useOrbits((state) => state.mine?.inPerson?.[creation.id]);
   if (!creation.confirms.length) return null;
   const people = creation.confirms.map((row) => ({ id: row.witnessId, name: world.accounts.find((account) => account.id === row.witnessId)?.name ?? "Учасник" }));
   return (
@@ -1013,7 +1018,10 @@ function Witnesses({ world, creation, title }: { world: World; creation: { confi
       <span>{title}</span>
       <ul>
         {people.map((row, i) => (
-          <li key={`${row.id}-${i}`}><Avatar id={row.id} name={row.name} size={20} />{row.name}</li>
+          <li key={`${row.id}-${i}`} data-inperson={inPerson?.includes(row.id) ? "1" : "0"}>
+            <Avatar id={row.id} name={row.name} size={20} />{row.name}
+            {inPerson?.includes(row.id) ? <span className="ch-ip" title="Підтвердив особисто: сканував QR з екрана автора">особисто</span> : null}
+          </li>
         ))}
       </ul>
     </div>

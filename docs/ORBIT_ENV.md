@@ -11,4 +11,4 @@
 | `ORBIT_DEV_MAIL_CODE` | **dev only** | `1` shows the email confirmation code on screen (no email sender exists yet). Never set in production: without it the code never leaves the server. Note: in production, email can't be confirmed until a sender exists. |
 
 Tables created on startup (`create table if not exists`, migration `0031_orbit_social.sql`, also ensured at runtime):
-`orbit_events`, `orbit_thanks`, `orbit_origins`, `orbit_orphans` (0031), `orbit_payouts` (0032), `orbit_emission` (0033), `orbit_links` (0034), all append-only.
+`orbit_events`, `orbit_thanks`, `orbit_origins`, `orbit_orphans` (0031), `orbit_payouts` (0032), `orbit_emission` (0033), `orbit_links` (0034), `orbit_inperson` (0035), all append-only.

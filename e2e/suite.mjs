@@ -108,18 +108,47 @@ async function confirmBy(p) {
   await p.locator(".cs-confirm button.orbit-go").last().click();
   await p.waitForTimeout(900);
 }
+const mineOf = (p) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const m = L.decode(p.bodies[i])?.result?.mine; if (m) return m; } return null; };
+/** «Підтвердив особисто»: учасник відкриває посилання з QR на екрані автора (з коротким токеном q) і підтверджує. */
+async function confirmByQr(p) {
+  await tab(host, "Заявка");
+  await host.getByRole("button", { name: "Створити код підтвердження" }).click({ timeout: 8000 });
+  await host.waitForTimeout(600);
+  await host.getByRole("button", { name: "Показати QR-код" }).click();
+  await host.waitForTimeout(800);
+  check("author's QR carries the in-person hint", await host.getByTestId("qr-inperson").isVisible());
+  const img = await host.locator("#cs-qr img").getAttribute("src");
+  check("QR rendered (svg)", (img || "").startsWith("data:image/svg+xml"));
+  await shot(host, "08b_qr_inperson");
+  const code = ownCode();
+  const qr = mineOf(host)?.qr;
+  check("server gives the author a short-lived QR token (≤90 s)", qr && qr.t && qr.exp - (Date.now() + L.clock()) <= 90_000 && qr.exp > Date.now() + L.clock(), JSON.stringify(qr));
+  await p.goto(`${L.BASE}/?c=${code}&q=${encodeURIComponent(qr.t)}`);
+  await p.waitForTimeout(1500);
+  await tab(p, "Заявка");
+  check("code from QR prefilled", (await p.locator(".cs-confirm input").first().inputValue()).replace(/\D/g, "") === code);
+  check("q removed from the address bar", !p.url().includes("q="));
+  await p.locator(".cs-confirm button.orbit-go").last().click();
+  await p.waitForTimeout(900);
+}
 await step("collect 8 confirms over 3 days", async () => {
   for (let i = 1; i < 8; i++) {
     if (i === 3 || i === 6) L.advance(24 * H);
     const p = await person("c" + i);
     await L.register(p, names[i]); await L.passKey(p); await L.skipIntro(p);
     await L.confirmMail(p);
-    await confirmBy(p);
+    if (i === 7) await confirmByQr(p); else await confirmBy(p);
     crew.push(p);
     if (i === 3) { await host.reload(); await host.waitForTimeout(1500); await tab(host, "Заявка"); await shot(host, "08_collecting_4of8"); }
   }
   await host.reload(); await host.waitForTimeout(1500); await tab(host, "Заявка");
   check("launch charging after 8 confirms", await hasText(host, "Усі 8 супутників") || await hasText(host, "Залишилось"));
+  const marks = host.locator(".ch-who li[data-inperson='1']");
+  check("exactly one «особисто» mark (QR scan), typed codes get none", (await marks.count()) === 1 && (await marks.first().innerText()).includes(names[7].split(" ")[0]), String(await marks.count()));
+  const bal = lastWorld(crew[6])?.world?.accounts?.find((a) => a.id === lastWorld(crew[6])?.world?.sessionId)?.balance;
+  const bal5 = lastWorld(crew[5])?.world?.accounts?.find((a) => a.id === lastWorld(crew[5])?.world?.sessionId)?.balance;
+  check("in-person mark changes no ✦ (QR witness balance = typed witness balance)", bal === bal5, `${bal} vs ${bal5}`);
+  await host.locator(".ch-who").first().scrollIntoViewIfNeeded();
   await shot(host, "09_charging");
 });
 await step("share link /l/:slug", async () => {
@@ -188,6 +217,10 @@ await step("profile: badges, streak, crew, thanks", async () => {
   check("weekly crew report card (3 stats)", (await week.locator("dd").count()) === 3);
   const wk = (await week.locator("dd").allInnerTexts()).map(Number);
   check("weekly report: in-crew confirms ≥1, thanks ≥1", wk[0] >= 1 && wk[2] >= 1, wk.join("/"));
+  const goal = host.locator(".cw-goal").first();
+  const gt = await goal.innerText();
+  const bar = goal.getByRole("progressbar");
+  check("weekly crew goal «Ціль тижня · 12» with progress bar", /ціль тижня · 12/i.test(gt) && (await bar.getAttribute("aria-valuemax")) === "12" && Number(await bar.getAttribute("aria-valuenow")) === Math.min(12, wk[0]), gt);
   await week.scrollIntoViewIfNeeded(); await shot(host, "13c_crew_streak_week");
   const recap = host.locator(".mr-card");
   const rt = await recap.innerText();

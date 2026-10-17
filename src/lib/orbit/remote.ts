@@ -29,7 +29,7 @@ export type OrbitAction =
   | { type: "confirmMail"; code: string }
   | { type: "start" }
   | { type: "issue" }
-  | { type: "accept"; code: string }
+  | { type: "accept"; code: string; q?: string }
   | { type: "list"; orbitId: number }
   | { type: "cancel"; orbitId: number }
   | { type: "buy"; price: number }
@@ -63,7 +63,7 @@ function clean(input: unknown): Call {
     sessionKey?: unknown;
     key?: unknown;
     device?: unknown;
-    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown; cr?: unknown; to?: unknown; p?: unknown };
+    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown; cr?: unknown; to?: unknown; p?: unknown; q?: unknown };
   };
   const sessionId = typeof raw.sessionId === "string" && raw.sessionId.startsWith("u-") ? raw.sessionId : null;
   const sessionKey = clipKey(raw.sessionKey);
@@ -97,7 +97,10 @@ function clean(input: unknown): Call {
     const id = String(action.id ?? "").slice(0, 40);
     return { sessionId, sessionKey, key, device, action: { type, id: /^u-[a-z0-9-]+$/i.test(id) ? id : "" } };
   }
-  if (type === "accept") return { sessionId, sessionKey, key, device, action: { type, code: String(action.code ?? "") } };
+  if (type === "accept") {
+    const q = typeof action.q === "string" && /^[a-z0-9]{1,12}\.[A-Za-z0-9_-]{22}$/.test(action.q) ? action.q : undefined;
+    return { sessionId, sessionKey, key, device, action: { type, code: String(action.code ?? ""), ...(q ? { q } : {}) } };
+  }
   if (type === "list" || type === "cancel") return { sessionId, sessionKey, key, device, action: { type, orbitId: Number(action.orbitId) } };
   if (type === "topup") return { sessionId, sessionKey, key, device, action: { type, amount: Number(action.amount) } };
   if (type === "confirmTopup") {
@@ -149,12 +152,18 @@ function crsFor(world: World, userId: string) {
 async function loadSocial(sql: import("@/lib/db").Sql, world: World, extra: Extra): Promise<Social | undefined> {
   const userId = world.sessionId;
   if (!userId) return undefined;
-  const { ensureSocial, readMine, linksFor } = await import("@/lib/orbit/social-db");
+  const { ensureSocial, readMine, linksFor, readInPerson } = await import("@/lib/orbit/social-db");
   await ensureSocial(sql);
   const social = await readMine(sql, userId, extra.days[userId] ?? null, crsFor(world, userId), world.queue.slice(0, 12).map((row) => row.userId), world.now);
   // L1: посилання /l/<slug> бачить і створює лише автор — для своїх 5 останніх заявок.
-  const own = world.creations.filter((item) => item.userId === userId).slice(-5).map((item) => item.id);
-  return { ...social, mine: { ...social.mine, links: await linksFor(sql, own, world.now) } };
+  const ownAll = world.creations.filter((item) => item.userId === userId);
+  const own = ownAll.slice(-5).map((item) => item.id);
+  // «Особисто»: позначки для своїх запусків і тих, які людина підтверджувала (останні 30).
+  const witnessed = world.creations.filter((item) => item.confirms.some((row) => row.witnessId === userId)).slice(-30).map((item) => item.id);
+  const live = ownAll.find((item) => item.status === "collecting" && item.code && world.now < item.codeExpires);
+  const { qrToken } = await import("@/lib/orbit/device");
+  const qr = live ? { cr: live.id, ...qrToken(live.id) } : undefined;
+  return { ...social, mine: { ...social.mine, links: await linksFor(sql, own, world.now), inPerson: await readInPerson(sql, [...new Set([...own, ...witnessed])]), ...(qr ? { qr } : {}) } };
 }
 
 export function statsOf(world: World): PublicStats {
@@ -641,7 +650,19 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           await persist();
           return { world: base, error: step.error, self: own(bag.people, self) };
         }
-        if (!step.error) limits = forgive(limits, `c:${self}`);
+        if (!step.error) {
+          limits = forgive(limits, `c:${self}`);
+          // «Підтвердив особисто»: лише позначка (окрема таблиця), якщо підтвердження прийшло зі скану живого QR автора.
+          const q = data.action.q;
+          if (q) {
+            const gained = step.world.creations.find((item) => item.confirms.some((row) => row.witnessId === self) && !base.creations.find((was) => was.id === item.id)?.confirms.some((row) => row.witnessId === self));
+            const { checkQr } = await import("@/lib/orbit/device");
+            if (gained && checkQr(q, gained.id)) {
+              const { insertInPerson } = await import("@/lib/orbit/social-db");
+              await insertInPerson(sql, gained.id, self, wall);
+            }
+          }
+        }
       }
       let keys = bag.keys;
       let devices = bag.devices;

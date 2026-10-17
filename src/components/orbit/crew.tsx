@@ -5,8 +5,8 @@ import { Check, Flame, Heart, Users } from "lucide-react";
 import type { Creation, World } from "@/lib/orbit/engine";
 import { useOrbits } from "@/lib/orbit/store";
 import { crewHistory, crewOfOrbit, myCrews, type Crew } from "@/lib/orbit/crew";
-import { Avatar } from "@/components/orbit/ui/kit";
-import { THANK_PHRASES, crewStreak, crewWeek } from "@/lib/orbit/pulse";
+import { Avatar, Progress } from "@/components/orbit/ui/kit";
+import { THANK_PHRASES, crewGoal, crewStreak, crewWeek } from "@/lib/orbit/pulse";
 
 const nameOf = (world: World, id: string) => world.accounts.find((account) => account.id === id)?.name ?? "Учасник";
 
@@ -84,6 +84,7 @@ export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; 
   const events = useOrbits((state) => state.mine?.events);
   const streak = crewStreak(world, crew, world.now);
   const week = crewWeek(world, crew, world.now, events ?? []);
+  const goal = crewGoal(week);
   return (
     <article className="cw-card" aria-label={`Екіпаж №${crew.no}`}>
       <header className="cw-head">
@@ -106,6 +107,14 @@ export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; 
         <div><dt>орбіт</dt><dd>{week.orbits}</dd></div>
         <div><dt>твоїх подяк</dt><dd>{week.thanks}</dd></div>
       </dl>
+      <div className="cw-goal" data-reached={goal.reached ? "1" : "0"}>
+        <div className="cw-goal-row">
+          <span>Ціль тижня · {goal.goal} підтверджень разом</span>
+          <b>{Math.min(goal.done, goal.goal)}/{goal.goal}</b>
+        </div>
+        <Progress value={Math.min(goal.done, goal.goal)} max={goal.goal} label={`Ціль екіпажу на тиждень: ${goal.done} з ${goal.goal} підтверджень`} tone={goal.reached ? "aurora" : "ion"} />
+        <small>{goal.reached ? "Ціль тижня взято — так тримати ✦" : `Ще ${goal.left} — і екіпаж візьме ціль тижня. Лише для настрою: іскор не додає.`}</small>
+      </div>
       <ul className="cw-ring" aria-label="Учасники екіпажу">
         {people.map((id, i) => (
           <li key={id} title={nameOf(world, id)} data-author={i === 0 ? "1" : "0"}>

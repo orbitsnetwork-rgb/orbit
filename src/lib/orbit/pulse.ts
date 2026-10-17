@@ -54,6 +54,14 @@ export function crewWeek(world: Pick<World, "creations">, crew: CrewLike, now: n
   return { confirms, orbits, thanks, from };
 }
 
+/** Спільна тижнева ціль екіпажу: 12 підтверджень усередині екіпажу (пн–нд, UTC). Лише показ, без іскор і без формул. */
+export const CREW_GOAL = 12;
+export type CrewGoal = { goal: number; done: number; left: number; reached: boolean; pct: number };
+export function crewGoal(week: Pick<CrewWeek, "confirms">, goal = CREW_GOAL): CrewGoal {
+  const done = Math.max(0, Math.floor(week.confirms));
+  return { goal, done, left: Math.max(0, goal - done), reached: done >= goal, pct: Math.min(100, Math.round((done / goal) * 100)) };
+}
+
 export type MonthRecap = { month: string; from: number; confirms: number; launches: number; orbits: number; thanks: number; activeDays: number; crews: number };
 
 /** «Твій місяць на орбіті» — календарний місяць за Києвом. Лише власні дії людини, без жодних балансів. */

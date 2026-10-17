@@ -197,6 +197,10 @@ export type Mine = {
   fundRuns?: FundRun[];
   /** L1: публічні посилання на власні запуски: id заявки → slug для /l/<slug>. */
   links?: Record<string, string>;
+  /** Токен для QR на екрані автора (живий запуск з кодом): скан дає позначку «особисто». */
+  qr?: { cr: string; t: string; exp: number };
+  /** id заявки → хто підтвердив особисто (лише свої запуски й ті, що людина підтверджувала). */
+  inPerson?: Record<string, string[]>;
   fundPaidTotal?: number;
   /** 20: показники довіри продавців з черги (лише показ, без порогів). */
   trust?: Record<string, Trust>;

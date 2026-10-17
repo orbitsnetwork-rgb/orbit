@@ -12,6 +12,7 @@ import payoutSchema from "../../../migrations/0032_orbit_payouts.sql?raw";
 // @ts-ignore — vite raw import
 import emissionSchema from "../../../migrations/0033_orbit_emission.sql?raw";
 import linkSchema from "../../../migrations/0034_orbit_links.sql?raw";
+import inPersonSchema from "../../../migrations/0035_orbit_inperson.sql?raw";
 import type { DaySnap, Emission, Transparency } from "@/lib/orbit/emission";
 import type { World } from "@/lib/orbit/engine";
 
@@ -19,7 +20,7 @@ const g = globalThis as { __orbitSocialReady__?: Promise<void> };
 
 export function ensureSocial(sql: Sql): Promise<void> {
   g.__orbitSocialReady__ ??= (async () => {
-    for (const stmt of (String(schema) + ";" + String(payoutSchema) + ";" + String(emissionSchema) + ";" + String(linkSchema)).replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
+    for (const stmt of (String(schema) + ";" + String(payoutSchema) + ";" + String(emissionSchema) + ";" + String(linkSchema) + ";" + String(inPersonSchema)).replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
   })().catch((error) => {
     g.__orbitSocialReady__ = undefined;
     throw error;
@@ -223,4 +224,18 @@ export async function crOfSlug(sql: Sql, slug: string): Promise<string | null> {
   if (!SLUG_RE.test(slug)) return null;
   const rows = await sql.query<{ cr: string }>(`select cr from orbit_links where slug = $1 limit 1`, [slug]);
   return rows[0]?.cr ?? null;
+}
+
+/** «Підтвердив особисто» — лише позначка; true, якщо записано вперше. */
+export async function insertInPerson(sql: Sql, cr: string, witnessId: string, at: number) {
+  const rows = await sql.query<{ cr: string }>(`insert into orbit_inperson (cr, witness_id, at) values ($1, $2, $3) on conflict do nothing returning cr`, [cr, witnessId, at]);
+  return rows.length > 0;
+}
+
+export async function readInPerson(sql: Sql, crs: string[]): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  if (!crs.length) return out;
+  const rows = await sql.query<{ cr: string; witness_id: string }>(`select cr, witness_id from orbit_inperson where cr = any($1::text[])`, [crs]);
+  for (const row of rows) (out[row.cr] ??= []).push(row.witness_id);
+  return out;
 }

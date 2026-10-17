@@ -62,3 +62,27 @@ export function mintDevice() {
 export function ipTag(ip: string) {
   return createHash("sha256").update(`${secret()}|ip|${ip}`).digest("base64url").slice(0, 16);
 }
+
+/**
+ * «Підтвердив особисто»: короткий підписаний токен у QR на екрані автора. Діє 60–90 с (кошик 30 с + 60 с),
+ * прив’язаний до заявки. Лише для позначки в інтерфейсі — на іскри й формули не впливає.
+ */
+export const QR_TTL_MS = 60_000;
+const QR_STEP_MS = 30_000;
+function qrMac(cr: string, exp: number) {
+  return createHmac("sha256", secret()).update(`inperson:${cr}:${exp}`).digest("base64url").slice(0, 22);
+}
+export function qrToken(cr: string, now = Date.now()) {
+  const exp = Math.ceil(now / QR_STEP_MS) * QR_STEP_MS + QR_TTL_MS;
+  return { t: `${exp.toString(36)}.${qrMac(cr, exp)}`, exp };
+}
+export function checkQr(token: string | null | undefined, cr: string, now = Date.now()): boolean {
+  if (typeof token !== "string" || token.length > 64) return false;
+  const [head, sig] = token.split(".");
+  if (!head || !sig) return false;
+  const exp = parseInt(head, 36);
+  if (!Number.isFinite(exp) || now > exp || exp - now > QR_TTL_MS + QR_STEP_MS) return false;
+  const want = Buffer.from(qrMac(cr, exp));
+  const got = Buffer.from(sig);
+  return want.length === got.length && timingSafeEqual(want, got);
+}

@@ -2812,3 +2812,10 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .mr-grid dd { order: 1; margin: 0; color: var(--text-1); font: 800 22px/26px var(--font-sans); font-variant-numeric: tabular-nums; }
 .mr-share { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--space-700); color: var(--text-1); font: 700 14px/1 var(--font-sans); }
 .fd-last { margin: 0; font-size: 0.9rem; color: var(--orbit-dim, inherit); }
+.cw-goal { display: grid; gap: 6px; margin: 10px 0 4px; }
+.cw-goal-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 0.85rem; }
+.cw-goal-row b { font-variant-numeric: tabular-nums; }
+.cw-goal small { font-size: 0.78rem; opacity: 0.75; }
+.cw-goal[data-reached="1"] .cw-goal-row b { color: var(--aurora, #7ef0c3); }
+.ch-who li[data-inperson="1"] .ch-ip { margin-left: 4px; font-size: 0.72rem; padding: 1px 6px; border-radius: 999px; background: rgba(126, 240, 195, 0.14); color: #9ff5d2; white-space: nowrap; }
+.cs-ip-hint { font-size: 0.78rem; opacity: 0.8; margin: 4px 0 0; }

@@ -20,7 +20,7 @@ export async function securityPhase() {
   await step("stripe webhook: signature + idempotency", async () => {
     const body = session("cs_e2e_1", v.id, 500);
     check("webhook: unsigned → 400", (await hook(body)).status === 400);
-    check("webhook: bad signature → 400", (await hook(body, sign(body).replace(/v1=./, "v1=0"))).status === 400);
+    check("webhook: bad signature → 400", (await hook(body, sign(body).replace(/v1=(.)/, (_, ch) => `v1=${ch === "0" ? "1" : "0"}`))).status === 400);
     check("webhook: stale timestamp → 400", (await hook(body, sign(body, Math.floor(Date.now() / 1000) - 3600))).status === 400);
     const live = session("cs_e2e_live", v.id, 500, { livemode: true });
     check("webhook: livemode → 400", (await hook(live, sign(live))).status === 400);
@@ -85,6 +85,36 @@ export async function securityPhase() {
     check("/l page: no emails in HTML", !html.includes("@example.test"));
     await L.shot(p, "30_xss_name_launch_page");
     await p.context().close();
+  });
+
+  await step("«підтвердив особисто»: only a fresh, genuine QR token marks; no ✦ effect", async () => {
+    const a = await L.apiRegister("Авторка", { ip: "10.9.1.1" });
+    const [b, c, d] = [await L.apiRegister("Борис", { ip: "10.9.1.2" }), await L.apiRegister("Ціля", { ip: "10.9.1.3" }), await L.apiRegister("Данило", { ip: "10.9.1.4" })];
+    const as = (u, ip) => ({ sessionId: u.id, sessionKey: u.key, cookie: u.cookie, ip });
+    await L.act({ type: "start" }, as(a, "10.9.1.1"));
+    const issue = async () => { const r = await L.act({ type: "issue" }, as(a, "10.9.1.1")); return { code: r.reply?.world?.creations?.find((x) => x.userId === a.id && x.code)?.code, qr: r.reply?.mine?.qr }; };
+    let { code, qr } = await issue();
+    check("author with a live code gets mine.qr", code && qr?.t && qr.cr, JSON.stringify(qr));
+    const pullB = await L.act({ type: "pull" }, as(b, "10.9.1.2"));
+    check("non-authors never get a QR token", !pullB.reply?.mine?.qr && !pullB.raw.includes(qr.t));
+    const [head] = qr.t.split(".");
+    const rb = await L.act({ type: "accept", code, q: `${head}.${"A".repeat(22)}` }, as(b, "10.9.1.2"));
+    check("forged token: confirmation still counts", !rb.reply?.error, rb.reply?.error);
+    ({ code, qr } = await issue());
+    const rc = await L.act({ type: "accept", code, q: qr.t }, as(c, "10.9.1.3"));
+    check("genuine token: confirmation counts", !rc.reply?.error, rc.reply?.error);
+    L.advance(3 * 60_000);
+    await new Promise((r) => setTimeout(r, 400));
+    ({ code } = await issue());
+    const rd = await L.act({ type: "accept", code, q: qr.t }, as(d, "10.9.1.4"));
+    check("expired token (3 min later): confirmation still counts", !rd.reply?.error, rd.reply?.error);
+    const pa = await L.act({ type: "pull" }, as(a, "10.9.1.1"));
+    const marks = pa.reply?.mine?.inPerson?.[qr.cr] || [];
+    check("only the genuine, fresh scan is marked «особисто»", marks.length === 1 && marks[0] === c.id, JSON.stringify(marks));
+    const balB = (await balanceOf(b))?.balance, balC = (await balanceOf(c))?.balance;
+    check("mark has no ✦ effect (marked and unmarked witness balances equal)", balB === balC, `${balB} vs ${balC}`);
+    const conf = pa.reply?.world?.creations?.find((x) => x.id === qr.cr)?.confirms?.length;
+    check("all three confirmations recorded by the engine", conf === 3, String(conf));
   });
 
   await step("R7: bogus session keys don't burn scrypt CPU", async () => {

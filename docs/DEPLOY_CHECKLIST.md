@@ -33,8 +33,9 @@ Applied automatically by `npm run build` → `scripts/migrate.mjs`. Each file ru
 2. `0032_orbit_payouts.sql`: `orbit_payouts`
 3. `0033_orbit_emission.sql`: `orbit_emission`
 4. `0034_orbit_links.sql`: `orbit_links` (random public slug → launch id for `/l/<slug>`)
+5. `0035_orbit_inperson.sql`: `orbit_inperson` (the display-only «підтвердив особисто» mark)
 
-All four are additive (`create table/index if not exists`). They don't alter `orbit_world`. The world document is upgraded in place on the first write (new fields are added; old fields are kept). This was verified by `e2e/migrate-sim.mjs` on a world built by the 939bf74 engine. Checks covered: old keys log in, balances and stability are kept, charging and collecting launches continue, and reconcile diff = 0.
+All five are additive (`create table/index if not exists`). They don't alter `orbit_world`. The world document is upgraded in place on the first write (new fields are added; old fields are kept). This was verified by `e2e/migrate-sim.mjs` on a world built by the 939bf74 engine. Checks covered: old keys log in, balances and stability are kept, charging and collecting launches continue, and reconcile diff = 0.
 
 If the build log shows a migration error, the deploy fails before it publishes. Production keeps running the old deploy.
 
@@ -56,14 +57,17 @@ If the build log shows a migration error, the deploy fails before it publishes. 
    - `/l/<old launch id c-…>` in a private window returns **404**. The same URL in the author's browser redirects to the slug.
    - Note: `/l/c-…` links shared before this deploy stop working for everyone except their author. This is intended: those ids were guessable.
 5. Test top-up with card `4242 4242 4242 4242` → balance +N once. Stripe dashboard → webhook delivered 200.
-6. Fund screen: "Останній поділ" shows totals (date, ✦, number of people) and only your own rows. In the devtools network tab, `world.payouts` holds only your own `userId`.
-7. `curl -H "Authorization: Bearer $ORBIT_ADMIN_TOKEN" https://<site>/api/reconcile` → `diff: 0`. Without the header → 404.
-8. Netlify function logs: no `DEVICE_SECRET is not set`, no migration errors.
+6. «Особисто»:
+   - The author shows the QR and the witness scans it with the phone camera → confirm. The author's list shows «особисто» next to that witness. A typed code gets no mark.
+   - The mark has no effect on ✦. The QR token is signed with `DEVICE_SECRET` and lives 60–90 s.
+7. Fund screen: "Останній поділ" shows totals (date, ✦, number of people) and only your own rows. In the devtools network tab, `world.payouts` holds only your own `userId`.
+8. `curl -H "Authorization: Bearer $ORBIT_ADMIN_TOKEN" https://<site>/api/reconcile` → `diff: 0`. Without the header → 404.
+9. Netlify function logs: no `DEVICE_SECRET is not set`, no migration errors.
 
 ## 6. Rollback plan
 
 - **Code:** Netlify → Deploys → the previous production deploy → "Publish deploy". This is instant.
-- **Tables 0031–0034:** leave them. They are additive, and the old code ignores them. Do not drop them: they hold the append-only audit trail.
+- **Tables 0031–0035:** leave them. They are additive, and the old code ignores them. Do not drop them: they hold the append-only audit trail.
 - **World document:** the 939bf74 code reads the new document (extra fields are ignored), **except** for keys that are already hashed (`s1$…`). The old code compares plaintext, so those users can't log in on the old code.
   - If you roll back after users have logged in on the new code (or after `hash-keys.mjs`), either roll forward with a fix, or restore `orbit_world` from the Neon branch made in step 2.2. Restoring loses world writes made since then; compare with `orbit_events` before deciding.
 - **Public links:** the old code ignores `orbit_links` and serves `/l/<launch id>` again. Slug links (`/l/<slug>`) shared in the meantime show "not found" until you roll forward.

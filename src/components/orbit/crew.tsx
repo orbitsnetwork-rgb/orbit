@@ -1,11 +1,12 @@
 import { orbitNo } from "@/lib/orbit/traits";
 /** «Дякую» підтверджувачам і «Екіпаж» запуску. Без іскор і без чату: лише люди, номер і спільна історія. */
 import { useState } from "react";
-import { Check, Heart, Users } from "lucide-react";
+import { Check, Flame, Heart, Users } from "lucide-react";
 import type { Creation, World } from "@/lib/orbit/engine";
 import { useOrbits } from "@/lib/orbit/store";
 import { crewHistory, crewOfOrbit, myCrews, type Crew } from "@/lib/orbit/crew";
 import { Avatar } from "@/components/orbit/ui/kit";
+import { THANK_PHRASES, crewStreak, crewWeek } from "@/lib/orbit/pulse";
 
 const nameOf = (world: World, id: string) => world.accounts.find((account) => account.id === id)?.name ?? "Учасник";
 
@@ -13,6 +14,7 @@ const nameOf = (world: World, id: string) => world.accounts.find((account) => ac
 export function ThankList({ world, creation, compact = false }: { world: World; creation: Creation; compact?: boolean }) {
   const thanked = useOrbits((state) => state.mine?.thanked[creation.id]) ?? [];
   const [busy, setBusy] = useState("");
+  const [picking, setPicking] = useState("");
   if (creation.status !== "done") return null;
   const left = creation.confirms.filter((row) => !thanked.includes(row.witnessId)).length;
   return (
@@ -33,18 +35,35 @@ export function ThankList({ world, creation, compact = false }: { world: World; 
                 className="th-btn"
                 data-done={done ? "1" : "0"}
                 disabled={done || busy === row.witnessId}
+                aria-expanded={done ? undefined : picking === row.witnessId}
                 aria-label={done ? `${who}: подяку надіслано` : `Подякувати ${who}`}
-                onClick={async () => {
-                  setBusy(row.witnessId);
-                  try {
-                    await useOrbits.getState().thank(creation.id, row.witnessId);
-                  } finally {
-                    setBusy("");
-                  }
-                }}
+                onClick={() => setPicking((cur) => (cur === row.witnessId ? "" : row.witnessId))}
               >
                 {done ? <><Check size={15} strokeWidth={2.4} aria-hidden /> Подякувано</> : "Дякую"}
               </button>
+              {picking === row.witnessId && !done ? (
+                <div className="th-pick" role="group" aria-label={`Фраза подяки для ${who}`}>
+                  {THANK_PHRASES.map((text, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="th-phrase"
+                      disabled={busy === row.witnessId}
+                      onClick={async () => {
+                        setBusy(row.witnessId);
+                        try {
+                          await useOrbits.getState().thank(creation.id, row.witnessId, i);
+                          setPicking("");
+                        } finally {
+                          setBusy("");
+                        }
+                      }}
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </li>
           );
         })}
@@ -53,6 +72,7 @@ export function ThankList({ world, creation, compact = false }: { world: World; 
   );
 }
 
+const weeksWord = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "тиждень" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "тижні" : "тижнів");
 const statusWord: Record<Creation["status"], string> = { collecting: "збирає підтвердження", charging: "заряд іде", done: "пройшов", failed: "зірвався" };
 const dateOf = (ms: number) => new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", timeZone: "UTC" }).format(ms);
 const no7 = (n: number) => orbitNo(n);
@@ -61,6 +81,9 @@ const no7 = (n: number) => orbitNo(n);
 export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; crew: Crew; me?: string; showOrbit?: boolean }) {
   const history = crewHistory(world, crew).slice(0, 4);
   const people = [crew.author, ...crew.members];
+  const events = useOrbits((state) => state.mine?.events);
+  const streak = crewStreak(world, crew, world.now);
+  const week = crewWeek(world, crew, world.now, events ?? []);
   return (
     <article className="cw-card" aria-label={`Екіпаж №${crew.no}`}>
       <header className="cw-head">
@@ -71,6 +94,18 @@ export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; 
         </div>
         {me ? <span className="cw-role">{crew.author === me ? "автор" : "у екіпажі"}</span> : null}
       </header>
+      <p className="cw-streak" data-alive={streak.alive ? "1" : "0"} data-week={streak.thisWeek ? "1" : "0"}>
+        <Flame size={15} strokeWidth={2} aria-hidden />
+        <span>
+          {streak.alive ? `Серія екіпажу · ${streak.weeks} ${weeksWord(streak.weeks)} поспіль` : "Серія екіпажу згасла"}
+          <small>{streak.thisWeek ? "Цього тижня вже підтримали одне одного" : streak.alive ? "Підтвердіть когось зі своїх до неділі — і серія триватиме" : "Підтвердіть запуск когось зі свого екіпажу — і серія спалахне знову"}{streak.best > streak.weeks ? ` · найдовша ${streak.best}` : ""}</small>
+        </span>
+      </p>
+      <dl className="cw-week" aria-label="Табель екіпажу за тиждень">
+        <div><dt>підтверджень</dt><dd>{week.confirms}</dd></div>
+        <div><dt>орбіт</dt><dd>{week.orbits}</dd></div>
+        <div><dt>твоїх подяк</dt><dd>{week.thanks}</dd></div>
+      </dl>
       <ul className="cw-ring" aria-label="Учасники екіпажу">
         {people.map((id, i) => (
           <li key={id} title={nameOf(world, id)} data-author={i === 0 ? "1" : "0"}>

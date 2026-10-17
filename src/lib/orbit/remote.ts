@@ -34,7 +34,7 @@ export type OrbitAction =
   | { type: "buy"; price: number }
   | { type: "topup"; amount: number }
   | { type: "confirmTopup"; sessionId: string }
-  | { type: "thank"; cr: string; to: string }
+  | { type: "thank"; cr: string; to: string; p?: number }
   | { type: "nudge"; cr: string };
 
 type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
@@ -62,7 +62,7 @@ function clean(input: unknown): Call {
     sessionKey?: unknown;
     key?: unknown;
     device?: unknown;
-    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown; cr?: unknown; to?: unknown };
+    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown; cr?: unknown; to?: unknown; p?: unknown };
   };
   const sessionId = typeof raw.sessionId === "string" && raw.sessionId.startsWith("u-") ? raw.sessionId : null;
   const sessionKey = clipKey(raw.sessionKey);
@@ -100,7 +100,10 @@ function clean(input: unknown): Call {
   }
   if (type === "nudge") return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40) } };
   if (type === "thank") {
-    return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40), to: String(action.to ?? "").slice(0, 40) } };
+    // v15: готова фраза — лише номер 0–5 (текст живе в клієнті), будь-що інше відкидаємо.
+    const phrase = Number(action.p);
+    const p = Number.isInteger(phrase) && phrase >= 0 && phrase < 6 ? phrase : undefined;
+    return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40), to: String(action.to ?? "").slice(0, 40), ...(p === undefined ? {} : { p }) } };
   }
   if (type === "buy") {
     const price = Number(action.price);
@@ -510,15 +513,15 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       }
       if (data.action.type === "thank" && self) {
         // «Дякую» підтверджувачу: без іскор, лише сповіщення й лічильник подяк. Рушій не бере участі.
-        const { cr, to } = data.action;
+        const { cr, to, p } = data.action;
         const item = clocked.creations.find((row) => row.id === cr);
         const mine = own(bag.people, self);
         if (!item || item.userId !== self || item.status !== "done") return { world: base, error: "Подякувати можна після успішного заряду свого запуску.", self: mine };
         if (!item.confirms.some((row) => row.witnessId === to)) return { world: base, error: "Ця людина не підтверджувала запуск.", self: mine };
         if (!(await insertThank(sql, cr, to, self, wall))) return { world: base, notice: "Подяку вже надіслано.", self: mine };
         await insertEvents(sql, [
-          [to, { t: "thanksGot", at: wall, other: self, cr }],
-          [self, { t: "thanksSent", at: wall, other: to, cr }],
+          [to, { t: "thanksGot", at: wall, other: self, cr, ...(p === undefined ? {} : { p }) }],
+          [self, { t: "thanksSent", at: wall, other: to, cr, ...(p === undefined ? {} : { p }) }],
         ]);
         await persist();
         return { world: base, notice: "Подяку надіслано ✦", self: mine };

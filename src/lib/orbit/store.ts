@@ -58,7 +58,7 @@ type OrbitState = {
   topup: (amount: number) => Promise<void>;
   confirmTopup: (sessionId: string) => Promise<void>;
   /** «Дякую» підтверджувачу успішного запуску. */
-  thank: (cr: string, to: string) => Promise<void>;
+  thank: (cr: string, to: string, p?: number) => Promise<void>;
   /** 19: «Нагадати» тим, хто ще не підтвердив. */
   nudge: (cr: string) => Promise<void>;
 };
@@ -251,7 +251,7 @@ export const useOrbits = create<OrbitState>()(() => ({
   buy: (expected) => send({ type: "buy", price: expected }).then(() => undefined),
   topup: (amount) => send({ type: "topup", amount }).then(() => undefined),
   confirmTopup: (sessionId) => send({ type: "confirmTopup", sessionId }).then(() => undefined),
-  thank: (cr, to) => send({ type: "thank", cr, to }).then(() => undefined),
+  thank: (cr, to, p) => send({ type: "thank", cr, to, ...(p === undefined ? {} : { p }) }).then(() => undefined),
   nudge: (cr) => send({ type: "nudge", cr }).then(() => undefined),
 }));
 

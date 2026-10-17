@@ -29,7 +29,7 @@ export type EvType =
   | "nudgeSent";
 
 /** Подія людини: тип, час, сума (зі знаком), орбіта, інша людина, заявка, номер підтвердження. */
-export type Ev = { t: EvType; at: number; amt?: number; orbit?: number; other?: string; cr?: string; n?: number };
+export type Ev = { t: EvType; at: number; amt?: number; orbit?: number; other?: string; cr?: string; n?: number; /** v15: номер готової фрази «Дякую» (0–5). */ p?: number };
 /** freezes — «заморозки» серії (0–2): одна за кожні 7 днів поспіль; пропущений день з’їдає одну, серія не рветься. Лише косметика, без ✦. */
 export type Days = { last: string; count: number; streak: number; best: number; freezes?: number; frozen?: number };
 export const FREEZE_MAX = 2;

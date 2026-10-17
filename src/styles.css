@@ -2789,3 +2789,25 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .k-head h2, .oc-title, .cl-head h2, .nd-row h2 { font: 700 16px/22px var(--font-sans); letter-spacing: -0.01em; }
 /* Номери орбіт — моноширинні цифри всюди */
 .ex-who b, .as-no, .oc-no, .cr-no, .lp-sub { font-variant-numeric: tabular-nums; }
+
+/* v15: серія і табель екіпажу, фрази «Дякую», місяць на орбіті */
+.th-list li:has(.th-pick) { grid-template-columns: auto 1fr auto; }
+.th-pick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.th-phrase { min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgb(242 167 195 / .35); background: rgb(242 167 195 / .08); color: var(--text-1); font: 600 13px/18px var(--font-sans); text-align: left; }
+.th-phrase:disabled { opacity: .6; }
+.cw-streak { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; margin: 0; padding: 10px 12px; border-radius: 14px; background: rgb(242 196 109 / .08); color: var(--sun); }
+.cw-streak[data-alive="0"] { background: rgb(255 255 255 / .03); color: var(--text-3); }
+.cw-streak span { display: grid; gap: 2px; color: var(--text-1); font: 700 14px/18px var(--font-sans); }
+.cw-streak small { color: var(--text-2); font: 500 12px/16px var(--font-sans); }
+.cw-week { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0; }
+.cw-week div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 12px; background: rgb(255 255 255 / .04); }
+.cw-week dt { order: 2; color: var(--text-3); font: 500 11px/14px var(--font-sans); }
+.cw-week dd { order: 1; margin: 0; color: var(--text-1); font: 800 18px/22px var(--font-sans); font-variant-numeric: tabular-nums; }
+.mr-card { display: grid; gap: 12px; padding: 16px; border-radius: 20px; background: radial-gradient(120% 90% at 0% 0%, rgb(139 123 255 / .22), transparent 60%), radial-gradient(100% 80% at 100% 100%, rgb(242 196 109 / .16), transparent 60%), rgb(255 255 255 / .03); border: 1px solid var(--line-strong); }
+.mr-card h2 { margin: 0; color: var(--text-1); font: 800 20px/26px var(--font-sans); }
+.mr-card .mr-month { color: var(--sun); font: 700 13px/18px var(--font-sans); text-transform: capitalize; }
+.mr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.mr-grid div { display: grid; gap: 2px; padding: 10px; border-radius: 14px; background: rgb(5 6 10 / .35); }
+.mr-grid dt { order: 2; color: var(--text-3); font: 500 12px/15px var(--font-sans); }
+.mr-grid dd { order: 1; margin: 0; color: var(--text-1); font: 800 22px/26px var(--font-sans); font-variant-numeric: tabular-nums; }
+.mr-share { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--space-700); color: var(--text-1); font: 700 14px/1 var(--font-sans); }

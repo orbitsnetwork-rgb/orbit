@@ -6,6 +6,7 @@ import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { OrbitCards, ProfileStats, ThanksDue, daysWith } from "@/components/orbit/person-extras";
 import { MyCrews } from "@/components/orbit/crew";
+import { MonthRecapCard } from "@/components/orbit/month-recap";
 import { OrbitDays } from "@/components/orbit/badges";
 import { NumberedOrbits } from "@/components/orbit/orbit-card";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
@@ -1063,6 +1064,7 @@ function Person({ world, user, onOpen }: { world: World; user: Account; onOpen: 
       </section>
       <OrbitCards world={world} user={user} onAll={() => onOpen("assets")} />
       <MyCrews world={world} userId={user.id} />
+      <MonthRecapCard world={world} user={user} />
       <Soon />
       <section className="orbit-block">
         <p className="orbit-kicker">Ключ</p>

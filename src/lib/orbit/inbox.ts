@@ -1,4 +1,5 @@
 import { orbitNo } from "@/lib/orbit/traits";
+import { phraseOf } from "@/lib/orbit/pulse";
 /** Центр сповіщень: події журналу світу, позначки «прочитано» — лише на цьому телефоні. */
 import { useEffect, useState } from "react";
 import { sparkText } from "@/lib/orbit/copy";
@@ -68,8 +69,8 @@ export function eventText(ev: Ev, world: World): { text: string; topic: Topic } 
     case "cancel": return { text: `Ти зняв ${no7(ev.orbit)} з черги.`, topic: "market" };
     case "fund": return { text: `Частка фонду: +${sp(ev.amt)}.`, topic: "fund" };
     case "topup": return { text: `Тестове поповнення: +${sp(ev.amt)}.`, topic: "me" };
-    case "thanksGot": return { text: `${who(ev.other)} дякує тобі за підтвердження ✦`, topic: "me" };
-    case "thanksSent": return { text: `Ти подякував ${who(ev.other)}.`, topic: "me" };
+    case "thanksGot": { const ph = phraseOf(ev.p); return { text: ph ? `${who(ev.other)}: «${ph}»` : `${who(ev.other)} дякує тобі за підтвердження ✦`, topic: "me" }; }
+    case "thanksSent": { const ph = phraseOf(ev.p); return { text: ph ? `Ти подякував ${who(ev.other)}: «${ph}»` : `Ти подякував ${who(ev.other)}.`, topic: "me" }; }
     case "nudge": return { text: `${who(ev.other)} нагадує про свій запуск · ${ev.n ?? 0} з 8. Попроси свіжий код і підтверди.`, topic: "charge" };
     case "nudgeSent": return { text: `Ти нагадав ${ev.n ?? 0} ${(ev.n ?? 0) === 1 ? "людині" : "людям"} про свій запуск.`, topic: "charge" };
     default: return { text: "Подія", topic: "system" };

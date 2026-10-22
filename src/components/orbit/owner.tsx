@@ -87,7 +87,7 @@ export function OwnerPage() {
             <p className="orbit-note">Лише сигнал. Нічого не забирається.</p>
             {view.bots.map((b) => (
               <article key={b.userId} className="ow-row">
-                <p><b>{b.name}</b> · {b.reason} · разів: {b.hits} · {when(b.lastAt)}</p>
+                <p><b>{b.name}</b> · {b.reason === "closed-loop" ? "замкнене коло підтверджень" : b.reason === "even-fast-clicks" ? "рівні швидкі дотики" : b.reason} · разів: {b.hits} · {when(b.lastAt)}</p>
                 <div className="ow-acts"><button type="button" className="orbit-chip" onClick={() => void act("botSeen", { userId: b.userId })}>Переглянуто</button></div>
               </article>
             ))}

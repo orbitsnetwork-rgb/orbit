@@ -709,6 +709,20 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           }
         }
       }
+      if ((data.action.type === "accept" || data.action.type === "confirm") && self && !step.error) {
+        // Замкнене коло в графі підтверджень — лише позначка для перевірки людиною (нічого не блокує).
+        const closed = step.world.creations.find((item) => item.status === "charging" && item.confirms.at(-1)?.witnessId === self && base.creations.find((was) => was.id === item.id)?.status === "collecting");
+        if (closed) {
+          const { closedLoop } = await import("@/lib/orbit/crew-guard");
+          if (closedLoop(step.world, closed)) {
+            await sql.query(
+              `insert into orbit_bot_flags (user_id, reason, hits, first_at, last_at) values ($1, 'closed-loop', 1, $2, $2)
+               on conflict (user_id) do update set hits = orbit_bot_flags.hits + 1, last_at = excluded.last_at, reason = 'closed-loop', state = 'review'`,
+              [closed.userId, wall],
+            ).catch(() => null);
+          }
+        }
+      }
       let keys = bag.keys;
       let devices = bag.devices;
       let people = bag.people;

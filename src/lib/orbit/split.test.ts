@@ -21,7 +21,7 @@ test("C1 split: trigger mirrors doc into tables; tables rebuild an identical bag
   await pg.exec(mig("0030_orbit_world.sql"));
   const start = benchWorld(40);
   await pg.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb)`, [packDoc(start.world, start.keys, start.devices, start.people, [], {}, start.seen)]);
-  await pg.exec(mig("0046_orbit_split_tables.sql")); // backfill from the existing row
+  await pg.exec(mig("0048_orbit_split_tables.sql")); // backfill from the existing row
   const query = async <T,>(text: string, params: unknown[]) => (await pg.query(text, params)).rows as T[];
   const load = async () => (await query<{ doc: Record<string, unknown> }>(`select doc from orbit_world where id = 'world'`, []))[0].doc;
   const check = async (step: number) => {
@@ -101,7 +101,7 @@ test("C1 split: trigger mirrors doc into tables; tables rebuild an identical bag
 test("C1 split: a broken mirror never blocks the world write (duplicate ids) and shows up in the diff", async () => {
   const pg = new PGlite();
   await pg.exec(mig("0030_orbit_world.sql"));
-  await pg.exec(mig("0046_orbit_split_tables.sql"));
+  await pg.exec(mig("0048_orbit_split_tables.sql"));
   const query = async <T,>(text: string, params: unknown[]) => (await pg.query(text, params)).rows as T[];
   const b = benchWorld(3);
   await pg.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb)`, [packDoc(b.world, b.keys, b.devices, [...b.people, b.people[0]], [], {}, b.seen)]);

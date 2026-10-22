@@ -25,6 +25,8 @@ trap 'exit 130' INT TERM HUP
 if [ -f "$ROOT/.env.local" ]; then
   cp -p "$ROOT/.env.local" "$BAK" && rm "$ROOT/.env.local" && MOVED=1 && echo "moved .env.local aside -> $BAK"
 fi
+# Як на проді (wrangler vars): скрипт платформи вимкнено, CSP його не пускає.
+export VITE_GROK_EXTENSIONS=0
 unset DATABASE_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET ORBIT_DEV_MAIL_CODE NETLIFY_AUTH_TOKEN
 cd "$ROOT"
 if [ "${1:-}" != "--no-build" ]; then

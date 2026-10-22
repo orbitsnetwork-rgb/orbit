@@ -931,12 +931,16 @@ await step("desktop screenshots (1280×800)", async () => {
 await step("per-user projection", async () => {
   let checked = 0, leaks = [], payoutRows = 0;
   const secrets = [];
-  let worldHist = 0;
-  for (const p of pages) for (const raw of p.bodies) {
-    const d = L.decode(raw)?.result; const w = d?.world;
-    if (!w?.accounts) continue;
+  let worldHist = 0, sameN = 0;
+  for (const p of pages) { let full = null; for (const raw of p.bodies) {
+    const d = L.decode(raw)?.result; const w0 = d?.world;
+    if (!w0?.accounts) continue;
     checked++;
-    if (w.sessionId && d.hist !== "archive") worldHist++;
+    // C1: «світ не змінився» — заглушка без чужих даних; посилання звіряємо з останнім повним світом цієї сесії.
+    if (d.same) { sameN++; if (w0.accounts.length || w0.creations.length) leaks.push(`${p.label}: same reply carries world data`); }
+    const w = d.same && full && full.sessionId === w0.sessionId ? { ...full, sessionId: w0.sessionId } : w0;
+    if (!d.same) full = w0;
+    if (w.sessionId && !d.same && d.hist !== "archive") worldHist++;
     for (const a of w.accounts) if (a.id !== w.sessionId && (a.balance || a.toppedUp || a.starterPending || a.confirmsToday)) leaks.push(`${p.label}: account ${a.id} balance=${a.balance}`);
     for (const c of w.creations || []) if (c.userId !== w.sessionId && c.code) leaks.push(`${p.label}: foreign code`);
     if (d.self && w.sessionId && d.self.userId && d.self.userId !== w.sessionId) leaks.push(`${p.label}: self mismatch`);
@@ -944,7 +948,8 @@ await step("per-user projection", async () => {
     for (const row of w.payouts || []) { payoutRows++; if (row.userId !== w.sessionId) leaks.push(`${p.label}: foreign payout ${row.userId}`); }
     for (const row of d.mine?.payouts || []) if (row.userId !== w.sessionId) leaks.push(`${p.label}: foreign mine.payout`);
     for (const cr of Object.keys(d.mine?.links || {})) if (w.creations?.find((c) => c.id === cr)?.userId !== w.sessionId) leaks.push(`${p.label}: foreign link ${cr}`);
-  }
+  } }
+  check(`C1: unchanged-world polls answered with same:true (${sameN})`, sameN > 0);
   check(`projection: ${checked} replies, no foreign balances/codes/keys/payouts/links`, checked > 20 && leaks.length === 0, leaks.slice(0, 5).join("; "));
   check("every signed-in reply: history from archive (parity held all run)", worldHist === 0, `${worldHist} replies fell back to the world row`);
   check(`world.payouts carries only own rows (${payoutRows} seen)`, leaks.every((l) => !l.includes("payout")));

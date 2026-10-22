@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/reconcile")({
           launchesMissing: launches.missing,
           ok: parity.ok && launches.ok,
         };
-        // C1: таблиці 0046 мають дзеркалити документ (null — міграцію ще не застосовано).
+        // C1: таблиці 0048 мають дзеркалити документ (null — міграцію ще не застосовано).
         const split = await (await import("@/lib/orbit/split")).splitDiff((text, params) => sql.query(text, params));
         if (split && !split.ok) console.error("orbit reconcile: split mismatch", JSON.stringify(split.rows));
         if (!archive.ok) console.error("orbit reconcile: archive mismatch", JSON.stringify(archive));

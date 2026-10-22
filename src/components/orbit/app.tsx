@@ -15,6 +15,7 @@ import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 // 14: важкі екрани — окремими чанками, вантажаться при першому відкритті.
+const MusicToggleLazy = lazy(() => import("@/components/orbit/live").then((m) => ({ default: m.MusicToggle })));
 const ExchangeLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.Exchange })));
 const ConfirmSheetLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.ConfirmSheet })));
 const ChecklistLazy = lazy(() => import("@/components/orbit/checklist").then((m) => ({ default: m.Checklist })));
@@ -145,6 +146,19 @@ export function OrbitApp() {
   const user = me(world);
   const inbox = useInbox(world, user);
   const userId = user?.id;
+  // Сигнал «схоже на автоклікер» — лише позначка для перевірки людиною, нічого не забирає.
+  useEffect(() => {
+    if (!userId) return;
+    let off: (() => void) | null = null;
+    let gone = false;
+    void import("@/components/orbit/live").then((m) => {
+      if (!gone) off = m.watchBot();
+    });
+    return () => {
+      gone = true;
+      off?.();
+    };
+  }, [userId]);
   const { close } = nav;
   useEffect(() => {
     // Інша людина або вихід: закрити відкриті сторінки й почати з головної.
@@ -244,6 +258,7 @@ export function OrbitApp() {
             </div>
           </div>
           <div className="mo-top-right">
+            <Suspense fallback={null}><MusicToggleLazy /></Suspense>
             <TopBalance balance={user.balance} hidden={hidden} onOpen={() => nav.open("assets")} />
             <button type="button" className="mo-icon mo-bell" aria-label={inbox.unread ? `Сповіщення, нових ${inbox.unread}` : "Сповіщення"} aria-haspopup="dialog" onClick={() => nav.open("inbox")}>
               <Bell size={18} strokeWidth={1.5} />

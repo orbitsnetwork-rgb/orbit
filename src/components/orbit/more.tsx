@@ -4,12 +4,12 @@ import { HUB_LOCKS } from "@/lib/orbit/locked";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { useInstall } from "@/lib/orbit/pwa";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
-import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X } from "lucide-react";
+import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | "transparency" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | "transparency" | "live" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -127,6 +127,7 @@ function entries(docs: number, unread: number): Entry[] {
     { route: "inbox", title: "Сповіщення", sub: "Події світу і про мене", icon: <Bell size={18} strokeWidth={1.7} />, tone: "nebula", group: "mine", auth: true, badge: unread ? String(unread > 99 ? "99+" : unread) : undefined },
     { route: "security", title: "Безпека", sub: "Ключ, пристрій, вихід", icon: <Shield size={18} strokeWidth={1.7} />, tone: "aurora", group: "mine", auth: true },
     { route: "explorer", title: "Оглядач", sub: "Будь-яка орбіта за номером", icon: <Telescope size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
+    { route: "live", title: "Живе", sub: "Чат світу, заявки на роль, питання", icon: <MessageCircle size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
     { route: "leaders", title: "Рейтинг", sub: "Стабільність, орбіти, тримання", icon: <Trophy size={18} strokeWidth={1.7} />, tone: "sun", group: "world", auth: true },
     { route: "status", title: "Стан системи", sub: "Зв’язок, розклад ціни і фонду", icon: <Activity size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
     { route: "transparency", title: "Прозорість", sub: "Усі іскри, випуск, фонд і звірка", icon: <Scale size={18} strokeWidth={1.7} />, tone: "sun", group: "world" },

@@ -296,3 +296,9 @@ export function startPolling(): () => void {
     document.removeEventListener("visibilitychange", onVisible);
   };
 }
+
+/** Для живого шару (чат, заявки): той самий id і ключ сесії, що й для orbitAct. Сервер сам перевіряє ключ. */
+export function sessionCreds(): { sessionId: string | null; sessionKey: string | null } {
+  const sessionId = who();
+  return { sessionId, sessionKey: sessionId ? (deviceKeys()[sessionId] ?? null) : null };
+}

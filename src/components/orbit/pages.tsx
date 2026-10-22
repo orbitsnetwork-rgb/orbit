@@ -9,6 +9,7 @@ import { Security } from "@/components/orbit/security";
 import { Status } from "@/components/orbit/status";
 import { Inbox } from "@/components/orbit/inbox";
 import { Transparency } from "@/components/orbit/transparency";
+import { LiveHub } from "@/components/orbit/live";
 import { DocList, DocView, isDoc, MoreHub, type Route } from "@/components/orbit/more";
 import type { DocId } from "@/lib/orbit/docs";
 import type { Account, World } from "@/lib/orbit/engine";
@@ -44,6 +45,7 @@ export function Pages({
   if (top === "leaders" && world && user) return <Leaders world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
   if (top === "transparency") return <Transparency onBack={onPop} onClose={closer} />;
+  if (top === "live" && world && user) return <LiveHub world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "learn") return <Learn onBack={onPop} onClose={closer} />;
   if (top === "help") return <Help onBack={onPop} onClose={closer} onOpen={onPush} signedIn={Boolean(world && user)} />;
   if (top === "docs") return <DocList onOpen={(id) => onPush(`doc:${id}`)} onBack={onPop} onClose={closer} />;

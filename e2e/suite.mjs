@@ -112,6 +112,38 @@ await step("mail confirm + checklist", async () => {
     await shot(host, "05b_pioneer");
   }
 });
+await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
+  check("v19: bell still in header", (await host.locator(".mo-bell").count()) === 1);
+  const music = host.getByRole("button", { name: "Увімкнути фонову музику" });
+  check("v19: music toggle off by default", (await music.count()) === 1 && (await music.getAttribute("aria-pressed")) === "false");
+  await host.getByRole("button", { name: "Ще", exact: true }).click();
+  check("v19: explorer entry kept", await hasText(host, "Оглядач"));
+  await host.getByText("Живе", { exact: true }).first().click();
+  await host.locator("#chat-input").waitFor({ timeout: 8000 });
+  check("v19: empty chat invites to speak", await hasText(host, "Поки тихо"));
+  await host.locator("#chat-input").fill("<img src=x onerror=alert(1)> Привіт, світе");
+  await host.getByRole("button", { name: "Надіслати" }).click();
+  await host.waitForTimeout(1200);
+  check("v19: message shown as text", await hasText(host, "<img src=x onerror=alert(1)> Привіт, світе"));
+  check("v19: no injected img", (await host.locator('img[src="x"]').count()) === 0);
+  await shot(host, "20_live_chat");
+  for (let i = 0; i < 8; i++) {
+    await host.locator("#chat-input").fill(`спам ${i}`);
+    await host.getByRole("button", { name: "Надіслати" }).click();
+    await host.waitForTimeout(350);
+  }
+  check("v19: server rate limit 8/min", await hasText(host, "Забагато повідомлень"));
+  await host.locator("#role-why").fill("Я жива людина і знаю всіх у своєму екіпажі");
+  await host.getByRole("button", { name: "Подати заявку" }).click();
+  await host.waitForTimeout(800);
+  check("v19: role ask stored, not auto-granted", await hasText(host, "перегляне її вручну"));
+  check("v19: locked soon rows", await hasText(host, "Чати екіпажу й орбіти"));
+  await host.locator("#faq-title").scrollIntoViewIfNeeded();
+  await shot(host, "21_live_roles_faq");
+  await host.keyboard.press("Escape");
+  await host.waitForTimeout(300);
+  await host.keyboard.press("Escape");
+});
 const crew = [];
 const names = ["Богдан", "Віра", "Галина", "Дмитро", "Євген", "Жанна", "Зоряна", "Ігор"];
 await step("start launch + code", async () => {

@@ -2414,3 +2414,15 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .gt-steps li { padding: .55rem .8rem; font-size: .92rem; }
 .gt-hero { padding-top: 118px; }
 .hm > .orbit-block + .orbit-block { margin-top: .1rem; }
+/* v25: поле чату й кнопка в один рядок */
+.lv-compose { grid-template-columns: 1fr auto; align-items: center; }
+.lv-compose > label, .lv-compose > [role="alert"], .lv-compose > [role="status"] { grid-column: 1 / -1; }
+.lv-compose .orbit-chat-foot { display: contents; }
+.lv-compose .orbit-chat-foot > .orbit-note { grid-column: 1 / -1; order: 5; }
+.lv-compose .orbit-chat-foot > .orbit-note:empty { display: none; }
+.lv-compose .orbit-chat-foot > .orbit-go { width: auto; min-width: 0; padding-inline: 1.1rem; min-height: 48px; }
+/* v25: на великих екранах — ширша колонка, щоб не виглядало як телефон посеред монітора */
+@media (min-width: 900px) {
+  .orbit-shell { max-width: 600px; }
+  .orbit-nav { max-width: 600px; }
+}

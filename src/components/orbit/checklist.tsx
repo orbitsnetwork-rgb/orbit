@@ -29,7 +29,7 @@ export function stepsOf(world: World, user: Account, why: boolean) {
   const own = world.creations.filter((item) => item.userId === user.id);
   return [
     { id: "join", title: "Ім’я у світі", hint: "Готово — ти на орбіті", done: true, tab: null as HomeTab | null },
-    { id: "why", title: "Дізнайся, чому саме 8", hint: "Хвилина читання", done: why, tab: null },
+    { id: "why", title: "Дізнайся, як народжується орбіта", hint: "Хвилина читання", done: why, tab: null },
     { id: "confirm", title: "Підтвердь когось", hint: "Код з 6 цифр від друга", done: world.creations.some((item) => item.confirms.some((row) => row.witnessId === user.id)), tab: null },
     { id: "start", title: "Почни свій запуск", hint: "Заявка у вкладці «Заявка»", done: own.length > 0, tab: "mine" as HomeTab },
     { id: "crew", title: `Збери ${CONFIRM_NEED} ${confirmsWord(CONFIRM_NEED)}`, hint: "Поділися кодом або посиланням", done: own.some((item) => item.status !== "collecting" || item.confirms.length >= CONFIRM_NEED), tab: "mine" as HomeTab },
@@ -115,14 +115,14 @@ export function WhyEight({ onClose }: { onClose: () => void }) {
           {Array.from({ length: 8 }, (_, i) => <i key={i} style={{ transform: `rotate(${i * 45}deg) translateY(-46px)` }} />)}
           <b>8</b>
         </div>
-        <h2 id="cl-why-title" ref={title} tabIndex={-1} className="ky-title">Чому саме 8?</h2>
+        <h2 id="cl-why-title" ref={title} tabIndex={-1} className="ky-title">Як народжується орбіта</h2>
         <ul className="cl-why-list">
-          <li><b>Вісім — це вже не випадковість.</b> Одну людину можна вигадати, вісьмох різних людей з різних телефонів — набагато важче. Так орбіти народжуються чесно.</li>
-          <li><b>Вісімка — знак нескінченності.</b> Покладена набік, вона стає ∞ — орбітою, що не закінчується. Звідси і назва.</li>
-          <li><b>Достатньо мало, щоб зібрати.</b> Сім’я, друзі, сусіди по під’їзду — хоча б одна людина є в кожного. Не тисяча лайків, а свій екіпаж.</li>
+          <li><b>Одна жива людина ручається за тебе.</b> Її підтвердження — раз за життя: вона не може ручатися за тебе вдруге, тож кожна нова орбіта — це нова людина поруч.</li>
+          <li><b>Вісімка — знак нескінченності.</b> Покладена набік, вона стає ∞ — орбітою, що не закінчується. Тому орбіт рівно вісім мільйонів.</li>
+          <li><b>Просто почати.</b> Сім’я, друзі, сусіди — хоча б одна людина є в кожного. Не тисяча лайків, а свої люди.</li>
           <li><b>Усього {fmt.format(ORBIT_CAP)} орбіт.</b> Вісім мільйонів — і більше не буде. Кожна має свій номер.</li>
         </ul>
-        <p className="ky-body">Кожен, хто підтвердив, стає частиною твого «Екіпажу» — його ім’я назавжди залишиться в історії орбіти.</p>
+        <p className="ky-body">Хто тебе підтвердив, стає частиною твого «Екіпажу» — його ім’я назавжди залишиться в історії орбіти.</p>
         <button type="button" className="orbit-go k-go" onClick={onClose}>Зрозуміло</button>
       </div>
     </div>,

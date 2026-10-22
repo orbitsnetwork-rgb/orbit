@@ -48,12 +48,12 @@ export function OwnerPage() {
         <form className="ow-login" onSubmit={(e) => { e.preventDefault(); void load(); }}>
           <label htmlFor="ow-token">Токен власника</label>
           <input id="ow-token" className="orbit-field" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
-          <button type="submit" className="orbit-go" disabled={busy || token.trim().length < 8}>Увійти</button>
+          <button type="submit" className="orbit-go" disabled={busy || token.trim().length < 8}>{busy ? "Перевіряю…" : "Увійти"}</button>
         </form>
       ) : (
         <>
           <div className="ow-bar">
-            <button type="button" className="orbit-chip" onClick={() => void load()} disabled={busy}>Оновити</button>
+            <button type="button" className="orbit-chip" onClick={() => void load()} disabled={busy}>{busy ? "Оновлюю…" : "Оновити"}</button>
             <button type="button" className="orbit-chip" onClick={out}>Вийти</button>
           </div>
           <p className="orbit-note">Автовидалення старих повідомлень: {view.keepDays ? `через ${view.keepDays} дн.` : "вимкнено (рішення власника)"}.</p>

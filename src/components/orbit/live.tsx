@@ -310,12 +310,12 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
         ) : null}
       </div>
       {muted > Date.now() ? <p className="orbit-chat-mute" role="status">{muteText(muted)}</p> : null}
-      <form className="grid gap-2" onSubmit={(event) => { event.preventDefault(); void send(); }}>
+      <form className="grid gap-2 lv-compose" onSubmit={(event) => { event.preventDefault(); void send(); }}>
         <label className="sr-only" htmlFor="chat-input">Повідомлення</label>
         <input id="chat-input" className="orbit-field" enterKeyHint="send" autoComplete="off" autoCorrect="on" spellCheck disabled={muted > Date.now()} value={text} maxLength={CHAT_MAX} placeholder="Коротко і по-людськи" onChange={(event) => setText(event.target.value)} />
         <div className="orbit-chat-foot">
           <span className="orbit-note" aria-live="off">{text.length > CHAT_MAX - 40 ? `${CHAT_MAX - text.length} знаків лишилось` : ""}</span>
-          <button type="submit" className="orbit-go" disabled={busy || muted > Date.now() || text.trim().length < 1}>Надіслати</button>
+          <button type="submit" className="orbit-go" disabled={busy || muted > Date.now() || text.trim().length < 1}>{busy ? "Надсилаю…" : "Надіслати"}</button>
         </div>
         {error ? <p className="orbit-note" role="alert">{error}</p> : null}
         {notice && !error ? <p className="orbit-note" role="status">{notice}</p> : null}

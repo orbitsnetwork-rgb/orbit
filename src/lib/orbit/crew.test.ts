@@ -97,3 +97,18 @@ test("migration: an old collecting launch with ≥3 confirms starts charging on 
   assert.equal(next.creations[0].status, "charging");
   assert.equal(next.creations[0].chargeStartedAt, world.now);
 });
+
+test("nudge goes to friends of friends who may confirm, never to past witnesses", async () => {
+  const E = await import("./engine.ts");
+  const { nudgeTargets } = await import("./social.ts");
+  const now = 1_700_000_000_000;
+  let world: World = emptyWorld(now);
+  const ids: string[] = [];
+  for (let i = 0; i < 4; i++) { world = E.register(as(world, ""), "Н" + i).world; ids.push(world.sessionId!); }
+  world = E.skip(world, 2 * E.DAY_MS);
+  const cr = (id: string, author: string, witnesses: string[], status = "done") =>
+    ({ id, userId: author, status, confirms: witnesses.map((w) => ({ witnessId: w, at: now })), code: null, codeExpires: 0, codeDay: "", codesToday: 0, chargeStartedAt: null }) as unknown as Creation;
+  // 1 підтвердив 0; 1 підтвердив 2. Для нового запуску 0: 1 вже не може (пара), 2 — друг друга.
+  world = { ...world, creations: [cr("a", ids[0], [ids[1]]), cr("b", ids[2], [ids[1]]), cr("c", ids[0], [], "collecting")] };
+  assert.deepEqual(nudgeTargets(world, ids[0], "c"), [ids[2]]);
+});

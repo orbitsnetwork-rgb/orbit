@@ -551,6 +551,20 @@ await step("charge result + numbered orbit", async () => {
   await shot(host, "12_profile_orbit");
 });
 await step("profile: badges, streak, crew, thanks", async () => {
+  // Екіпаж допомагає іншим: гість (свідок автора) підтверджує запуск ще однієї людини — вона й «друг друга» для нагадування.
+  const f = pre[1]; await f.reload(); await f.waitForTimeout(1500);
+  await tab(f, "Заявка");
+  await f.getByRole("button", { name: "Почати запуск" }).click();
+  await f.waitForTimeout(800);
+  await f.getByRole("button", { name: "Створити код підтвердження" }).click({ timeout: 8000 });
+  await f.waitForTimeout(600);
+  const fw = lastWorld(f); const fme = fw?.world?.sessionId;
+  const fcode = fw?.world?.creations?.find((c) => c.userId === fme && c.code)?.code;
+  const gg = crew[0]; await gg.reload(); await gg.waitForTimeout(1500);
+  await tab(gg, "Заявка");
+  await gg.locator(".cs-confirm input").first().fill(fcode);
+  await gg.locator(".cs-confirm button.orbit-go").last().click();
+  await gg.waitForTimeout(900);
   await host.reload(); await host.waitForTimeout(1500); await tab(host, "Я");
   const b = await text(host);
   check("badges block", b.includes("Відзнаки"));
@@ -561,11 +575,11 @@ await step("profile: badges, streak, crew, thanks", async () => {
   const week = host.getByLabel("Табель екіпажу за тиждень").first();
   check("weekly crew report card (3 stats)", (await week.locator("dd").count()) === 3);
   const wk = (await week.locator("dd").allInnerTexts()).map(Number);
-  check("weekly report: in-crew confirms ≥1, thanks ≥1", wk[0] >= 1 && wk[2] >= 1, wk.join("/"));
+  check("weekly report: crew confirms ≥1, thanks ≥1", wk[0] >= 1 && wk[2] >= 1, wk.join("/"));
   const goal = host.locator(".cw-goal").first();
   const gt = await goal.innerText();
   const bar = goal.getByRole("progressbar");
-  check("weekly crew goal «Ціль тижня · 12» with progress bar", /ціль тижня · 12/i.test(gt) && (await bar.getAttribute("aria-valuemax")) === "12" && Number(await bar.getAttribute("aria-valuenow")) === Math.min(12, wk[0]), gt);
+  check("weekly crew goal «Ціль тижня · 3» with progress bar", /ціль тижня · 3/i.test(gt) && (await bar.getAttribute("aria-valuemax")) === "3" && Number(await bar.getAttribute("aria-valuenow")) === Math.min(3, wk[0]), gt);
   await week.scrollIntoViewIfNeeded(); await shot(host, "13c_crew_streak_week");
   const recap = host.locator(".mr-card");
   const rt = await recap.innerText();
@@ -675,7 +689,7 @@ await step("nudge on second launch", async () => {
   await host.getByRole("button", { name: "Почати запуск" }).click();
   await host.waitForTimeout(800);
   const btn = host.getByRole("button", { name: "Нагадати", exact: true });
-  check("nudge enabled (crew from last launch)", await btn.isEnabled());
+  check("nudge enabled (friend of a friend can confirm)", await btn.isEnabled());
   await btn.click(); await host.waitForTimeout(800);
   check("nudge sent → «Уже нагадали»", await hasText(host, "Уже нагадали"));
   await shot(host, "21_nudge");
@@ -714,6 +728,17 @@ await step("thank phrase index validated server-side", async () => {
   const evs = (lastWorld(crew[0]) ? crew[0].bodies.map((b) => L.decode(b)?.result?.mine?.events).filter(Boolean).at(-1) : []) || [];
   const got = evs.filter((e) => e.t === "thanksGot");
   check("thanksGot event carries p within 0–5", got.length >= 1 && got.every((e) => e.p === undefined || (Number.isInteger(e.p) && e.p >= 0 && e.p < 6)), JSON.stringify(got));
+});
+await step("desktop screenshots (1280×800)", async () => {
+  const d = await person("desk");
+  await d.setViewportSize({ width: 1280, height: 800 });
+  await d.goto(L.BASE + "/"); await d.waitForTimeout(1500);
+  await shot(d, "desk_01_gate");
+  await host.setViewportSize({ width: 1280, height: 800 });
+  await host.reload(); await host.waitForTimeout(1500);
+  for (const [name, t] of [["desk_02_home", "Ціна"], ["desk_03_exchange", "Обмін"], ["desk_04_mine", "Заявка"], ["desk_05_fund", "Фонд"], ["desk_06_me", "Я"]]) { await tab(host, t); await host.waitForTimeout(700); await shot(host, name); }
+  check("desktop: no horizontal overflow", await host.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+  await host.setViewportSize({ width: 390, height: 844 });
 });
 await step("per-user projection", async () => {
   let checked = 0, leaks = [], payoutRows = 0;

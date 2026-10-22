@@ -13,12 +13,16 @@ export const weekStart = (ms: number) => weekNo(ms) * WEEK - 3 * DAY;
 type CrewLike = { author: string; members: string[]; creation: Creation };
 type EvLike = { t: string; at: number; other?: string; cr?: string };
 
-/** Підтвердження всередині екіпажу: хтось із 9 людей підтвердив запуск іншого з тих самих 9. */
+/**
+ * Підтвердження від екіпажу: хтось з екіпажу підтвердив запуск будь-кого (крім власного запуску, що створив цей екіпаж).
+ * Правило «одне підтвердження, пара раз за життя» робить підтвердження всередині екіпажу неможливими, тож
+ * серія й ціль тижня рахують, скільком людям екіпаж допоміг запуститися.
+ */
 export function crewConfirms(world: Pick<World, "creations">, crew: CrewLike) {
   const people = new Set([crew.author, ...crew.members]);
   const out: { at: number; witness: string; author: string; cr: string }[] = [];
   for (const row of world.creations) {
-    if (!people.has(row.userId)) continue;
+    if (row.id === crew.creation.id) continue;
     for (const c of row.confirms) if (c.witnessId !== row.userId && people.has(c.witnessId)) out.push({ at: c.at, witness: c.witnessId, author: row.userId, cr: row.id });
   }
   return out.sort((a, b) => a.at - b.at);
@@ -54,8 +58,8 @@ export function crewWeek(world: Pick<World, "creations">, crew: CrewLike, now: n
   return { confirms, orbits, thanks, from };
 }
 
-/** Спільна тижнева ціль екіпажу: 12 підтверджень усередині екіпажу (пн–нд, UTC). Лише показ, без іскор і без формул. */
-export const CREW_GOAL = 12;
+/** Спільна тижнева ціль екіпажу: 3 підтвердження від екіпажу (пн–нд, UTC). Лише показ, без іскор і без формул. */
+export const CREW_GOAL = 3;
 export type CrewGoal = { goal: number; done: number; left: number; reached: boolean; pct: number };
 export function crewGoal(week: Pick<CrewWeek, "confirms">, goal = CREW_GOAL): CrewGoal {
   const done = Math.max(0, Math.floor(week.confirms));

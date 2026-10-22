@@ -3,7 +3,7 @@
  * Події виводимо з різниці «світ до → світ після» кожного запису документа, тож вони не залежать
  * від тексту спільного журналу й від імен (дві «Олена К.» більше не плутаються).
  */
-import { SELLER_SHARE, WITNESS_OD, utcDay, type World } from "@/lib/orbit/engine";
+import { SELLER_SHARE, WITNESS_OD, utcDay, witnessBlock, type World } from "@/lib/orbit/engine";
 import type { Topup } from "@/lib/orbit/access";
 
 export type EvType =
@@ -42,18 +42,31 @@ export const EVENTS_PER_USER = 200;
 export const NUDGE_EVERY_MS = 12 * 60 * 60 * 1000;
 export const NUDGE_MAX = 20;
 
-/** Кому нагадати: ті, хто підтверджував мої минулі запуски, і ті, чиї запуски підтверджував я, — крім уже підтверджених. */
+/**
+ * Кому нагадати. Одне підтвердження і «пара раз за життя»: ті, хто вже підтверджував мене, і (від 10 людей) ті,
+ * кого підтверджував я, більше не можуть мене підтвердити. Тож нагадуємо «друзям друзів» — людям за два кроки
+ * в графі підтверджень, яким правила свідка зараз дозволяють підтвердити цей запуск.
+ */
 export function nudgeTargets(world: World, selfId: string, crId: string): string[] {
   const item = world.creations.find((row) => row.id === crId);
   if (!item) return [];
-  const done = new Set(item.confirms.map((row) => row.witnessId));
+  const near = new Map<string, Set<string>>();
+  const link = (a: string, b: string) => {
+    if (!near.has(a)) near.set(a, new Set());
+    if (!near.has(b)) near.set(b, new Set());
+    near.get(a)!.add(b);
+    near.get(b)!.add(a);
+  };
+  for (const row of world.creations) for (const c of row.confirms) link(row.userId, c.witnessId);
+  const mine = near.get(selfId) ?? new Set<string>();
   const out = new Set<string>();
-  for (const row of world.creations) {
-    if (row.id === crId) continue;
-    if (row.userId === selfId) for (const c of row.confirms) out.add(c.witnessId);
-    else if (row.confirms.some((c) => c.witnessId === selfId)) out.add(row.userId);
-  }
-  return [...out].filter((id) => id !== selfId && !done.has(id) && world.accounts.some((a) => a.id === id)).slice(0, NUDGE_MAX);
+  for (const friend of mine) for (const far of near.get(friend) ?? []) if (far !== selfId && !mine.has(far)) out.add(far);
+  return [...out]
+    .filter((id) => {
+      const acc = world.accounts.find((a) => a.id === id);
+      return acc && !item.confirms.some((c) => c.witnessId === id) && witnessBlock(world, item, acc) === null;
+    })
+    .slice(0, NUDGE_MAX);
 }
 
 export function emptyExtra(): Extra {

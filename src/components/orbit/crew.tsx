@@ -77,7 +77,7 @@ const statusWord: Record<Creation["status"], string> = { collecting: "збира
 const dateOf = (ms: number) => new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", timeZone: "UTC" }).format(ms);
 const no7 = (n: number) => orbitNo(n);
 
-/** Картка екіпажу: номер, 9 людей (автор + 8), орбіта, спільна історія. */
+/** Картка екіпажу: номер, автор і той, хто підтвердив, орбіта, спільна історія. */
 export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; crew: Crew; me?: string; showOrbit?: boolean }) {
   const history = crewHistory(world, crew).slice(0, 4);
   const people = [crew.author, ...crew.members];
@@ -99,7 +99,7 @@ export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; 
         <Flame size={15} strokeWidth={2} aria-hidden />
         <span>
           {streak.alive ? `Серія екіпажу · ${streak.weeks} ${weeksWord(streak.weeks)} поспіль` : "Серія екіпажу згасла"}
-          <small>{streak.thisWeek ? "Цього тижня вже підтримали одне одного" : streak.alive ? "Підтвердіть когось зі своїх до неділі — і серія триватиме" : "Підтвердіть запуск когось зі свого екіпажу — і серія спалахне знову"}{streak.best > streak.weeks ? ` · найдовша ${streak.best}` : ""}</small>
+          <small>{streak.thisWeek ? "Цього тижня екіпаж уже когось підтвердив" : streak.alive ? "Підтвердіть когось нового до неділі — і серія триватиме" : "Підтвердіть чийсь запуск — і серія спалахне знову"}{streak.best > streak.weeks ? ` · найдовша ${streak.best}` : ""}</small>
         </span>
       </p>
       <dl className="cw-week" aria-label="Табель екіпажу за тиждень">
@@ -109,7 +109,7 @@ export function CrewCard({ world, crew, me, showOrbit = true }: { world: World; 
       </dl>
       <div className="cw-goal" data-reached={goal.reached ? "1" : "0"}>
         <div className="cw-goal-row">
-          <span>Ціль тижня · {goal.goal} підтверджень разом</span>
+          <span>Ціль тижня · {goal.goal} підтвердження від екіпажу</span>
           <b>{Math.min(goal.done, goal.goal)}/{goal.goal}</b>
         </div>
         <Progress value={Math.min(goal.done, goal.goal)} max={goal.goal} label={`Ціль екіпажу на тиждень: ${goal.done} з ${goal.goal} підтверджень`} tone={goal.reached ? "aurora" : "ion"} />

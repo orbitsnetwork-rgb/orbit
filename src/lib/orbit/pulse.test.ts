@@ -12,15 +12,18 @@ test("weekStart is Monday 00:00 UTC", () => {
   assert.equal(weekStart(mon + 3 * D), mon);
 });
 
-test("crew streak counts consecutive weeks of in-crew confirms, current week doesn't break it", () => {
-  const launch = cr("a", "A", [["B", mon - 14 * D], ["C", mon - 14 * D]], "done", mon - 13 * D);
-  const crew = { author: "A", members: ["B", "C"], creation: launch };
-  const later = cr("b", "B", [["A", mon - 7 * D + D], ["X", mon - 6 * D]], "collecting");
-  const w = { creations: [launch, later] };
+test("crew streak counts consecutive weeks the crew confirmed someone new, current week doesn't break it", () => {
+  const launch = cr("a", "A", [["B", mon - 14 * D]], "done", mon - 13 * D);
+  const crew = { author: "A", members: ["B"], creation: launch };
+  const w1 = cr("x", "X", [["A", mon - 7 * D + D]], "done", mon - 6 * D);
+  const w2 = cr("y", "Y", [["B", mon - 14 * D + D]], "done", mon - 13 * D);
+  const w = { creations: [launch, w1, w2] };
   assert.deepEqual(crewStreak(w, crew, mon + D), { weeks: 2, best: 2, thisWeek: false, alive: true });
-  const now2 = cr("c", "C", [["B", mon + D]], "collecting");
-  assert.deepEqual(crewStreak({ creations: [launch, later, now2] }, crew, mon + 2 * D), { weeks: 3, best: 3, thisWeek: true, alive: true });
+  const now2 = cr("z", "Z", [["B", mon + D]], "collecting");
+  assert.deepEqual(crewStreak({ creations: [launch, w1, w2, now2] }, crew, mon + 2 * D), { weeks: 3, best: 3, thisWeek: true, alive: true });
   assert.equal(crewStreak(w, crew, mon + 14 * D).alive, false);
+  // Запуск, що створив екіпаж, у серію не входить.
+  assert.equal(crewStreak({ creations: [launch] }, crew, mon - 13 * D).alive, false);
 });
 
 test("outsiders don't count", () => {
@@ -33,7 +36,7 @@ test("crew week report: confirms, orbits born, own thanks", () => {
   const launch = cr("a", "A", [["B", mon + 60_000]], "done", mon + 60_000);
   const crew = { author: "A", members: ["B"], creation: launch };
   const ev = [{ t: "thanksSent", at: mon + 2 * D, other: "B" }, { t: "thanksGot", at: mon - D, other: "B" }, { t: "thanksGot", at: mon + 2 * D, other: "Q" }];
-  assert.deepEqual(crewWeek({ creations: [launch] }, crew, mon + 3 * D, ev), { confirms: 1, orbits: 1, thanks: 1, from: mon });
+  assert.deepEqual(crewWeek({ creations: [launch] }, crew, mon + 3 * D, ev), { confirms: 0, orbits: 1, thanks: 1, from: mon });
 });
 
 test("month recap has only own actions", () => {
@@ -62,10 +65,10 @@ test("phraseIndex sanitises client input", () => {
   for (const bad of [6, -1, 1.5, "7", "1e0", "", null, undefined, {}, [], "0x1", Infinity, NaN]) assert.equal(phraseIndex(bad), undefined);
 });
 
-test("crewGoal: 12 in-crew confirmations a week, cosmetic progress", () => {
-  assert.equal(CREW_GOAL, 12);
-  assert.deepEqual(crewGoal({ confirms: 0 }), { goal: 12, done: 0, left: 12, reached: false, pct: 0 });
-  assert.deepEqual(crewGoal({ confirms: 5 }), { goal: 12, done: 5, left: 7, reached: false, pct: 42 });
-  assert.deepEqual(crewGoal({ confirms: 15 }), { goal: 12, done: 15, left: 0, reached: true, pct: 100 });
+test("crewGoal: 3 confirmations from the crew a week, cosmetic progress", () => {
+  assert.equal(CREW_GOAL, 3);
+  assert.deepEqual(crewGoal({ confirms: 0 }), { goal: 3, done: 0, left: 3, reached: false, pct: 0 });
+  assert.deepEqual(crewGoal({ confirms: 2 }), { goal: 3, done: 2, left: 1, reached: false, pct: 67 });
+  assert.deepEqual(crewGoal({ confirms: 5 }), { goal: 3, done: 5, left: 0, reached: true, pct: 100 });
   assert.equal(crewGoal({ confirms: -3 }).done, 0);
 });

@@ -51,7 +51,9 @@ export function Fund({ world, user }: { world: World; user: Account }) {
   const [list, setList] = useState<"last" | "mine">("last");
   const fund = useCountUp(world.fund);
   const due = world.lastDistributionAt + FUND_PERIOD_MS;
-  const passed = Math.min(1, Math.max(0, (world.now - world.lastDistributionAt) / FUND_PERIOD_MS));
+  // Порожній фонд не ділиться, тож строк «зависає» в минулому. Тоді чесно кажемо, що чекаємо першої угоди.
+  const idle = world.fund <= 0 && due <= world.now;
+  const passed = idle ? 0 : Math.min(1, Math.max(0, (world.now - world.lastDistributionAt) / FUND_PERIOD_MS));
   const share = previewShare(world, user.id);
   // Б1h: у поділі лише активні власники орбіт.
   const holders = new Set(world.orbits.map((orbit) => orbit.ownerId));
@@ -86,12 +88,12 @@ export function Fund({ world, user }: { world: World; user: Account }) {
             <Change abs={today} suffix="за 24 год" />
           </div>
           <Ring value={passed}>
-            <small>поділ через</small>
-            <b>{leftLong(due - world.now)}</b>
+            <small>{idle ? "поділ" : "поділ через"}</small>
+            <b>{idle ? "після угоди" : due > world.now ? leftLong(due - world.now) : "при наступній дії"}</b>
           </Ring>
         </div>
         <Progress value={Math.round(passed * 100)} max={100} label="Скільки минуло до поділу" tone="aurora" />
-        <p className="ex-hint">Поділ раз на 3 дні · наступний {due > world.now ? day(due) : "ось-ось"}. З кожної угоди {String(Math.round(FUND_SHARE * 1000) / 10).replace(".", ",")}% іде у фонд.</p>
+        <p className="ex-hint">{idle ? "Фонд поки порожній. Поділ раз на 3 дні — почнеться, щойно з угод набіжать ✦." : <>Поділ раз на 3 дні · наступний {due > world.now ? day(due) : "з найближчою дією в світі"}.</>} З кожної угоди {String(Math.round(FUND_SHARE * 1000) / 10).replace(".", ",")}% іде у фонд.</p>
       </section>
 
       <section className="orbit-block fd-share" aria-labelledby="fd-share-title">
@@ -135,7 +137,7 @@ export function Fund({ world, user }: { world: World; user: Account }) {
             ))}
           </div>
         ) : (
-          <Empty icon={<Coins size={20} strokeWidth={1.6} />} title="Виплат ще не було" text={due > world.now ? `Перший поділ через ${leftLong(due - world.now)}.` : "Перший поділ — ось-ось."} />
+          <Empty icon={<Coins size={20} strokeWidth={1.6} />} title="Виплат ще не було" text={idle ? "Перший поділ — після перших угод на обміні." : due > world.now ? `Перший поділ через ${leftLong(due - world.now)}.` : "Перший поділ — з найближчою дією в світі."} />
         )}
         <div className="pc-axis" aria-hidden><span>14 днів тому</span><span>сьогодні</span></div>
       </section>

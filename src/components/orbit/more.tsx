@@ -3,7 +3,7 @@ import { Download } from "lucide-react";
 import { LockedList } from "@/components/orbit/locked";
 import { HUB_LOCKS } from "@/lib/orbit/locked";
 import { Avatar } from "@/components/orbit/ui/kit";
-import { useInstall } from "@/lib/orbit/pwa";
+import { iosHint, useInstall } from "@/lib/orbit/pwa";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
 import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -174,6 +174,11 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onO
           <span><b>Встановити «Орбіти»</b><small>Іконка на головному екрані, відкривається без браузера</small></span>
           <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
         </button>
+      ) : typeof window !== "undefined" && iosHint() ? (
+        <p className="mh-install" role="note">
+          <span className="mh-install-ico" aria-hidden><Download size={18} strokeWidth={1.8} /></span>
+          <span><b>Встановити на iPhone</b><small>У Safari натисни «Поділитися» → «На початковий екран»</small></span>
+        </p>
       ) : null}
       <label className="mo-search">
         <Search size={16} strokeWidth={1.75} aria-hidden />

@@ -56,3 +56,11 @@ export function useInstall() {
   };
   return { can, install };
 }
+
+/** iPhone/iPad у Safari: системного «Встановити» немає, тож показуємо підказку «Поділитися → На початковий екран». */
+export function iosHint() {
+  if (typeof navigator === "undefined" || standalone()) return false;
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (ua.includes("Macintosh") && (navigator.maxTouchPoints ?? 0) > 1);
+  return ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+}

@@ -1,4 +1,5 @@
 /** Чисті правила живого шару (без сервера) — щоб їх можна було перевірити тестами. */
+import type { World } from "@/lib/orbit/engine";
 export const CHAT_MAX = 240;
 export const CHAT_PER_MIN = 8;
 export const CHAT_READ = 40;
@@ -32,4 +33,43 @@ export function looksScripted(stamps: number[]): boolean {
   const last = stamps.slice(-20);
   const gaps = last.slice(1).map((t, i) => t - last[i]);
   return gaps.every((gap) => gap > 0 && gap < 250) && Math.max(...gaps) - Math.min(...gaps) < 25;
+}
+
+/* ---------- Кімнати ---------- */
+
+/** Одна кімната на запуск: поки збирається — «Запуск», після успіху — «Екіпаж №N» (та сама кімната, історія не губиться). */
+export type RoomInfo = { id: string; kind: "world" | "launch" | "crew"; title: string; members: number };
+export const WORLD_ROOM = "world";
+const ROOM_RE = /^l:[A-Za-z0-9_-]{1,48}$/;
+
+export function normRoom(raw: unknown): string | null {
+  const s = typeof raw === "string" ? raw.slice(0, 52) : WORLD_ROOM;
+  return s === WORLD_ROOM || ROOM_RE.test(s) ? s : null;
+}
+
+/** Учасники запуску: автор і всі, хто вже підтвердив. Невдалий запуск кімнати не має. */
+export function roomMembers(world: World, room: string): string[] | null {
+  if (room === WORLD_ROOM) return null;
+  const creation = world.creations.find((row) => `l:${row.id}` === room);
+  if (!creation || creation.status === "failed") return [];
+  return [creation.userId, ...creation.confirms.map((row) => row.witnessId)];
+}
+
+/** Сервер викликає це для КОЖНОГО читання й запису. world — для всіх, хто увійшов. */
+export function canUseRoom(world: World, userId: string, room: string): boolean {
+  if (room === WORLD_ROOM) return world.accounts.some((a) => a.id === userId);
+  return (roomMembers(world, room) ?? []).includes(userId);
+}
+
+export function roomsFor(world: World, userId: string): RoomInfo[] {
+  const done = world.creations.filter((row) => row.status === "done");
+  const out: RoomInfo[] = [{ id: WORLD_ROOM, kind: "world", title: "Світ", members: world.accounts.length }];
+  for (const row of [...world.creations].reverse()) {
+    if (row.status === "failed") continue;
+    const people = [row.userId, ...row.confirms.map((c) => c.witnessId)];
+    if (!people.includes(userId)) continue;
+    const no = done.indexOf(row) + 1;
+    out.push({ id: `l:${row.id}`, kind: row.status === "done" ? "crew" : "launch", title: row.status === "done" ? `Екіпаж №${no}` : row.userId === userId ? "Мій запуск" : "Запуск, який я підтримав", members: new Set(people).size });
+  }
+  return out.slice(0, 21);
 }

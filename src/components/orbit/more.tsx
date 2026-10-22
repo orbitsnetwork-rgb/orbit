@@ -316,7 +316,17 @@ export function DocView({ id, onBack, onClose, onOpen }: { id: DocId; onBack: ()
           <section key={section.h} id={`${id}-${index}`} className="mo-sec">
             <h2>{section.h}</h2>
             {section.p.map((line) => (
-              <p key={line}>{line}</p>
+              <p key={line}>
+                {line.split(/(https:\/\/[^\s]+)/).map((part, i) =>
+                  /^https:\/\//.test(part) ? (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer">
+                      {part}
+                    </a>
+                  ) : (
+                    part
+                  ),
+                )}
+              </p>
             ))}
           </section>
         ))}

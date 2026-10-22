@@ -2290,3 +2290,46 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .orbit-room-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #ffc45c; color: #1a1205; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .orbit-msg { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); font-size: 14px; line-height: 1.4; }
 .orbit-msg-mine { background: rgba(255, 196, 92, 0.1); margin-left: 24px; }
+
+/* ---------- Чат v21: бульбашки, реакції, «нові» ---------- */
+.orbit-h-row { display: flex; align-items: center; gap: 8px; }
+.orbit-h-row > svg { flex: none; }
+.orbit-chat-wrap { position: relative; }
+.orbit-chat { max-height: 380px; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; overscroll-behavior: contain; }
+.orbit-chat-empty { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; border: 1px dashed rgba(255, 255, 255, 0.14); color: var(--text-3); }
+.orbit-chat-empty p { margin: 0; font-size: 0.92rem; line-height: 1.45; }
+.orbit-msg { display: flex; align-items: flex-start; gap: 4px; max-width: 92%; align-self: flex-start; -webkit-touch-callout: none; }
+.orbit-msg.is-cont { margin-top: -2px; }
+.orbit-msg-mine { align-self: flex-end; flex-direction: row-reverse; }
+.orbit-msg-b { position: relative; padding: 8px 12px; border-radius: 16px 16px 16px 6px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); min-width: 0; }
+.orbit-msg-mine .orbit-msg-b { border-radius: 16px 16px 6px 16px; background: rgba(255, 196, 92, 0.13); border-color: rgba(255, 196, 92, 0.28); }
+.orbit-msg-h { margin: 0 0 2px; font-size: 13px; }
+.orbit-msg-h time { opacity: 0.6; font-size: 12px; margin-left: 4px; }
+.orbit-msg-t { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.4; }
+.orbit-msg-a { display: flex; flex-direction: column; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
+.orbit-msg:hover .orbit-msg-a, .orbit-msg:focus-within .orbit-msg-a { opacity: 1; }
+.orbit-msg-a .mo-icon { width: 32px; height: 32px; }
+.orbit-rx-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.orbit-rx { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.04); color: inherit; font-size: 12px; font-weight: 600; }
+.orbit-rx.is-on { border-color: rgba(255, 196, 92, 0.7); background: rgba(255, 196, 92, 0.14); }
+.orbit-rx:focus-visible, .orbit-rx-opt:focus-visible, .orbit-rx-who:focus-visible, .orbit-chat-pill:focus-visible { outline: 2px solid #ffc45c; outline-offset: 2px; }
+.orbit-rx-who { min-height: 28px; padding: 2px 8px; border: 0; background: none; color: var(--text-3); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+.orbit-rx-list { list-style: none; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); font-size: 12px; display: grid; gap: 4px; }
+.orbit-rx-list li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.orbit-rx-pick { margin-top: 8px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 6px; border-radius: 16px; background: #141a2b; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); animation: orbit-rx-in 0.18s ease-out; }
+.orbit-rx-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; padding: 6px 2px; border-radius: 12px; border: 1px solid transparent; background: none; color: inherit; font-size: 10px; line-height: 1.15; text-align: center; }
+.orbit-rx-opt:hover { background: rgba(255, 255, 255, 0.06); }
+.orbit-rx-opt:hover .orbit-rx-ico { transform: scale(1.15) rotate(-6deg); }
+.orbit-rx-opt.is-on { border-color: rgba(255, 196, 92, 0.6); background: rgba(255, 196, 92, 0.1); }
+.orbit-rx-ico { flex: none; transition: transform 0.18s ease-out; }
+.orbit-rx.is-on .orbit-rx-ico { animation: orbit-rx-pop 0.3s ease-out; }
+.orbit-chat-pill { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 0; background: #ffc45c; color: #1a1205; font-size: 13px; font-weight: 700; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+.orbit-chat-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.orbit-chat-foot .orbit-go { flex: none; }
+@keyframes orbit-rx-in { from { opacity: 0; transform: translateY(4px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes orbit-rx-pop { 0% { transform: scale(0.6); } 60% { transform: scale(1.25) rotate(8deg); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .orbit-rx-pick, .orbit-rx.is-on .orbit-rx-ico { animation: none; }
+  .orbit-rx-ico, .orbit-msg-a { transition: none; }
+  .orbit-rx-opt:hover .orbit-rx-ico { transform: none; }
+}

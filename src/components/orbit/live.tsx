@@ -1,9 +1,9 @@
-import { Flag, Music, ShieldCheck, CircleHelp, MessageCircle, Lock, Users } from "lucide-react";
+import { ArrowDown, Flag, Music, ShieldCheck, CircleHelp, MessageCircle, Lock, SmilePlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Page } from "@/components/orbit/more";
-import { LockedList } from "@/components/orbit/locked";
-import { botSignal, chatRead, chatReport, chatRooms, chatSend, roleAsk, type ChatLine } from "@/lib/orbit/live";
-import { CHAT_MAX, WHY_MAX, WHY_MIN, looksScripted, type RoomInfo } from "@/lib/orbit/live-rules";
+import { ReactionIcon } from "@/components/orbit/reactions";
+import { botSignal, chatRead, chatReact, chatReport, chatRooms, chatSend, chatWho, roleAsk, type ChatLine, type ChatReacts, type ChatReadOut } from "@/lib/orbit/live";
+import { CHAT_MAX, REACTIONS, WHY_MAX, WHY_MIN, looksScripted, type ReactionId, type RoomInfo } from "@/lib/orbit/live-rules";
 import { sessionCreds } from "@/lib/orbit/store";
 import type { Account, World } from "@/lib/orbit/engine";
 
@@ -27,12 +27,41 @@ function ago(at: number, now: number) {
 
 type RoomRow = RoomInfo & { unread: number };
 
+function clock(at: number) {
+  const d = new Date(at);
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return d.toDateString() === new Date().toDateString() ? hm : `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")} ${hm}`;
+}
+
+/** Вибір реакції: 10 власних значків. Esc закриває, фокус повертається на кнопку, з якої відкрили. */
+function ReactPicker({ msgId, mine, onPick, onClose }: { msgId: number; mine: Record<string, boolean>; onPick: (kind: ReactionId) => void; onClose: () => void }) {
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    first.current?.focus();
+    const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }, [onClose]);
+  return (
+    <div className="orbit-rx-pick" role="group" aria-label="Обери реакцію" id={`rx-pick-${msgId}`}>
+      {REACTIONS.map((r, i) => (
+        <button key={r.id} ref={i === 0 ? first : undefined} type="button" className={mine[r.id] ? "orbit-rx-opt is-on" : "orbit-rx-opt"}
+          aria-pressed={!!mine[r.id]} aria-label={r.name} title={r.name} onClick={() => { onPick(r.id); onClose(); }}>
+          <ReactionIcon id={r.id} size={26} />
+          <span>{r.name.replace(/^✦ /, "")}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Живе оновлення: довге опитування (сервер тримає запит до 8 с і відповідає, щойно є нове).
+ * Живе оновлення: довге опитування (сервер тримає запит до 8 с і відповідає, щойно є нове повідомлення, реакція чи сховане).
  * Працює лише поки вкладка видима; при помилках — пауза зі зростанням до 15 с.
  */
-export function ChatRoom({ room = "world", title = "Чат світу", onOnline }: { room?: string; title?: string; onOnline?: (n: number) => void }) {
+export function ChatRoom({ room = "world", title = "Чат світу", onUnread }: { room?: string; title?: string; onUnread?: (unread: Record<string, number>) => void }) {
   const [lines, setLines] = useState<ChatLine[]>([]);
+  const [reacts, setReacts] = useState<ChatReacts>({});
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -40,16 +69,32 @@ export function ChatRoom({ room = "world", title = "Чат світу", onOnline
   const [allowed, setAllowed] = useState(true);
   const [online, setOnline] = useState(0);
   const [reported, setReported] = useState<number[]>([]);
+  const [picker, setPicker] = useState<number | null>(null);
+  const [who, setWho] = useState<{ id: number; list: Record<string, string[]> } | null>(null);
+  const [fresh, setFresh] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const last = useRef(0);
-  function take(next: { lines: ChatLine[]; hidden: number[]; online: number; allowed: boolean }, full: boolean) {
+  const first = useRef(0);
+  const rx = useRef(0);
+  const nearEnd = useRef(true);
+  const stick = useRef(false);
+  const hold = useRef(0);
+  const unreadCb = useRef(onUnread);
+  unreadCb.current = onUnread;
+  function take(next: ChatReadOut, full: boolean) {
     setAllowed(next.allowed);
     setOnline(next.online);
-    onOnline?.(next.online);
+    unreadCb.current?.(next.unread ?? {});
+    rx.current = next.rx ?? rx.current;
+    setReacts(next.reacts ?? {});
     setLines((rows) => {
       const base = full ? next.lines : [...rows, ...next.lines.filter((l) => !rows.some((r) => r.id === l.id))];
       const out = base.filter((l) => !next.hidden.includes(l.id)).slice(-80);
       last.current = out.length ? out[out.length - 1].id : last.current;
+      first.current = out.length ? out[0].id : first.current;
+      const added = next.lines.filter((l) => !rows.some((r) => r.id === l.id));
+      if (!full && added.length && !nearEnd.current && !added.some((l) => l.mine)) setFresh((n) => n + added.length);
+      if (added.some((l) => l.mine)) stick.current = true;
       return out;
     });
   }
@@ -58,8 +103,12 @@ export function ChatRoom({ room = "world", title = "Чат світу", onOnline
     let pause = 0;
     let timer = 0;
     last.current = 0;
+    first.current = 0;
+    rx.current = 0;
     setLines([]);
+    setReacts({});
     setLoaded(false);
+    setFresh(0);
     let busyLoop = false;
     async function loop() {
       if (!alive || busyLoop) return;
@@ -67,8 +116,9 @@ export function ChatRoom({ room = "world", title = "Чат світу", onOnline
       busyLoop = true;
       try {
         const full = last.current === 0;
-        const next = await chatRead({ data: { ...sessionCreds(), room, after: last.current, wait: !full } });
+        const next = await chatRead({ data: { ...sessionCreds(), room, after: last.current, from: first.current, rx: rx.current, wait: !full } });
         if (!alive) return;
+        if (full) stick.current = true;
         take(next, full);
         setLoaded(true);
         pause = 0;
@@ -92,9 +142,29 @@ export function ChatRoom({ room = "world", title = "Чат світу", onOnline
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [room]);
+  // Прокрутка вниз лише якщо людина й так унизу (або це її повідомлення) — не смикаємо, коли читає історію.
   useEffect(() => {
-    box.current?.scrollTo({ top: box.current.scrollHeight });
+    const el = box.current;
+    if (!el) return;
+    if (nearEnd.current || stick.current) {
+      el.scrollTo({ top: el.scrollHeight });
+      stick.current = false;
+      setFresh(0);
+    }
   }, [lines.length]);
+  function onScroll() {
+    const el = box.current;
+    if (!el) return;
+    nearEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    if (nearEnd.current) setFresh(0);
+  }
+  function toEnd() {
+    const el = box.current;
+    if (!el) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" });
+    setFresh(0);
+  }
   async function send() {
     const clean = text.trim();
     if (!clean || busy) return;
@@ -110,7 +180,7 @@ export function ChatRoom({ room = "world", title = "Чат світу", onOnline
     setBusy(false);
     // Свіже повідомлення приходить через довге опитування; разове читання — щоб не чекати.
     try {
-      const next = await chatRead({ data: { ...sessionCreds(), room, after: last.current } });
+      const next = await chatRead({ data: { ...sessionCreds(), room, after: last.current, from: first.current, rx: rx.current } });
       take(next, false);
     } catch { /* наступний цикл підхопить */ }
   }
@@ -118,51 +188,133 @@ export function ChatRoom({ room = "world", title = "Чат світу", onOnline
     setReported((rows) => [...rows, id]);
     await chatReport({ data: { ...sessionCreds(), id } }).catch(() => null);
   }
+  async function react(id: number, kind: ReactionId) {
+    // Одразу показуємо (оптимістично), сервер підтверджує через довге опитування.
+    setReacts((all) => {
+      const row = { ...(all[id] ?? {}) };
+      const [n, on] = row[kind] ?? [0, false];
+      const next = on ? n - 1 : n + 1;
+      if (next > 0) row[kind] = [next, !on];
+      else delete row[kind];
+      return { ...all, [id]: row };
+    });
+    try {
+      const out = await chatReact({ data: { ...sessionCreds(), id, kind } });
+      if (!out.ok) setError(out.error ?? "Реакцію не збережено.");
+    } catch {
+      setError("Сервер не відповідає. Спробуй ще раз.");
+    }
+    if (who?.id === id) void showWho(id);
+  }
+  async function showWho(id: number) {
+    try {
+      const out = await chatWho({ data: { ...sessionCreds(), id } });
+      setWho(out.ok ? { id, list: out.who } : null);
+    } catch { setWho(null); }
+  }
+  // Утримання ~0,45 с на повідомленні теж відкриває вибір реакцій (як у месенджерах).
+  const press = (id: number) => ({
+    onPointerDown: (event: React.PointerEvent) => {
+      if ((event.target as HTMLElement).closest("button")) return;
+      window.clearTimeout(hold.current);
+      hold.current = window.setTimeout(() => setPicker(id), 450);
+    },
+    onPointerUp: () => window.clearTimeout(hold.current),
+    onPointerLeave: () => window.clearTimeout(hold.current),
+    onPointerCancel: () => window.clearTimeout(hold.current),
+    onContextMenu: (event: React.MouseEvent) => { if (picker === id) event.preventDefault(); },
+  });
   const now = Date.now();
   if (!allowed) {
     return (
       <section className="orbit-block" aria-labelledby="chat-title">
-        <h2 className="orbit-h" id="chat-title"><Lock size={18} aria-hidden /> {title}</h2>
+        <h2 className="orbit-h orbit-h-row" id="chat-title"><Lock size={18} aria-hidden /> {title}</h2>
         <p className="orbit-note" role="alert">Ця кімната лише для учасників запуску: автора і тих, хто його підтвердив.</p>
       </section>
     );
   }
   return (
     <section className="orbit-block" aria-labelledby="chat-title">
-      <h2 className="orbit-h" id="chat-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <h2 className="orbit-h orbit-h-row" id="chat-title">
         <MessageCircle size={18} aria-hidden /> <span style={{ flex: 1 }}>{title}</span>
         <span className="orbit-live-dot" role="status" aria-label={`Онлайн: ${online}`}><i aria-hidden /> {online} онлайн</span>
       </h2>
-      <p className="orbit-note">{room === "world" ? "Бачать усі, хто увійшов у світ." : "Бачать лише автор запуску і його підтверджувачі."} Не пиши ключ входу, коди й паролі. Скарга від трьох людей ховає повідомлення.</p>
-      <div ref={box} className="orbit-stack" style={{ maxHeight: 340, overflow: "auto" }} role="log" aria-live="polite" aria-label="Повідомлення чату">
-        {!loaded ? <p className="orbit-note">Завантажую…</p> : null}
-        {loaded && lines.length === 0 ? <p className="orbit-note">Поки тихо. Привітайся першим — {room === "world" ? "і поклич друга, щоб було кому відповісти." : "твій екіпаж побачить."}</p> : null}
-        {lines.map((line) => (
-          <div key={line.id} className={line.mine ? "orbit-msg orbit-msg-mine" : "orbit-msg"}>
-            <p style={{ flex: 1, margin: 0, overflowWrap: "anywhere" }}>
-              <b>{line.mine ? "Я" : line.name}</b> <span style={{ opacity: 0.6, fontSize: 12 }}>{ago(line.at, now)}</span>
-              <br />
-              {line.text}
-            </p>
-            {!line.mine ? (
-              <button type="button" className="mo-icon" aria-label={`Поскаржитись на повідомлення від ${line.name}`} disabled={reported.includes(line.id)} onClick={() => void report(line.id)}>
-                <Flag size={14} aria-hidden />
-              </button>
-            ) : null}
-          </div>
-        ))}
+      <p className="orbit-note">{room === "world" ? "Бачать усі, хто увійшов у світ." : "Бачать лише автор запуску і його підтверджувачі."} Не пиши ключ входу, коди й паролі. Скарга від трьох людей ховає повідомлення. Реакції — лише емоція, ✦ вони не дають.</p>
+      <div className="orbit-chat-wrap">
+        <div ref={box} className="orbit-chat" onScroll={onScroll} role="log" aria-live="polite" aria-label="Повідомлення чату">
+          {!loaded ? <p className="orbit-note">Завантажую…</p> : null}
+          {loaded && lines.length === 0 ? (
+            <div className="orbit-chat-empty">
+              <ReactionIcon id="galaxy" size={40} />
+              <p><b>Поки тихо.</b> Привітайся першим — {room === "world" ? "і поклич друга, щоб було кому відповісти." : "твій екіпаж побачить."}</p>
+            </div>
+          ) : null}
+          {lines.map((line, i) => {
+            const rs = reacts[line.id] ?? {};
+            const kinds = REACTIONS.filter((r) => rs[r.id]);
+            const mine = Object.fromEntries(kinds.map((r) => [r.id, rs[r.id][1]]));
+            const sameAuthor = i > 0 && lines[i - 1].name === line.name && lines[i - 1].mine === line.mine && line.at - lines[i - 1].at < 5 * 60_000;
+            return (
+              <div key={line.id} className={`orbit-msg${line.mine ? " orbit-msg-mine" : ""}${sameAuthor ? " is-cont" : ""}`} data-msg={line.id} {...press(line.id)}>
+                <div className="orbit-msg-b">
+                  {!sameAuthor ? (
+                    <p className="orbit-msg-h"><b>{line.mine ? "Я" : line.name}</b> <time dateTime={new Date(line.at).toISOString()} title={clock(line.at)}>{ago(line.at, now)}</time></p>
+                  ) : null}
+                  <p className="orbit-msg-t">{line.text}</p>
+                  {kinds.length ? (
+                    <div className="orbit-rx-row">
+                      {kinds.map((r) => (
+                        <button key={r.id} type="button" className={rs[r.id][1] ? "orbit-rx is-on" : "orbit-rx"} aria-pressed={rs[r.id][1]}
+                          aria-label={`${r.name}: ${rs[r.id][0]}. ${rs[r.id][1] ? "Прибрати мою" : "Додати мою"}`} title={r.name} onClick={() => void react(line.id, r.id)}>
+                          <ReactionIcon id={r.id} size={16} /> <span>{rs[r.id][0]}</span>
+                        </button>
+                      ))}
+                      <button type="button" className="orbit-rx-who" aria-expanded={who?.id === line.id} onClick={() => (who?.id === line.id ? setWho(null) : void showWho(line.id))}>Хто?</button>
+                    </div>
+                  ) : null}
+                  {who?.id === line.id ? (
+                    <ul className="orbit-rx-list" aria-label="Хто відреагував">
+                      {REACTIONS.filter((r) => who.list[r.id]?.length).map((r) => (
+                        <li key={r.id}><ReactionIcon id={r.id} size={16} /> <b>{r.name}</b>: {who.list[r.id].join(", ")}</li>
+                      ))}
+                      {!REACTIONS.some((r) => who.list[r.id]?.length) ? <li>Поки ніхто.</li> : null}
+                    </ul>
+                  ) : null}
+                  {picker === line.id ? <ReactPicker msgId={line.id} mine={mine} onPick={(kind) => void react(line.id, kind)} onClose={() => setPicker(null)} /> : null}
+                </div>
+                <div className="orbit-msg-a">
+                  <button type="button" className="mo-icon" aria-label={`Реакція на повідомлення від ${line.mine ? "мене" : line.name}`} aria-expanded={picker === line.id}
+                    aria-controls={picker === line.id ? `rx-pick-${line.id}` : undefined} onClick={() => setPicker(picker === line.id ? null : line.id)}>
+                    <SmilePlus size={15} aria-hidden />
+                  </button>
+                  {!line.mine ? (
+                    <button type="button" className="mo-icon" aria-label={`Поскаржитись на повідомлення від ${line.name}`} disabled={reported.includes(line.id)} onClick={() => void report(line.id)}>
+                      <Flag size={14} aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {fresh > 0 ? (
+          <button type="button" className="orbit-chat-pill" onClick={toEnd}><ArrowDown size={14} aria-hidden /> {fresh} {fresh === 1 ? "нове" : "нових"}</button>
+        ) : null}
       </div>
       <form className="grid gap-2" onSubmit={(event) => { event.preventDefault(); void send(); }}>
         <label className="sr-only" htmlFor="chat-input">Повідомлення</label>
         <input id="chat-input" className="orbit-field" value={text} maxLength={CHAT_MAX} placeholder="Коротко і по-людськи" onChange={(event) => setText(event.target.value)} />
-        <button type="submit" className="orbit-go" disabled={busy || text.trim().length < 1}>Надіслати</button>
+        <div className="orbit-chat-foot">
+          <span className="orbit-note" aria-live="off">{text.length > CHAT_MAX - 40 ? `${CHAT_MAX - text.length} знаків лишилось` : ""}</span>
+          <button type="submit" className="orbit-go" disabled={busy || text.trim().length < 1}>Надіслати</button>
+        </div>
         {error ? <p className="orbit-note" role="alert">{error}</p> : null}
       </form>
     </section>
   );
 }
 
-export function RoomList({ current, onPick }: { current: string; onPick: (room: RoomRow) => void }) {
+export function RoomList({ current, onPick, unread }: { current: string; onPick: (room: RoomRow) => void; unread?: Record<string, number> }) {
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   useEffect(() => {
     let alive = true;
@@ -174,20 +326,25 @@ export function RoomList({ current, onPick }: { current: string; onPick: (room: 
       } catch { /* мережа */ }
     };
     void load();
-    const id = window.setInterval(() => void load(), 20_000);
+    // Непрочитане приходить разом з довгим опитуванням відкритої кімнати; тут — лише рідко, щоб підхопити нові кімнати.
+    const id = window.setInterval(() => void load(), 60_000);
     return () => { alive = false; window.clearInterval(id); };
   }, [current]);
+  useEffect(() => {
+    if (!unread) return;
+    setRooms((rows) => rows.map((r) => (r.id === current ? { ...r, unread: 0 } : { ...r, unread: unread[r.id] ?? 0 })));
+  }, [unread, current]);
   if (!rooms.length) return null;
   return (
     <nav className="orbit-block" aria-labelledby="rooms-title">
-      <h2 className="orbit-h" id="rooms-title"><Users size={18} aria-hidden /> Кімнати</h2>
+      <h2 className="orbit-h orbit-h-row" id="rooms-title"><Users size={18} aria-hidden /> <span>Кімнати</span></h2>
       <ul className="orbit-rooms">
         {rooms.map((room) => (
           <li key={room.id}>
             <button type="button" className={room.id === current ? "orbit-room is-on" : "orbit-room"} aria-current={room.id === current ? "true" : undefined}
-              aria-label={`${room.title}, ${room.members} учасн., ${room.unread ? `непрочитаних ${room.unread}` : "усе прочитано"}`}
+              aria-label={`${room.title}, ${room.members} учасн., ${room.unread && room.id !== current ? `непрочитаних ${room.unread}` : "усе прочитано"}`}
               onClick={() => { setRooms((rows) => rows.map((r) => (r.id === room.id ? { ...r, unread: 0 } : r))); onPick(room); }}>
-              <span className="orbit-room-k">{room.kind === "world" ? "🌍" : room.kind === "crew" ? "✦" : "🚀"}</span>
+              <span className="orbit-room-k" aria-hidden><ReactionIcon id={room.kind === "world" ? "planet" : room.kind === "crew" ? "spark" : "launch"} size={22} /></span>
               <span className="orbit-room-t">{room.title}<small>{room.kind === "world" ? `${room.members} у світі` : `${room.members} учасн.`}</small></span>
               {room.unread && room.id !== current ? <span className="orbit-room-n" aria-hidden>{room.unread >= 99 ? "99+" : room.unread}</span> : null}
             </button>
@@ -339,13 +496,13 @@ export function watchBot(): () => void {
 export function LiveHub({ world, onBack, onClose }: { world: World; user: Account; onBack: () => void; onClose?: () => void }) {
   const n = world.accounts.length;
   const [room, setRoom] = useState({ id: "world", title: "Чат світу" });
+  const [unread, setUnread] = useState<Record<string, number> | undefined>(undefined);
   return (
     <Page title="Живе" kicker="Світ" onBack={onBack} onClose={onClose}>
       <div className="orbit-stack">
         <p className="orbit-note">У світі зараз {n} {n === 1 ? "людина" : "людей"}.</p>
-        <RoomList current={room.id} onPick={(next) => setRoom({ id: next.id, title: next.kind === "world" ? "Чат світу" : next.title })} />
-        <ChatRoom key={room.id} room={room.id} title={room.title} />
-        <LockedList ids={["chatReact"]} title="Скоро в живому" />
+        <RoomList current={room.id} unread={unread} onPick={(next) => setRoom({ id: next.id, title: next.kind === "world" ? "Чат світу" : next.title })} />
+        <ChatRoom key={room.id} room={room.id} title={room.title} onUnread={setUnread} />
         <RoleGate />
         <QuestionList />
       </div>

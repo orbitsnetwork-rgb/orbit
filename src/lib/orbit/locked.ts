@@ -3,7 +3,7 @@
  * (не ховаємо й не робимо «наполовину»): кнопка відкриває коротке пояснення. Без дат і без обіцянок доходу.
  * legal — чекає юридичного оформлення й вибору провайдера; soon — просто ще не зроблено.
  */
-export type LockId = "buy" | "deposit" | "withdraw" | "p2p" | "twofa" | "logoutAll" | "closeAccount" | "pricePush" | "exportHistory" | "languages" | "pinLock" | "blockAccount" | "antiPhishing" | "pushMail" | "chatRooms" | "chatReact";
+export type LockId = "buy" | "deposit" | "withdraw" | "p2p" | "twofa" | "logoutAll" | "closeAccount" | "pricePush" | "exportHistory" | "languages" | "pinLock" | "blockAccount" | "antiPhishing" | "pushMail";
 
 export type Lock = { title: string; short: string; kind: "legal" | "soon"; body: string[] };
 
@@ -14,18 +14,6 @@ const NOW_SPARKS = "Зараз іскри ✦ приходять за підтв
 const NO_PROMISE = "Дат не називаємо. Доходу не обіцяємо.";
 
 export const LOCKS: Record<LockId, Lock> = {
-  chatRooms: {
-    title: "Чати екіпажу й орбіти",
-    short: "Окрема кімната для свого екіпажу",
-    kind: "soon",
-    body: ["Зараз є один спільний чат світу. Окремі кімнати для екіпажу й для кожного запуску ще в роботі.", "Дат не називаємо."],
-  },
-  chatReact: {
-    title: "Реакції в чаті",
-    short: "Космічні реакції на повідомлення",
-    kind: "soon",
-    body: ["Реакції на кшталт «✦ підтримую», «🚀 до запуску» ще в роботі. Вони не даватимуть і не забиратимуть іскор.", "Дат не називаємо."],
-  },
   buy: {
     title: "Купівля іскор ✦",
     short: "Купити ✦ за гроші",

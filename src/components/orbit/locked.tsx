@@ -1,7 +1,7 @@
 /** Замочок для запланованого: показуємо, але не обіцяємо. Шторка з поясненням, без дат і без доходу. */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeftRight, Bell, BellRing, CreditCard, Download, Fingerprint, KeyRound, Landmark, Languages, Lock, MailCheck, MonitorSmartphone, ShieldOff, Sparkles, UserX, Users, SmilePlus } from "lucide-react";
+import { ArrowLeftRight, Bell, BellRing, CreditCard, Download, Fingerprint, KeyRound, Landmark, Languages, Lock, MailCheck, MonitorSmartphone, ShieldOff, Sparkles, UserX } from "lucide-react";
 import { LEGAL_TAG, LOCKS, SOON_TAG, type LockId } from "@/lib/orbit/locked";
 
 const ICONS: Record<LockId, ReactNode> = {
@@ -19,8 +19,6 @@ const ICONS: Record<LockId, ReactNode> = {
   blockAccount: <ShieldOff size={18} strokeWidth={1.8} />,
   antiPhishing: <MailCheck size={18} strokeWidth={1.8} />,
   pushMail: <Bell size={18} strokeWidth={1.8} />,
-  chatRooms: <Users size={18} strokeWidth={1.8} />,
-  chatReact: <SmilePlus size={18} strokeWidth={1.8} />,
 };
 
 export function lockTag(id: LockId) {

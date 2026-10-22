@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useOrbits } from "@/lib/orbit/store";
 import { DELETE_WORD, type AccountOp } from "@/lib/orbit/account";
+import { GoogleButton, PhoneFlow, useAuthConfig } from "@/components/orbit/auth-methods";
 
 function useRun() {
   const [busy, setBusy] = useState(false);
@@ -52,6 +53,36 @@ function EditRow({ label, value, type, onSave, busy }: { label: string; value: s
   );
 }
 
+/** Аудит #3: контакт змінено без доказу — пропонуємо довести його (Google для пошти, SMS для телефону). */
+function VerifyRow({ kind, busy, run }: { kind: "google" | "phone"; busy: boolean; run: (a: AccountOp) => Promise<boolean> }) {
+  const cfg = useAuthConfig();
+  const [open, setOpen] = useState(false);
+  const [err, setErr] = useState("");
+  const what = kind === "google" ? "Пошту" : "Телефон";
+  const can = kind === "google" ? Boolean(cfg?.google) : Boolean(cfg?.firebase);
+  return (
+    <div className="se-edit grid gap-2">
+      <p className="orbit-note as-small" role="note">
+        ⚠︎ {what} ще не підтверджено — за ним(ою) поки не можна відновити вхід.
+        {cfg && !can ? " Підтвердження стане доступним пізніше." : ""}
+      </p>
+      {can && !open ? (
+        <button type="button" className="orbit-quiet" disabled={busy} onClick={() => setOpen(true)}>
+          {kind === "google" ? "Підтвердити через Google" : "Підтвердити через SMS"}
+        </button>
+      ) : null}
+      {can && open && cfg ? (
+        kind === "google" && cfg.google ? (
+          <GoogleButton clientId={cfg.google} onToken={(token) => void run({ op: "verify", kind, token })} />
+        ) : cfg.firebase ? (
+          <PhoneFlow cfg={cfg.firebase} busy={busy} onToken={(token) => run({ op: "verify", kind, token })} onError={setErr} />
+        ) : null
+      ) : null}
+      {err ? <p className="orbit-flash" role="status">{err}</p> : null}
+    </div>
+  );
+}
+
 export function AccountControls() {
   const self = useOrbits((s) => s.self);
   const { busy, msg, run } = useRun();
@@ -65,7 +96,9 @@ export function AccountControls() {
           <p className="mo-group-title">Контакти</p>
           <div className="mo-card">
             <EditRow label="Пошта" value={self.email} type="email" busy={busy} onSave={(email) => run({ op: "email", email })} />
+            {self.emailVerified === false ? <VerifyRow kind="google" busy={busy} run={run} /> : null}
             <EditRow label="Телефон" value={self.phone} type="tel" busy={busy} onSave={(phone) => run({ op: "phone", phone })} />
+            {self.phoneVerified === false ? <VerifyRow kind="phone" busy={busy} run={run} /> : null}
           </div>
           <p className="orbit-note as-small">Пошта й телефон потрібні, щоб відновити вхід на новому пристрої. Іншим учасникам вони не видні.</p>
         </section>

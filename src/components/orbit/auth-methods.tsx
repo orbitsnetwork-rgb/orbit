@@ -19,7 +19,7 @@ declare global {
 }
 
 let configOnce: Promise<Config> | null = null;
-function useAuthConfig() {
+export function useAuthConfig() {
   const [cfg, setCfg] = useState<Config | null>(null);
   useEffect(() => {
     let alive = true;
@@ -107,7 +107,7 @@ export function AuthMethods({ onPrefill }: { onPrefill: (p: Prefill) => void }) 
   );
 }
 
-function GoogleButton({ clientId, onToken }: { clientId: string; onToken: (t: string) => void }) {
+export function GoogleButton({ clientId, onToken }: { clientId: string; onToken: (t: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const cb = useRef(onToken);
   cb.current = onToken;
@@ -157,7 +157,7 @@ function MailFlow({ busy, onSend, onCode }: { busy: boolean; onSend: (email: str
   );
 }
 
-function PhoneFlow({ cfg, busy, onToken, onError }: { cfg: FirebaseWeb; busy: boolean; onToken: (t: string) => Promise<boolean>; onError: (t: string) => void }) {
+export function PhoneFlow({ cfg, busy, onToken, onError }: { cfg: FirebaseWeb; busy: boolean; onToken: (t: string) => Promise<boolean>; onError: (t: string) => void }) {
   const [phone, setPhone] = useState("+380");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");

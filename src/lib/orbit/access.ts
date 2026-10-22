@@ -11,6 +11,12 @@ export type Identity = {
   phone: string;
   confirmed: boolean;
   mailCode: string | null;
+  /** Аудит #3: true — пошту довела людина (Google / код з листа / вхід поштою); false — змінена без доказу
+   *  (за нею не можна відновити доступ і її можна «забрати» підтвердженому власнику); undefined — старі записи. */
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  /** Невдалі спроби поточного коду з листа (5 → код згасає, потрібен новий). */
+  mailTries?: number;
 };
 
 export type Topup = { id: string; userId: string; amount: number; status: "open" | "paid"; at: number };
@@ -287,6 +293,9 @@ function asPeople(raw: unknown): Identity[] {
       phone: String(item.phone).slice(0, 16),
       confirmed: item.confirmed !== false,
       mailCode: typeof item.mailCode === "string" && /^\d{6}$/.test(item.mailCode) ? item.mailCode : null,
+      ...(typeof item.emailVerified === "boolean" ? { emailVerified: item.emailVerified } : {}),
+      ...(typeof item.phoneVerified === "boolean" ? { phoneVerified: item.phoneVerified } : {}),
+      ...(typeof item.mailTries === "number" && item.mailTries > 0 ? { mailTries: Math.min(99, Math.floor(item.mailTries)) } : {}),
     });
   }
   return people;
@@ -332,4 +341,33 @@ export function trimTopups(rows: Topup[]): Topup[] {
   }
   const open = rows.filter((row) => row.status === "open" && !paidIds.has(row.id)).slice(-200);
   return [...paid, ...open];
+}
+
+/**
+ * Аудит #3: номер у вигляді цифр E.164 для точного порівняння. Старі записи «0XXXXXXXXX» (10 цифр, Україна) → 380XXXXXXXXX.
+ * Раніше відновлення порівнювало лише останні 9 цифр — і чужий номер з іншим кодом країни відкривав акаунт.
+ */
+export function phoneKey(value: string): string {
+  const d = String(value ?? "").replace(/\D/g, "");
+  return d.length === 10 && d.startsWith("0") ? `380${d.slice(1)}` : d;
+}
+export function samePhone(a: string, b: string): boolean {
+  const x = phoneKey(a);
+  return x.length >= 10 && x === phoneKey(b);
+}
+/** Підставні значення, коли непідтверджений контакт забирає його підтверджений власник (не збігаються з жодним справжнім). */
+export const releasedEmail = (userId: string) => `released+${userId.slice(2, 40)}@orbit.invalid`;
+export const releasedPhone = (userId: string) => `x${userId.slice(2, 17)}`;
+
+/**
+ * Реєстрація з доказом (Google-пошта / SMS-номер): контакт, який у когось стоїть БЕЗ доказу (прапор false),
+ * переходить до того, хто його довів; у старого власника — підставне значення. Записи без прапора (старі) не чіпаємо.
+ */
+export function reclaim(people: Identity[], email: string, phone: string, proven: { email?: boolean; phone?: boolean }): Identity[] {
+  return people.map((row) => {
+    let next = row;
+    if (proven.email && row.email === email && row.emailVerified === false) next = { ...next, email: releasedEmail(row.userId), confirmed: false, mailCode: null };
+    if (proven.phone && samePhone(row.phone, phone) && row.phoneVerified === false) next = { ...next, phone: releasedPhone(row.userId) };
+    return next;
+  });
 }

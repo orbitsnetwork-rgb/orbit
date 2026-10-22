@@ -292,7 +292,8 @@ export const useOrbits = create<OrbitState>()(() => ({
     const sessionKey = sessionId ? (deviceKeys()[sessionId] ?? null) : null;
     try {
       const { accountAct } = await import("@/lib/orbit/account");
-      const r = await accountAct({ data: { sessionId, sessionKey, action } });
+      const { turnstileToken } = await import("@/lib/orbit/turnstile-client");
+      const r = await accountAct({ data: { sessionId, sessionKey, action, ts: await turnstileToken() } });
       if (!r.ok) return { ok: false, text: r.error };
       if (r.deleted && sessionId) {
         forgetKey(sessionId);

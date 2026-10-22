@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { forgive, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
+import { reclaim, samePhone, forgive, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
   confirmLaunch,
@@ -46,7 +46,7 @@ export type OrbitAction =
   | { type: "thank"; cr: string; to: string; p?: number }
   | { type: "nudge"; cr: string };
 
-type Call = { ts?: string | null; proof?: { kind: string; token: string } | null; verifiedEmail?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
+type Call = { ts?: string | null; proof?: { kind: string; token: string } | null; verifiedEmail?: string | null; verifiedPhone?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
 export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string>; /** v17: звідки історія (угоди, журнал) — з архівних таблиць чи, при розбіжності, зі світу. */ hist?: "archive" | "world" };
@@ -282,6 +282,8 @@ const RULES = {
 const SAME_DEVICE = "Цей запуск відкрили на тому самому пристрої. Підтвердження мають давати інші люди зі своїх телефонів.";
 const REG_SLOW = "З цієї мережі забагато реєстрацій. Спробуй за годину.";
 const SLOW = "Забагато спроб. Спробуй пізніше.";
+/** Спроб на один код з листа. */
+export const MAIL_TRIES = 5;
 
 function run(world: World, action: OrbitAction): Step {
   if (action.type === "pull") return { world };
@@ -323,6 +325,7 @@ export const orbitAct = createServerFn({ method: "POST" })
       if (data.action.type === "register" && data.proof) {
         const proof = await verifyProof(data.proof.kind, data.proof.token);
         if (proof?.kind === "google") stamped.verifiedEmail = proof.email;
+        if (proof?.kind === "phone") stamped.verifiedPhone = proof.phone;
       }
       const step = await act(stamped, out);
       if (mailReady() && (data.action.type === "register" || data.action.type === "resendMail") && !step.error && step.self && !step.self.confirmed && step.self.mailCode) {
@@ -602,7 +605,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         if (!me) return { world: base, error: "У цього імені немає пошти.", self: null };
         if (me.confirmed) return { world: base, self: me, notice: "Пошта вже підтверджена." };
         miss(`m:${self}`, "mail");
-        const people = bag.people.map((row) => (row.userId === self ? { ...row, mailCode: mailCode() } : row));
+        const people = bag.people.map((row) => (row.userId === self ? { ...row, mailCode: mailCode(), mailTries: 0 } : row));
         await persist(people);
         return { world: base, self: people.find((row) => row.userId === self) ?? null };
       }
@@ -622,13 +625,19 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         if (person.confirmed) {
           return { world: base, self: person, notice: "Пошта вже підтверджена." };
         }
-        if (!person.mailCode || person.mailCode !== data.action.code) {
+        if (!person.mailCode) return { world: base, error: "Код згас. Натисни «Надіслати код ще раз».", self: person };
+        if (person.mailCode !== data.action.code) {
           miss(`m:${self}`, "mail");
-          await persist();
-          return { world: base, error: "Код не той.", self: person };
+          // Аудит M5: 5 невдалих спроб на один код — код згасає, потрібен новий лист.
+          const tries = (person.mailTries ?? 0) + 1;
+          const spent = tries >= MAIL_TRIES;
+          const people = bag.people.map((row) => (row.userId === self ? { ...row, mailTries: spent ? 0 : tries, mailCode: spent ? null : row.mailCode } : row));
+          await persist(people);
+          const me = people.find((row) => row.userId === self) ?? person;
+          return { world: base, error: spent ? "5 невдалих спроб — цей код більше не діє. Надішли новий." : `Код не той. Лишилось спроб: ${MAIL_TRIES - tries}.`, self: me };
         }
         limits = forgive(limits, `m:${self}`);
-        const people = bag.people.map((row) => (row.userId === self ? { ...row, confirmed: true, mailCode: null } : row));
+        const people = bag.people.map((row) => (row.userId === self ? { ...row, confirmed: true, mailCode: null, mailTries: 0, emailVerified: true } : row));
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
           packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen, track(clocked, bag.topups)),
         ]);
@@ -729,7 +738,11 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           ]);
           return { world: base, error: person.error };
         }
-        if (bag.people.some((row) => row.email === person.email || row.phone === person.phone)) {
+        // Аудит #3: контакт, доведений Google/SMS, забирається в того, у кого він стоїть без доказу (прапор false).
+        const provenMail = Boolean(data.verifiedEmail && data.verifiedEmail === person.email.trim().toLowerCase());
+        const provenPhone = Boolean(data.verifiedPhone && samePhone(data.verifiedPhone, person.phone));
+        if (provenMail || provenPhone) bag.people = reclaim(bag.people, person.email, person.phone, { email: provenMail, phone: provenPhone });
+        if (bag.people.some((row) => row.email === person.email || samePhone(row.phone, person.phone))) {
           await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
             packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
           ]);
@@ -744,7 +757,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         // Пошта підтверджена Google — код не потрібен. Без поштового сервісу (і без dev-показу коду) код вимагати не можна: це глухий кут.
         const trusted = Boolean(data.verifiedEmail && data.verifiedEmail === person.email.trim().toLowerCase());
         const confirmed = trusted || (!mailReady() && !devMailCode());
-        fresh = { userId: "", ...person, confirmed, mailCode: confirmed ? null : mailCode() };
+        fresh = { userId: "", ...person, confirmed, mailCode: confirmed ? null : mailCode(), ...(provenMail ? { emailVerified: true } : {}), ...(provenPhone ? { phoneVerified: true } : {}) };
       }
 
       const step =

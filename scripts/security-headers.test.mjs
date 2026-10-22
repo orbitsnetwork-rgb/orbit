@@ -20,3 +20,15 @@ test("adds headers, keeps a route's own value, handles immutable headers", async
   assert.equal(await r2.text(), "hi");
   assert.equal(withSecurityHeaders("plain"), "plain");
 });
+
+test("H3: no grok.com; HTML gets a per-request nonce, other responses the static CSP", async () => {
+  const { CSP, cspWithNonce } = await import("./security-headers.mjs");
+  assert.ok(!CSP.includes("grok.com"));
+  const n = "abcdefghijklmnopqrstuvwx";
+  assert.match(cspWithNonce(n), /script-src 'self' 'nonce-abcdefghijklmnopqrstuvwx' 'unsafe-inline'/);
+  assert.equal(cspWithNonce("bad nonce'"), CSP);
+  const html = withSecurityHeaders(new Response("<p>", { headers: { "content-type": "text/html" } }), n);
+  assert.match(html.headers.get("content-security-policy"), /nonce-abcdefghijklmnopqrstuvwx/);
+  const json = withSecurityHeaders(Response.json({}), n);
+  assert.ok(!json.headers.get("content-security-policy").includes("nonce-"));
+});

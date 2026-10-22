@@ -4,6 +4,7 @@
  * Кожен спосіб доступний лише коли налаштовано його змінні середовища (див. authConfig).
  */
 import { createServerFn } from "@tanstack/react-start";
+import { samePhone } from "@/lib/orbit/access";
 import { firebaseConfig, googleClientId, phoneDigits, verifyProof, type Proof } from "@/lib/orbit/identity";
 import { codeMail, mailReady, sendMail } from "@/lib/orbit/mail";
 import { clipTurnstile, turnstileSecret, verifyTurnstile } from "@/lib/orbit/turnstile";
@@ -107,9 +108,12 @@ export const authRecover = createServerFn({ method: "POST" })
         }
         const key = mintKey();
         await tx.query(`update orbit_world set doc = jsonb_set(doc, array['keys', $1::text], to_jsonb($2::text)), updated_at = now() where id = 'world'`, [person.userId, K.hashKey(key)]);
-        // Вхід поштою/Google доводить володіння поштою — позначаємо підтвердженою.
-        if (p.kind !== "phone" && !person.confirmed) {
-          const people = bag.people.map((row) => (row.userId === person.userId ? { ...row, confirmed: true, mailCode: null } : row));
+        // Вхід поштою/Google доводить володіння поштою, SMS — номером: позначаємо контакт підтвердженим.
+        const proven = p.kind === "phone" ? person.phoneVerified !== true : !person.confirmed || person.emailVerified !== true;
+        if (proven) {
+          const people = bag.people.map((row) =>
+            row.userId !== person.userId ? row : p.kind === "phone" ? { ...row, phoneVerified: true } : { ...row, confirmed: true, mailCode: null, emailVerified: true, mailTries: 0 },
+          );
           await tx.query(`update orbit_world set doc = jsonb_set(doc, '{people}', $1::jsonb) where id = 'world'`, [JSON.stringify(people)]);
         }
         return { ok: true as const, id: person.userId, key };
@@ -120,14 +124,14 @@ export const authRecover = createServerFn({ method: "POST" })
     }
   });
 
-type Person = { userId: string; email: string; phone: string; confirmed: boolean };
+type Person = { userId: string; email: string; phone: string; confirmed: boolean; emailVerified?: boolean; phoneVerified?: boolean };
+/**
+ * Аудит #3: номер — лише точний збіг E.164 (старе «0XXXXXXXXX» = +380); раніше збігу останніх 9 цифр вистачало
+ * і номер з іншим кодом країни відкривав чужий акаунт. Контакт, змінений без доказу (прапор false), відновлення не відкриває.
+ */
 export function matchPerson<T extends Person>(people: T[], proof: Proof | { kind: "mail"; email: string }): T | null {
-  if (proof.kind === "phone") {
-    const want = phoneDigits(proof.phone);
-    const tail = (v: string) => (v.length >= 9 ? v.slice(-9) : null);
-    return people.find((row) => { const d = phoneDigits(row.phone ?? ""); return d === want || (tail(d) !== null && tail(d) === tail(want)); }) ?? null;
-  }
-  return people.find((row) => row.email.trim().toLowerCase() === proof.email) ?? null;
+  if (proof.kind === "phone") return people.find((row) => row.phoneVerified !== false && samePhone(row.phone ?? "", phoneDigits(proof.phone))) ?? null;
+  return people.find((row) => row.emailVerified !== false && row.email.trim().toLowerCase() === proof.email) ?? null;
 }
 
 async function findUser(sql: { query: <T>(t: string, p: unknown[]) => Promise<T[]> }, proof: { kind: "mail"; email: string }) {

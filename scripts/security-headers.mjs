@@ -2,12 +2,13 @@
  * Заголовки безпеки — одне джерело для SSR-відповідей (server/middleware/security-headers.ts).
  * Мають збігатися з [[headers]] у netlify.toml (там вони лише для статичних файлів;
  * Netlify не застосовує їх до відповідей функції). Перевіряє scripts/security-headers.test.mjs.
- * 'unsafe-inline' у script-src: SSR вставляє інлайн-скрипти гідрації. https://grok.com — скрипт платформи
- * (grok-app-builder/extensions.js), який підключає шаблон.
+ * script-src: для HTML від SSR middleware додає одноразовий nonce (аудит H3) — тоді сучасні браузери ігнорують
+ * 'unsafe-inline' (лишається лише як запасний варіант для дуже старих). https://grok.com прибрано: скрипт платформи
+ * на живому сайті вимкнено (VITE_GROK_EXTENSIONS=0).
  */
 export const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://grok.com https://challenges.cloudflare.com https://accounts.google.com https://apis.google.com https://www.google.com https://www.gstatic.com",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://accounts.google.com https://apis.google.com https://www.google.com https://www.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://accounts.google.com",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
@@ -31,9 +32,19 @@ export const SECURITY_HEADERS = {
 
 /** Returns a Response carrying the security headers (headers already set by a route win). */
 /** @param {unknown} response */
-export function withSecurityHeaders(response) {
+/** CSP з nonce: у script-src перед 'unsafe-inline' додається 'nonce-…'. */
+/** @param {string} nonce */
+export function cspWithNonce(nonce) {
+  if (!/^[A-Za-z0-9+/=_-]{16,64}$/.test(nonce)) return CSP;
+  return CSP.replace("script-src 'self' 'unsafe-inline'", `script-src 'self' 'nonce-${nonce}' 'unsafe-inline'`);
+}
+
+/** @param {unknown} response @param {string} [nonce] */
+export function withSecurityHeaders(response, nonce) {
   if (!(response instanceof Response)) return response;
-  const apply = (/** @type {Headers} */ h) => { for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!h.has(k)) h.set(k, v); };
+  const html = Boolean(nonce) && (response.headers.get("content-type") ?? "").includes("text/html");
+  const values = html ? { ...SECURITY_HEADERS, "Content-Security-Policy": cspWithNonce(/** @type {string} */ (nonce)) } : SECURITY_HEADERS;
+  const apply = (/** @type {Headers} */ h) => { for (const [k, v] of Object.entries(values)) if (!h.has(k)) h.set(k, v); };
   try {
     apply(response.headers);
     return response;

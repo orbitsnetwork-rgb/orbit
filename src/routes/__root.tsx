@@ -1,4 +1,4 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { NotFound } from "@/components/orbit/not-found";
@@ -33,11 +33,19 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: NotFound,
-  component: () => (
+  component: RootDocument,
+});
+
+function RootDocument() {
+  // H3: the SSR nonce (router ssr.nonce) — only on the server render; the browser never needs it.
+  const nonce = useRouter().options.ssr?.nonce;
+  return (
     <html lang="uk" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script
+          nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html:
               "try{var h=document.head;if(h){for(var n=h.firstChild;n;){var x=n.nextSibling;if(n.nodeType===8||(n.nodeType===3&&!n.textContent.trim()))h.removeChild(n);n=x}}}catch(e){}",
@@ -54,5 +62,5 @@ export const Route = createRootRoute({
         <Scripts />
       </body>
     </html>
-  ),
-});
+  );
+}

@@ -1,3 +1,5 @@
+import { useEmblem } from "@/lib/orbit/emblem-store";
+import { glyphChar } from "@/lib/orbit/emblem";
 /** Спільні елементи інтерфейсу v8: спарклайни, чипи змін, сегменти, аватари, ряд дій, банери, стрічка, скелетони. */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, ChevronRight, Lock, Minus } from "lucide-react";
@@ -77,10 +79,12 @@ function hue(seed: string) {
 
 /** Аватар-літера з кольором від id: однаковий для людини всюди. */
 export function Avatar({ id, name, size = 36, badge, me = false, frame }: { id: string; name: string; size?: number; badge?: ReactNode; me?: boolean; frame?: string }) {
-  const h = hue(id || name);
+  const emblem = useEmblem(id);
+  const h = emblem ? emblem.hue : hue(id || name);
+  const mark = emblem ? glyphChar(emblem.glyph) : "";
   return (
     <span className={frame && frame !== "none" ? `k-ava avatar-frame-${frame}` : "k-ava"} data-me={me ? "1" : "0"} style={{ width: size, height: size, fontSize: Math.round(size * 0.42), ["--h" as string]: h }} aria-hidden>
-      {(name || "?").slice(0, 1).toUpperCase()}
+      {mark || (name || "?").slice(0, 1).toUpperCase()}
       {badge ? <i className="k-ava-badge">{badge}</i> : null}
     </span>
   );

@@ -1,3 +1,5 @@
+import { EmblemFace } from "@/components/orbit/emblem-picker";
+import { ConstellationCard } from "@/components/orbit/constellation-card";
 /** Вкладка «Я» — окремим чанком. */
 import { OrbitCards, ProfileStats, ThanksDue, daysWith } from "@/components/orbit/person-extras";
 import { MyCrews } from "@/components/orbit/crew";
@@ -34,7 +36,7 @@ export function Person({ world, user, onOpen }: { world: World; user: Account; o
       <section className="orbit-block pr-hero" aria-labelledby="pr-name">
         <div className="pr-hero-glow" aria-hidden />
         <div className="orbit-profile">
-          <Face userId={user.id} letter={user.name.slice(0, 1).toUpperCase()} />
+          <EmblemFace world={world} user={user} />
           <div>
             <h1 className="orbit-h pr-name" id="pr-name">{user.name}</h1>
             <p className="orbit-note">В Орбітах {daysWith(user, world.now)} д · стабільність {user.stability} · орбіт {mine.length}</p>
@@ -43,6 +45,7 @@ export function Person({ world, user, onOpen }: { world: World; user: Account; o
         </div>
         <SelfCard />
       </section>
+      <ConstellationCard world={world} user={user} onOpen={() => onOpen("constellation")} />
       <ProfileStats world={world} user={user} />
       <OrbitDays world={world} userId={user.id} />
       <NumberedOrbits world={world} userId={user.id} />
@@ -159,69 +162,6 @@ export function Person({ world, user, onOpen }: { world: World; user: Account; o
   );
 }
 
-function Face({ userId, letter }: { userId: string; letter: string }) {
-  const storeKey = `orbits-face-${userId}`;
-  const [src, setSrc] = useState("");
-  useEffect(() => {
-    try {
-      setSrc(localStorage.getItem(storeKey) || "");
-    } catch {
-      setSrc("");
-    }
-  }, [storeKey]);
-  return (
-    <label className="orbit-face">
-      {src ? <img src={src} alt="" /> : <span>{letter}</span>}
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (!file) return;
-          void shrink(file).then((data) => {
-            if (!data) return;
-            try {
-              localStorage.setItem(storeKey, data);
-            } catch {
-              /* квота */
-            }
-            setSrc(data);
-          });
-        }}
-      />
-    </label>
-  );
-}
-
-function shrink(file: File): Promise<string | null> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    const url = URL.createObjectURL(file);
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      const size = 128;
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        resolve(null);
-        return;
-      }
-      const scale = Math.max(size / image.width, size / image.height);
-      const width = image.width * scale;
-      const height = image.height * scale;
-      ctx.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(null);
-    };
-    image.src = url;
-  });
-}
 
 function SelfCard() {
   const self = useOrbits((state) => state.self);

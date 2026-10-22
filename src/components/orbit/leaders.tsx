@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { DAY_MS, type Account, type World } from "@/lib/orbit/engine";
+import { degreesFrom, trustGraph } from "@/lib/orbit/trust-path";
+import { DegreeChip } from "@/components/orbit/trust-path";
 
 type Metric = "stability" | "orbits" | "hold";
 const TABS: { id: Metric; label: string; unit: (n: number) => string; hint: string }[] = [
@@ -33,6 +35,7 @@ export function Leaders({ world, user, onBack, onClose }: { world: World; user: 
       return { ...row, place };
     });
   }, [world, metric]);
+  const deg = useMemo(() => degreesFrom(trustGraph(world), user.id), [world, user.id]);
   const mine = rows.find((row) => row.account.id === user.id);
   const top = rows.slice(0, 3);
   const rest = rows.slice(3, SHOW);
@@ -57,6 +60,7 @@ export function Leaders({ world, user, onBack, onClose }: { world: World; user: 
                   <Avatar id={row.account.id} name={row.account.name} size={row.place === 1 ? 56 : 48} me={row.account.id === user.id} />
                   <b>{row.account.name}</b>
                   <small>{tab.unit(row.value)}</small>
+                  <DegreeChip d={deg.get(row.account.id)} />
                   <span className="lb-step"><span className="visually-hidden">Місце </span>{row.place}</span>
                 </li>
               ) : (
@@ -71,6 +75,7 @@ export function Leaders({ world, user, onBack, onClose }: { world: World; user: 
                   <span className="lb-place">{row.place}</span>
                   <Avatar id={row.account.id} name={row.account.name} size={34} me={row.account.id === user.id} />
                   <b>{row.account.name}{row.account.id === user.id ? " · ти" : ""}</b>
+                  <DegreeChip d={deg.get(row.account.id)} />
                   <span className="lb-val">{tab.unit(row.value)}</span>
                 </li>
               ))}

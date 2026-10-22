@@ -1,3 +1,4 @@
+import { EchoCard } from "@/components/orbit/echo-card";
 import { AuthMethods } from "@/components/orbit/auth-methods";
 import { InstallButton } from "@/components/orbit/install";
 import { useRouterState } from "@tanstack/react-router";
@@ -686,6 +687,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
       {isNewcomer(world, user) && !pendingMail ? <FirstStep onTab={onTab} /> : null}
       <WalletCard world={world} user={user} onTab={onTab} onLocked={() => setLock("buy")} />
       {!pendingMail ? <Checklist world={world} user={user} onTab={onTab} /> : null}
+      <EchoCard world={world} user={user} onOpen={() => onOpen("constellation")} />
       <DailyCharge world={world} user={user} />
       {!pendingMail ? <PioneerCard world={world} user={user} /> : null}
       <section className="orbit-block hm-price" aria-labelledby="hm-price-title">

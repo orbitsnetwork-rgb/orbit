@@ -37,8 +37,10 @@ self.addEventListener("notificationclick", (event) => {
 
 // 16: офлайн-оболонка. Лише навігація: спершу мережа, без мережі — збережена сторінка «Немає зв’язку».
 // Дані світу (_serverFn, /api) ніколи не кешуються. Web push-ключів тут немає.
-const SHELL = "orbit-shell-v1";
-const SHELL_FILES = ["/offline.html", "/favicon.svg", "/icon-192.png", "/manifest.webmanifest"];
+const SHELL = "orbit-shell-v2";
+const SHELL_FILES = ["/offline.html", "/favicon.svg", "/favicon-32.png", "/icon-192.png", "/apple-touch-icon.png", "/manifest.webmanifest"];
+// Ніколи не кешуємо: функції сервера, API, вхід/пошту/сесії, сторінку власника.
+const NEVER = [/^\/_serverFn\//, /^\/api\//, /^\/auth/, /^\/owner/, /^\/__grok\//];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
@@ -58,6 +60,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (NEVER.some((re) => re.test(url.pathname))) return; // мережа напряму, без кешу SW
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
     return;

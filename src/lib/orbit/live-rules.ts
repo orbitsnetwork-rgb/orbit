@@ -38,32 +38,47 @@ export function looksScripted(stamps: number[]): boolean {
 /* ---------- Кімнати ---------- */
 
 /** Одна кімната на запуск: поки збирається — «Запуск», після успіху — «Екіпаж №N» (та сама кімната, історія не губиться). */
-export type RoomInfo = { id: string; kind: "world" | "launch" | "crew"; title: string; members: number };
+export type RoomInfo = { id: string; kind: "launch" | "crew" | "dm"; title: string; members: number; peer?: string };
+/** Старий світовий чат вимкнено: таблиці лишаються (міграції лише додають), кімната більше не відкривається. */
 export const WORLD_ROOM = "world";
 const ROOM_RE = /^l:[A-Za-z0-9_-]{1,48}$/;
+const UID = "u-[A-Za-z0-9_-]{1,40}";
+const DM_RE = new RegExp(`^d:(${UID})~(${UID})$`);
 
 export function normRoom(raw: unknown): string | null {
-  const s = typeof raw === "string" ? raw.slice(0, 52) : WORLD_ROOM;
-  return s === WORLD_ROOM || ROOM_RE.test(s) ? s : null;
+  const s = typeof raw === "string" ? raw.slice(0, 100) : "";
+  return ROOM_RE.test(s) || DM_RE.test(s) ? s : null;
+}
+
+/** Особиста кімната двох людей: id впорядковані, тож у пари завжди одна кімната. */
+export function dmRoom(a: string, b: string): string | null {
+  if (a === b) return null;
+  const [x, y] = a < b ? [a, b] : [b, a];
+  return normRoom(`d:${x}~${y}`);
+}
+
+export function dmPair(room: string): [string, string] | null {
+  const m = DM_RE.exec(room);
+  return m && m[1] < m[2] ? [m[1], m[2]] : null;
 }
 
 /** Учасники запуску: автор і всі, хто вже підтвердив. Невдалий запуск кімнати не має. */
 export function roomMembers(world: World, room: string): string[] | null {
-  if (room === WORLD_ROOM) return null;
+  const pair = dmPair(room);
+  if (pair) return pair.every((id) => world.accounts.some((a) => a.id === id)) ? pair : [];
   const creation = world.creations.find((row) => `l:${row.id}` === room);
   if (!creation || creation.status === "failed") return [];
   return [creation.userId, ...creation.confirms.map((row) => row.witnessId)];
 }
 
-/** Сервер викликає це для КОЖНОГО читання й запису. world — для всіх, хто увійшов. */
+/** Сервер викликає це для КОЖНОГО читання й запису. Світового чату немає; особиста — лише для двох. */
 export function canUseRoom(world: World, userId: string, room: string): boolean {
-  if (room === WORLD_ROOM) return world.accounts.some((a) => a.id === userId);
   return (roomMembers(world, room) ?? []).includes(userId);
 }
 
 export function roomsFor(world: World, userId: string): RoomInfo[] {
   const done = world.creations.filter((row) => row.status === "done");
-  const out: RoomInfo[] = [{ id: WORLD_ROOM, kind: "world", title: "Світ", members: world.accounts.length }];
+  const out: RoomInfo[] = [];
   for (const row of [...world.creations].reverse()) {
     if (row.status === "failed") continue;
     const people = [row.userId, ...row.confirms.map((c) => c.witnessId)];
@@ -71,7 +86,7 @@ export function roomsFor(world: World, userId: string): RoomInfo[] {
     const no = done.indexOf(row) + 1;
     out.push({ id: `l:${row.id}`, kind: row.status === "done" ? "crew" : "launch", title: row.status === "done" ? `Екіпаж №${no}` : row.userId === userId ? "Мій запуск" : "Запуск, який я підтримав", members: new Set(people).size });
   }
-  return out.slice(0, 21);
+  return out.slice(0, 20);
 }
 
 /* ---------- Ліміти ---------- */
@@ -96,6 +111,8 @@ export const REACTIONS = [
   { id: "sad", name: "Сумно", short: "Сумно" },
   { id: "see", name: "Бачу тебе", short: "Бачу тебе" },
   { id: "planet", name: "Новий світ", short: "Новий світ" },
+  { id: "comet", name: "Вогонь", short: "Вогонь" },
+  { id: "moon", name: "Думаю", short: "Думаю" },
 ] as const;
 export type ReactionId = (typeof REACTIONS)[number]["id"];
 export const REACT_PER_MIN = 30;

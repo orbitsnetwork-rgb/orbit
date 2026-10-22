@@ -1,4 +1,5 @@
 import { AuthMethods } from "@/components/orbit/auth-methods";
+import { InstallButton } from "@/components/orbit/install";
 import { useRouterState } from "@tanstack/react-router";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
@@ -415,6 +416,7 @@ function Gate({
           </details>
         </section>
         <GuestStats />
+        <InstallButton variant="hero" />
         {invited ? (
           <p className="cs-invite" role="status">
             {host?.who ? `${host.who} запрошує тебе підтвердити запуск орбіти · підтверджень уже: ${host.n}.` : "Тебе запросили підтвердити запуск орбіти."} Увійди або створи акаунт — код уже чекатиме у вкладці «Заявка».
@@ -510,6 +512,18 @@ function useStack() {
     }),
     [],
   );
+  // Ярлики додатка (manifest shortcuts): /?open=live|inbox|assets відкриває розділ одразу.
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      const want = u.searchParams.get("open");
+      if (want === "live" || want === "inbox" || want === "assets") {
+        setStack(["more", want]);
+        u.searchParams.delete("open");
+        window.history.replaceState(window.history.state, "", u.pathname + (u.search === "?" ? "" : u.search) + u.hash);
+      }
+    } catch { /* старий браузер */ }
+  }, []);
   return { stack, ...actions };
 }
 

@@ -23,7 +23,7 @@ function days(ms: number) {
   return `${d} ${d % 10 === 1 && d % 100 !== 11 ? "день" : d % 10 >= 2 && d % 10 <= 4 && (d % 100 < 10 || d % 100 >= 20) ? "дні" : "днів"}`;
 }
 
-export function Explorer({ world, user, onBack, onClose, onGo }: { world: World; user: Account; onBack: () => void; onClose?: () => void; onGo: (tab: Tab) => void }) {
+export function Explorer({ world, user, onBack, onClose, onGo, onDm }: { world: World; user: Account; onBack: () => void; onClose?: () => void; onGo: (tab: Tab) => void; onDm?: (uid: string) => void }) {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<number | null>(null);
   const parsed = parse(query);
@@ -65,7 +65,7 @@ export function Explorer({ world, user, onBack, onClose, onGo }: { world: World;
       {Number.isNaN(parsed) ? (
         <p className="orbit-empty" role="status">Лише цифри: від 1 до 7 знаків.</p>
       ) : target !== null ? (
-        <OrbitCard world={world} user={user} id={target} onGo={onGo} max={last} />
+        <OrbitCard world={world} user={user} id={target} onGo={onGo} max={last} onDm={onDm} />
       ) : (
         <>
           <section className="ox-stats" aria-label="Світ зараз">
@@ -101,7 +101,7 @@ export function Explorer({ world, user, onBack, onClose, onGo }: { world: World;
   );
 }
 
-function OrbitCard({ world, user, id, onGo, max }: { world: World; user: Account; id: number; onGo: (tab: Tab) => void; max: number }) {
+function OrbitCard({ world, user, id, onGo, max, onDm }: { world: World; user: Account; id: number; onGo: (tab: Tab) => void; max: number; onDm?: (uid: string) => void }) {
   const orbit = world.orbits.find((row) => row.id === id);
   if (!orbit) {
     return (
@@ -131,7 +131,7 @@ function OrbitCard({ world, user, id, onGo, max }: { world: World; user: Account
         </div>
       </header>
       <dl className="ox-kv">
-        <div><dt>Власник</dt><dd>{owner ? owner.name : "—"}{mine ? " (ти)" : ""}</dd></div>
+        <div><dt>Власник</dt><dd>{owner ? owner.name : "—"}{mine ? " (ти)" : ""}{owner && !mine && onDm ? <> · <button type="button" className="ox-dm" onClick={() => onDm(owner.id)}>Написати</button></> : null}</dd></div>
         <div><dt>У власника з</dt><dd>{clock(orbit.createdAt)}</dd></div>
         <div><dt>Тримає</dt><dd>{days(held)}{bonus ? ` · +${bonus}% до частки` : ""}</dd></div>
         <div><dt>Угод</dt><dd>{trades.length}</dd></div>

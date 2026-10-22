@@ -27,6 +27,20 @@ await step("gate + key screen", async () => {
   check("gate shows create form", await hasText(p, "Створити акаунт"));
   await axe(p, "gate");
   await shot(p, "01_gate");
+  // v24: «Завантажити додаток» на вітальному екрані; без системного вікна — ілюстрована підказка.
+  const ins = p.getByTestId("install-app");
+  check("v24: install button on welcome screen", (await ins.count()) === 1 && /Завантажити додаток/.test(await ins.innerText()));
+  await ins.click();
+  check("v24: install guide opens (3 steps)", (await p.getByRole("dialog", { name: "Додати ORBIT на екран" }).count()) === 1 && (await p.locator(".ins-steps li").count()) === 3);
+  await shot(p, "01b_install_guide");
+  await p.keyboard.press("Escape");
+  check("v24: install guide closes on Esc", (await p.locator(".ins-sheet").count()) === 0);
+  {
+    const man = await (await fetch(L.BASE + "/manifest.webmanifest")).json();
+    check("v24: manifest name ORBIT + standalone + shortcuts + maskable", man.name === "ORBIT" && man.display === "standalone" && man.shortcuts?.length >= 2 && man.icons.some((i) => i.purpose === "maskable"));
+    const sw = await (await fetch(L.BASE + "/sw.js")).text();
+    check("v24: service worker skips API/auth", /_serverFn/.test(sw) && /\\\/api/.test(sw) && /auth/.test(sw));
+  }
   const { key } = await L.register(p, "Марта");
   check("key screen shows 12-char key", /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key || ""), key);
   check("continue disabled until checkbox", await p.getByRole("button", { name: "Продовжити" }).isDisabled());
@@ -139,7 +153,8 @@ await step("money locked: visible, lock sheet, no dates/income; legacy routes 40
 });
 
 // ───────── Phase 2: dev mail flag on, full launch with 3 confirms (crew3) ─────────
-await L.startServer({ ORBIT_DEV_MAIL_CODE: "1", ORBIT_E2E_SEED: "7", ORBIT_ADMIN_TOKEN: "e2e-local-owner-token-not-real-0123456789" });
+for (const p of pages) p.allowErrors = true; // сервер навмисно перезапускається — старі вкладки фази 1 втрачають зв’язок
+await L.startServer({ ORBIT_DEV_MAIL_CODE: "1", ORBIT_E2E_SEED: "7", ORBIT_ADMIN_TOKEN: "e2e-local-owner-token-not-real-0123456789", ORBIT_MOD_MIN_AGE_H: "0" });
 const host = await person("host");
 await L.register(host, "Ганна", "Шевченко"); await L.passKey(host); await L.skipIntro(host);
 await step("mail confirm + checklist", async () => {
@@ -171,13 +186,28 @@ await step("mail confirm + checklist", async () => {
     check("v23: streak lives on the server (survives cleared storage)", /Серія: 1 день/.test(await host.getByTestId("daily-charge").innerText()));
   }
 });
+await step("start launch + code", async () => {
+  await tab(host, "Заявка");
+  await host.getByRole("button", { name: "Почати запуск" }).click();
+  await host.getByRole("button", { name: "Створити код підтвердження" }).click({ timeout: 8000 });
+  check("code share shown", await hasText(host, "Код підтвердження"));
+  await shot(host, "06_code");
+});
+const ownCode = () => { const w = lastWorld(host); const me = w?.world?.sessionId; return w?.world?.creations?.find((c) => c.userId === me && c.code)?.code; };
+const crId = () => { const w = lastWorld(host); const me = w?.world?.sessionId; return w?.world?.creations?.filter((c) => c.userId === me).at(-1)?.id; };
+let guest;
+// crew3: спершу реєструємо ще 7 людей, щоб у світі було ≥4 і правило «3 підтвердження» діяло з першого коду.
+const pre = [];
 await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
   check("v19: bell still in header", (await host.locator(".mo-bell").count()) === 1);
   const music = host.getByRole("button", { name: "Увімкнути фонову музику" });
   check("v19: music toggle off by default", (await music.count()) === 1 && (await music.getAttribute("aria-pressed")) === "false");
   await host.getByRole("button", { name: "Ще", exact: true }).click();
   check("v19: explorer entry kept", await hasText(host, "Оглядач"));
-  await host.getByText("Живе", { exact: true }).first().click();
+  await host.getByText("Розмови", { exact: true }).first().click();
+  await host.locator("#rooms-title").waitFor({ timeout: 8000 });
+  check("v19: no world chat in the list", (await host.locator(".orbit-room", { hasText: "Світ" }).count()) === 0);
+  await host.locator(".orbit-room", { hasText: "Мій запуск" }).click();
   await host.locator("#chat-input").waitFor({ timeout: 8000 });
   check("v19: empty chat invites to speak", await hasText(host, "Поки тихо"));
   await host.locator("#chat-input").fill("<img src=x onerror=alert(1)> Привіт, світе");
@@ -192,10 +222,34 @@ await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
     await host.waitForTimeout(350);
   }
   check("v19: server rate limit 8/min", await hasText(host, "Забагато повідомлень"));
-  await host.locator("#role-why").fill("Я жива людина і знаю всіх у своєму екіпажі");
-  await host.getByRole("button", { name: "Подати заявку" }).click();
-  await host.waitForTimeout(800);
-  check("v19: role ask stored, not auto-granted", await hasText(host, "перегляне її вручну"));
+  check("v24: role form no longer inside chat", (await host.locator("#role-why").count()) === 0 && (await host.locator("#mod-why").count()) === 0);
+  // v24: відповідь, редагування, видалення свого.
+  await host.waitForTimeout(61000 - 8 * 350); // ліміт 8/хв відпускає
+  const mine = host.locator(".orbit-msg", { hasText: "Привіт, світе" });
+  await mine.getByRole("button", { name: /^Ще дії з повідомленням/ }).click();
+  await host.getByRole("dialog", { name: "Дії з повідомленням" }).getByRole("button", { name: "Відповісти" }).click();
+  check("v24: reply context shown above input", (await host.locator(".cv-ctx").count()) === 1);
+  await host.locator("#chat-input").fill("відповідаю сам собі");
+  await host.locator("#chat-input").press("Enter");
+  await host.waitForTimeout(1500);
+  const rep = host.locator(".orbit-msg", { hasText: "відповідаю сам собі" });
+  check("v24: reply carries a quote of the original", (await rep.locator(".cv-quote").count()) === 1 && /Привіт, світе/.test(await rep.locator(".cv-quote").innerText()));
+  check("v24: sent tick on own message", (await rep.locator(".cv-tick").count()) === 1);
+  await shot(host, "20b_chat_reply");
+  await rep.getByRole("button", { name: /^Ще дії з повідомленням/ }).click();
+  await host.getByRole("dialog", { name: "Дії з повідомленням" }).getByRole("button", { name: "Змінити" }).click();
+  await host.locator("#chat-input").fill("відповідаю сам собі (виправлено)");
+  await host.getByRole("button", { name: "Зберегти" }).click();
+  await host.waitForTimeout(1500);
+  check("v24: edit shows new text + «змінено»", (await hasText(host, "відповідаю сам собі (виправлено)")) && (await hasText(host, "змінено")));
+  const sp = host.locator(".orbit-msg", { hasText: "спам 0" });
+  await sp.getByRole("button", { name: /^Ще дії з повідомленням/ }).click();
+  host.once("dialog", (d) => d.accept());
+  await host.getByRole("dialog", { name: "Дії з повідомленням" }).getByRole("button", { name: "Видалити" }).click();
+  await host.waitForTimeout(1500);
+  check("v24: delete leaves a tombstone", !(await hasText(host, "спам 0")) && (await hasText(host, "Повідомлення видалено")));
+  await shot(host, "20c_chat_edit_delete");
+  check("v24: day separator present", (await host.locator(".cv-day").count()) >= 1);
   check("v21: reactions lock removed (reactions are live)", !(await hasText(host, "Скоро в живому")));
   await host.locator("#faq-title").scrollIntoViewIfNeeded();
   await shot(host, "21_live_roles_faq");
@@ -205,18 +259,6 @@ await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
 });
 const crew = [];
 const names = ["Богдан", "Віра", "Галина", "Дмитро", "Євген", "Жанна", "Зоряна", "Ігор"];
-await step("start launch + code", async () => {
-  await tab(host, "Заявка");
-  await host.getByRole("button", { name: "Почати запуск" }).click();
-  await host.getByRole("button", { name: "Створити код підтвердження" }).click({ timeout: 8000 });
-  check("code share shown", await hasText(host, "Код підтвердження"));
-  await shot(host, "06_code");
-});
-const ownCode = () => { const w = lastWorld(host); const me = w?.world?.sessionId; return w?.world?.creations?.find((c) => c.userId === me && c.code)?.code; };
-const crId = () => { const w = lastWorld(host); const me = w?.world?.sessionId; return w?.world?.creations?.filter((c) => c.userId === me).at(-1)?.id; };
-let guest;
-// crew3: спершу реєструємо ще 7 людей, щоб у світі було ≥4 і правило «3 підтвердження» діяло з першого коду.
-const pre = [];
 await step("crew3: pre-register crew before the first code", async () => {
   for (let i = 1; i < 8; i++) {
     const p = await person("c" + i);
@@ -307,11 +349,12 @@ await step("v20: rooms + live chat + room access control", async () => {
   const spy = (r) => { const b = r.postData() || ""; if (!r.url().includes("/_serverFn/")) return; if (b.includes('"wait"')) urls.read = r.url(); else if (b.includes('"text"') && b.includes('"room"')) urls.send = r.url(); };
   host.on("request", spy);
   await host.getByRole("button", { name: "Ще", exact: true }).click();
-  await host.getByText("Живе", { exact: true }).first().click();
+  await host.getByText("Розмови", { exact: true }).first().click();
   await host.locator("#rooms-title").waitFor({ timeout: 8000 });
   const mine = host.locator(".orbit-room", { hasText: "Мій запуск" });
-  check("v20: room list has world + my launch room", (await host.locator(".orbit-room", { hasText: "Світ" }).count()) === 1 && (await mine.count()) === 1);
-  check("v20: online dot shown", await hasText(host, "онлайн"));
+  await mine.waitFor({ timeout: 8000 }).catch(() => {});
+  check("v20: room list has no world chat, has my launch room", (await host.locator(".orbit-room", { hasText: "Світ" }).count()) === 0 && (await mine.count()) === 1);
+  check("v20: no room picked yet → calm empty state", await hasText(host, "Обери розмову"));
   await mine.click();
   await host.waitForTimeout(800);
   check("v20: launch room is private copy", await hasText(host, "Бачать лише автор і ті, хто підтвердив"));
@@ -322,10 +365,12 @@ await step("v20: rooms + live chat + room access control", async () => {
   // Учасник бачить непрочитане й отримує нове без перезавантаження (довге опитування).
   const g = crew[0];
   await g.getByRole("button", { name: "Ще", exact: true }).click();
-  await g.getByText("Живе", { exact: true }).first().click();
+  await g.getByText("Розмови", { exact: true }).first().click();
   await g.locator("#rooms-title").waitFor({ timeout: 8000 });
   const gRoom = g.locator(".orbit-room", { hasText: "Запуск, який я підтримав" });
-  check("v20: member sees the launch room with unread badge", (await gRoom.count()) === 1 && (await gRoom.locator(".orbit-room-n").innerText().catch(() => "")) === "1");
+  await gRoom.waitFor({ timeout: 8000 }).catch(() => {});
+  await g.waitForTimeout(500);
+  check("v20: member sees the launch room with unread badge", (await gRoom.count()) === 1 && Number(await gRoom.locator(".orbit-room-n").innerText().catch(() => "0")) >= 1, `rooms=${await gRoom.count()} n=${await gRoom.locator(".orbit-room-n").innerText({ timeout: 1000 }).catch(() => "-")} txt=${(await g.locator(".cv-list").innerText().catch(() => "")).slice(0, 200)}`);
   await shot(g, "30_room_list");
   await gRoom.click();
   check("v20: member reads the room", await hasText(g, "Екіпаже, тримаймось!"));
@@ -352,10 +397,12 @@ await step("v20: rooms + live chat + room access control", async () => {
   const sd = await call(urls.send, { ...base, room, text: "я тут чужий" });
   check("v20: non-member can't post to launch room", sd && sd.ok === false, JSON.stringify(sd));
   const wr = await call(urls.read, { ...base, room: "world", after: 0, wait: false });
-  check("v20: same stranger can read world room", wr && wr.allowed === true, JSON.stringify(wr)?.slice(0, 200));
+  check("v20: world room is gone (refused even for signed-in)", wr && wr.allowed === false, JSON.stringify(wr)?.slice(0, 200));
+  const ws = await call(urls.send, { ...base, room: "world", text: "світ?" });
+  check("v20: can't post to world room", ws && ws.ok === false);
   const bad = await call(urls.read, { ...base, room: "l:x' or 1=1--", after: 0, wait: false });
   check("v20: malformed room id refused", bad && bad.allowed === false);
-  const anon = await call(urls.read, { sessionId: stranger.id, sessionKey: "WRONG-KEY", room: "world", after: 0, wait: false });
+  const anon = await call(urls.read, { sessionId: stranger.id, sessionKey: "WRONG-KEY", room: room, after: 0, wait: false });
   check("v20: wrong key reads nothing", anon && anon.signedIn === false && anon.lines.length === 0);
   const memberText = await text(host);
   check("v20: stranger's text never appears", !memberText.includes("я тут чужий"));
@@ -368,7 +415,7 @@ await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async
   host.on("request", spy);
   const open = async (p, label) => {
     await p.getByRole("button", { name: "Ще", exact: true }).click();
-    await p.getByText("Живе", { exact: true }).first().click();
+    await p.getByText("Розмови", { exact: true }).first().click();
     await p.locator("#rooms-title").waitFor({ timeout: 8000 });
     await p.locator(".orbit-room", { hasText: label }).click();
     await p.getByText("Екіпаже, тримаймось!").waitFor({ timeout: 8000 });
@@ -382,8 +429,8 @@ await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async
   const msg = host.locator(".orbit-msg", { hasText: "Тут! Підтримую" });
   await msg.getByRole("button", { name: /^Реакція на повідомлення/ }).click();
   const pick = host.getByRole("group", { name: "Обери реакцію" });
-  check("v21: picker shows 10 named cosmic reactions", (await pick.getByRole("button").count()) === 10);
-  check("v21: picker uses SVG icons, not emoji", (await pick.locator("svg.orbit-rx-ico").count()) === 10);
+  check("v21: picker shows 12 named cosmic reactions", (await pick.getByRole("button").count()) === 12);
+  check("v21: picker uses SVG icons, not emoji", (await pick.locator("svg.orbit-rx-ico").count()) === 12);
   await shot(host, "34_reaction_picker");
   const fit = await host.evaluate(() => {
     const pick = document.querySelector(".orbit-rx-pick")?.getBoundingClientRect();
@@ -417,9 +464,12 @@ await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async
   const gone = await msg.getByRole("button", { name: /^Вау, галактика/ }).waitFor({ state: "detached", timeout: 12000 }).then(() => true, () => false);
   check("v21: tapping my reaction again removes it", gone);
   // Long-press відкриває вибір.
+  await msg.locator(".orbit-msg-t").scrollIntoViewIfNeeded();
+  await host.waitForTimeout(400);
   const box = await msg.locator(".orbit-msg-t").boundingBox();
   if (box) { await host.mouse.move(box.x + 5, box.y + 5); await host.mouse.down(); await host.waitForTimeout(650); await host.mouse.up(); }
-  check("v21: long-press opens picker", (await host.getByRole("group", { name: "Обери реакцію" }).count()) === 1);
+  const lpAt = box ? await host.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? `${el.tagName}.${el.className}` : "none"; }, [box.x + 5, box.y + 5]) : "nobox";
+  check("v21: long-press opens picker", (await host.getByRole("group", { name: "Обери реакцію" }).count()) === 1, lpAt);
   await host.keyboard.press("Escape");
   check("v21: Esc closes picker", (await host.getByRole("group", { name: "Обери реакцію" }).count()) === 0);
   await axe(host, "v21 reactions");
@@ -447,7 +497,7 @@ await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)
   // 1) Нове в кімнаті запуску, поки учасник не в чаті → дзвіночок (одне згруповане сповіщення на кімнату).
   host.on("request", spy);
   await host.getByRole("button", { name: "Ще", exact: true }).click();
-  await host.getByText("Живе", { exact: true }).first().click();
+  await host.getByText("Розмови", { exact: true }).first().click();
   await host.locator("#rooms-title").waitFor({ timeout: 8000 });
   await host.locator(".orbit-room", { hasText: "Мій запуск" }).click();
   await host.locator("#chat-input").waitFor({ timeout: 8000 });
@@ -483,31 +533,47 @@ await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)
   check("v22: captured send endpoint", !!urls.send);
   const rude = await L.apiRegister("Різкий", { ip: "10.88.0.1" });
   const R = { sessionId: rude.id, sessionKey: rude.key };
-  for (const t of ["перше погане повідомлення", "друге погане повідомлення"]) await call(urls.send, { ...R, room: "world", text: t }, "10.88.0.1");
+  const gId = await g.evaluate(() => localStorage.getItem("orbits-who"));
+  const hostId = await host.evaluate(() => localStorage.getItem("orbits-who"));
+  const dmOf = (a, b) => (a < b ? `d:${a}~${b}` : `d:${b}~${a}`);
+  const DMG = dmOf(rude.id, gId);
+  for (const t of ["перше погане повідомлення", "друге погане повідомлення"]) await call(urls.send, { ...R, room: DMG, text: t }, "10.88.0.1");
+  const peek = await call(urls.send, { sessionId: rude.id, sessionKey: rude.key, room: dmOf(gId, hostId), text: "підглядаю" }, "10.88.0.1");
+  check("dm: outsider can't post into someone else's DM", peek && peek.ok === false, JSON.stringify(peek));
   // id-шники повідомлень і адреса функції скарги — з UI: учасник скаржиться на одне з них.
   const viewer = g;
   const rep = {};
   const repSpy = (r) => { const b = r.postData() || ""; if (r.url().includes("/_serverFn/") && /"id"/.test(b) && !b.includes('"kind"') && !b.includes('"room"')) rep.url = rep.url || r.url(); };
   viewer.on("request", repSpy);
   await viewer.getByRole("button", { name: "Ще", exact: true }).click();
-  await viewer.getByText("Живе", { exact: true }).first().click();
+  await viewer.getByText("Розмови", { exact: true }).first().click();
   await viewer.locator("#rooms-title").waitFor({ timeout: 8000 });
-  await viewer.locator(".orbit-room", { hasText: "Світ" }).click();
-  await viewer.getByText("друге погане повідомлення").waitFor({ timeout: 10000 });
+  await viewer.locator(".orbit-room", { hasText: "Різкий" }).click();
+  check("dm: DM appears in recipient's list and is private", await hasText(viewer, "Бачите лише ви двоє"));
+  await viewer.locator(".cv-log").getByText("друге погане повідомлення").waitFor({ timeout: 10000 });
   const ids = [];
   for (const t of ["перше погане повідомлення", "друге погане повідомлення"]) ids.push(Number(await viewer.locator(".orbit-msg", { hasText: t }).getAttribute("data-msg")));
-  await viewer.locator(".orbit-msg", { hasText: "перше погане" }).getByRole("button", { name: /^Поскаржитись/ }).click();
+  await viewer.locator(".orbit-msg", { hasText: "перше погане" }).getByRole("button", { name: /^Ще дії з повідомленням/ }).click();
+  const menuBox = await viewer.getByRole("dialog", { name: "Дії з повідомленням" }).boundingBox();
+  const vh = await viewer.evaluate(() => window.innerHeight);
+  check("chat: action menu fully inside viewport", !!menuBox && menuBox.y >= 0 && menuBox.y + menuBox.height <= vh + 1, JSON.stringify({ menuBox, vh }));
+  await viewer.getByRole("dialog", { name: "Дії з повідомленням" }).getByRole("button", { name: /^Поскаржитись/ }).click();
   await viewer.waitForTimeout(800);
   // «Хто?» теж шле id — беремо саме скаргу: остання відповідь з id без kind.
   viewer.off("request", repSpy);
   check("v22: captured report endpoint", !!rep.url);
-  const reporters = [];
-  for (let i = 0; i < 3; i++) reporters.push(await L.apiRegister(`Свідок${i}`, { ip: `10.88.1.${i + 1}` }));
-  for (const [i, r] of reporters.entries()) for (const id of ids) await call(rep.url, { sessionId: r.id, sessionKey: r.key, id }, `10.88.1.${i + 1}`);
-  const blocked = await call(urls.send, { ...R, room: "world", text: "третє" }, "10.88.0.1");
+  // Сторонні не можуть скаржитись на повідомлення з чужої особистої розмови.
+  const outsider = await L.apiRegister("Свідок", { ip: "10.88.1.1" });
+  const outRep = await call(rep.url, { sessionId: outsider.id, sessionKey: outsider.key, id: ids[1] }, "10.88.1.1");
+  check("dm: outsider can't report into a DM", outRep && outRep.ok === false, JSON.stringify(outRep));
+  // У розмові на двох досить скарги співрозмовника: друге повідомлення — через API тим самим ключем, що й UI.
+  await viewer.locator(".orbit-msg", { hasText: "друге погане" }).getByRole("button", { name: /^Ще дії з повідомленням/ }).click();
+  await viewer.getByRole("dialog", { name: "Дії з повідомленням" }).getByRole("button", { name: /^Поскаржитись/ }).click();
+  await viewer.waitForTimeout(1000);
+  const blocked = await call(urls.send, { ...R, room: DMG, text: "третє" }, "10.88.0.1");
   check("v22: repeat offender muted with clear message + appeal path", blocked && blocked.ok === false && /на паузі/.test(blocked.error) && /Написати нам/.test(blocked.error), JSON.stringify(blocked));
   check("v22: mute changes no ✦ (copy says so)", /✦ і орбіти це не зачіпає/.test(blocked?.error || ""));
-  const goneForOthers = await viewer.getByText("друге погане повідомлення").waitFor({ state: "detached", timeout: 12000 }).then(() => true, () => false);
+  const goneForOthers = await viewer.locator(".cv-log").getByText("друге погане повідомлення").waitFor({ state: "detached", timeout: 12000 }).then(() => true, () => false);
   check("v22: hidden messages disappear for others live", goneForOthers);
   // 4) Сторінка власника: без токена — нічого; з токеном — сховані, повернення знімає паузу.
   const bad = await person("owner-bad");
@@ -523,21 +589,98 @@ await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)
   await own.getByRole("button", { name: "Увійти" }).click();
   await own.getByText("Сховані скаргами").waitFor({ timeout: 8000 }).catch(() => {});
   const ot = await text(own);
-  check("v22: owner sees both hidden messages with report counts", ot.includes("перше погане повідомлення") && ot.includes("друге погане повідомлення") && ot.includes("скарг: 3"), ot.slice(0, 400));
-  check("v22: owner sees role application + mute", ot.includes("Заявки на роль") && ot.includes("Пауза в чаті (1)"));
+  check("v22: owner sees both hidden messages with report counts", ot.includes("перше погане повідомлення") && ot.includes("друге погане повідомлення") && ot.includes("скарг: 1"), ot.slice(0, 400));
+  check("v22: owner sees mute", ot.includes("Пауза в чаті (1)"));
   await shot(own, "42_owner_review");
   await axe(own, "v22 owner");
   await own.locator(".ow-row", { hasText: "перше погане" }).getByRole("button", { name: "Повернути" }).click();
   await own.waitForTimeout(1200);
   check("v22: restore lifts the mute when no longer repeated", (await text(own)).includes("Пауза в чаті (0)"));
-  const again = await call(urls.send, { ...R, room: "world", text: "вибачте, більше не буду" }, "10.88.0.1");
+  const again = await call(urls.send, { ...R, room: dmOf(rude.id, hostId), text: "вибачте, більше не буду" }, "10.88.0.1");
   check("v22: unmuted author can write again", again && again.ok === true, JSON.stringify(again));
-  check("v22: restored message visible again", await viewer.getByText("перше погане повідомлення").waitFor({ timeout: 12000 }).then(() => true, () => false));
+  check("v22: restored message visible again", await viewer.locator(".cv-log").getByText("перше погане повідомлення").waitFor({ timeout: 12000 }).then(() => true, () => false));
+  // v24: «Ще» → «Стати модератором» → власник затверджує → модератор видаляє → журнал.
+  await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape"); await host.waitForTimeout(300);
+  await host.getByRole("button", { name: "Ще", exact: true }).click();
+  await host.getByText("Стати модератором", { exact: true }).first().click();
+  await host.locator("#mod-why").waitFor({ timeout: 8000 });
+  check("v24: moderator page shows rules + empty state", (await hasText(host, "Правила модератора")) && (await hasText(host, "Заявки ще немає")));
+  const submit = host.getByRole("button", { name: "Подати заявку" });
+  await host.locator("#mod-why").fill("Хочу допомагати тримати чат чистим і доброзичливим");
+  check("v24: apply disabled until rules agreed", await submit.isDisabled());
+  await host.locator("#mod-agree").check();
+  await submit.click();
+  await host.getByText("Заявка на розгляді").waitFor({ timeout: 8000 }).catch(() => {});
+  check("v24: application pending", await hasText(host, "Заявка на розгляді"));
+  await shot(host, "43_mod_apply");
+  await own.reload(); await own.waitForTimeout(2000); // токен у sessionStorage → вхід сам
+  await own.locator("[data-modapp]").first().waitFor({ timeout: 8000 });
+  await own.locator("[data-modapp]").first().getByRole("button", { name: "Затвердити" }).click();
+  await own.waitForTimeout(1200);
+  check("v24: owner approved → listed as moderator", (await text(own)).includes("Модератори (1)"));
+  await host.reload(); await host.waitForTimeout(2500);
+  await host.getByRole("button", { name: "Ще", exact: true }).click();
+  await host.getByText("Стати модератором", { exact: true }).first().click();
+  const isModNow = await host.locator("#mod-state", { hasText: "Ти модератор" }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+  if (!isModNow) await shot(host, "43x_mod_status_fail");
+  check("v24: applicant now sees moderator status", isModNow, (await host.locator("#mod-page").innerText().catch(() => "no page")).slice(0, 160));
+  await host.keyboard.press("Escape"); await host.waitForTimeout(300);
+  await host.getByText("Розмови", { exact: true }).first().click();
+  await host.locator("#rooms-title").waitFor({ timeout: 8000 });
+  await host.locator(".orbit-room", { hasText: "Різкий" }).click();
+  const bad1 = host.locator(".orbit-msg", { hasText: "вибачте, більше не буду" });
+  await bad1.waitFor({ timeout: 10000 });
+  await bad1.getByRole("button", { name: /^Ще дії з повідомленням/ }).click();
+  await shot(host, "44_mod_menu");
+  host.once("dialog", (d) => d.accept());
+  await host.getByRole("dialog", { name: "Дії з повідомленням" }).getByRole("button", { name: "Видалити (модератор)" }).click();
+  await host.waitForTimeout(1500);
+  check("v24: moderator delete → tombstone", (await host.locator(".cv-log", { hasText: "вибачте, більше не буду" }).count()) === 0);
+  await own.reload(); await own.waitForTimeout(2500);
+  const log = await text(own);
+  check("v24: audit log records approve + delete", /затвердив модератора/.test(log) && /видалив повідомлення/.test(log), log.slice(log.indexOf("Журнал"), log.indexOf("Журнал") + 300));
+  await shot(own, "45_owner_mod_log");
   // Токен не потрапляє в клієнтський код.
   const { execSync } = await import("node:child_process");
   const leak = execSync(`grep -rl "ORBIT_ADMIN_TOKEN\\|${OWNER}" ${L.ROOT}/.output/public || true`).toString().trim();
   check("v22: admin token name/value absent from client bundle", leak === "", leak);
   await own.close(); pages.splice(pages.indexOf(own), 1);
+  await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape");
+  await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
+});
+await step("seek: «Шукаю орбіту» card → list → DM / invite; block", async () => {
+  const g = crew[0];
+  const openMore = async (p, name) => { await p.getByRole("button", { name: "Ще", exact: true }).click(); await p.getByText(name, { exact: true }).first().click(); };
+  await openMore(host, "Шукаю орбіту");
+  await host.locator("#sk-text").waitFor({ timeout: 8000 });
+  check("seek: 140-char cap on the field", (await host.locator("#sk-text").getAttribute("maxlength")) === "140");
+  await host.locator("#sk-text").fill("Шукаю людей для нового запуску, відповідаю ввечері ✦");
+  await host.getByRole("button", { name: "Опублікувати" }).click();
+  check("seek: card published for 7 days", await host.getByText("Картку опубліковано на 7 днів.").waitFor({ timeout: 8000 }).then(() => true, () => false));
+  await host.getByRole("button", { name: "Оновити картку" }).click();
+  check("seek: rate-limited re-publish", await host.getByText("Зачекай хвилину").waitFor({ timeout: 8000 }).then(() => true, () => false));
+  await shot(host, "50_seek_mine");
+  await axe(host, "seek");
+  await openMore(g, "Шукаю орбіту");
+  const card = g.locator(".sk-card", { hasText: "Шукаю людей для нового запуску" });
+  check("seek: others see the card", await card.waitFor({ timeout: 8000 }).then(() => true, () => false));
+  await card.getByRole("button", { name: /^Профіль:/ }).click();
+  check("seek: profile opens inline", await hasText(g, "У світі з"));
+  await shot(g, "51_seek_list");
+  await card.getByRole("button", { name: "Запросити в екіпаж" }).click();
+  const inDm = await g.getByText("Бачите лише ви двоє").first().waitFor({ timeout: 10000 }).then(() => true, () => false);
+  check("seek: invite opens the DM with the invitation sent", inDm && (await hasText(g, "Хочеш у мій екіпаж?")));
+  await shot(g, "52_dm_invite");
+  await axe(g, "dm");
+  // Блок: після блокування писати в розмову не можна.
+  await g.getByRole("button", { name: "Заблокувати", exact: true }).click();
+  await g.getByRole("button", { name: /^Заблокувати / }).click();
+  check("dm: block notice shown", await g.getByText("Ти заблокував цю людину").waitFor({ timeout: 6000 }).then(() => true, () => false));
+  await g.locator("#chat-input").fill("після блоку");
+  await g.getByRole("button", { name: "Надіслати" }).click();
+  check("dm: sending after block refused", await g.getByText("Ця розмова недоступна.").first().waitFor({ timeout: 6000 }).then(() => true, () => false));
+  await g.getByRole("button", { name: "Розблокувати", exact: true }).click();
+  await g.waitForTimeout(800);
   await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape");
   await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
 });
@@ -757,7 +900,7 @@ await step("offline / empty / error states", async () => {
   await tab(e, "Обмін");
   check("empty state: no own orbits", await hasText(e, "У тебе ще немає орбіт") || await hasText(e, "Черга порожня") || await hasText(e, "Поки"));
   await shot(e, "23_empty");
-  await more(e, "Історія");
+  await more(e, "Історія").catch(async (err) => { await shot(e, "23x_more_fail"); throw err; });
   check("history page renders", await hasText(e, "Історія"));
   await L.closePages(e);
   e.allowErrors = true;

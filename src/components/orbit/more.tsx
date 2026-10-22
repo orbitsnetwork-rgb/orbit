@@ -1,16 +1,15 @@
 import { ritualFrame } from "@/components/orbit/daily-charge";
-import { Download } from "lucide-react";
 import { LockedList } from "@/components/orbit/locked";
 import { HUB_LOCKS } from "@/lib/orbit/locked";
 import { Avatar } from "@/components/orbit/ui/kit";
-import { iosHint, useInstall } from "@/lib/orbit/pwa";
+import { InstallButton } from "@/components/orbit/install";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
-import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle } from "lucide-react";
+import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle, ShieldCheck, UserSearch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | "transparency" | "live" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | "transparency" | "live" | "seek" | "moderator" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -128,7 +127,9 @@ function entries(docs: number, unread: number): Entry[] {
     { route: "inbox", title: "Сповіщення", sub: "Події світу і про мене", icon: <Bell size={18} strokeWidth={1.7} />, tone: "nebula", group: "mine", auth: true, badge: unread ? String(unread > 99 ? "99+" : unread) : undefined },
     { route: "security", title: "Безпека", sub: "Ключ, пристрій, вихід", icon: <Shield size={18} strokeWidth={1.7} />, tone: "aurora", group: "mine", auth: true },
     { route: "explorer", title: "Оглядач", sub: "Будь-яка орбіта за номером", icon: <Telescope size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
-    { route: "live", title: "Живе", sub: "Чат світу, заявки на роль, питання", icon: <MessageCircle size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
+    { route: "live", title: "Розмови", sub: "Особисті розмови і кімнати запусків", icon: <MessageCircle size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
+    { route: "seek", title: "Шукаю орбіту", sub: "Люди, які шукають екіпаж", icon: <UserSearch size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
+    { route: "moderator", title: "Стати модератором", sub: "Заявка і її стан", icon: <ShieldCheck size={18} strokeWidth={1.7} />, tone: "nebula", group: "world", auth: true },
     { route: "leaders", title: "Рейтинг", sub: "Стабільність, орбіти, тримання", icon: <Trophy size={18} strokeWidth={1.7} />, tone: "sun", group: "world", auth: true },
     { route: "status", title: "Стан системи", sub: "Зв’язок, розклад ціни і фонду", icon: <Activity size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
     { route: "transparency", title: "Прозорість", sub: "Усі іскри, випуск, фонд і звірка", icon: <Scale size={18} strokeWidth={1.7} />, tone: "sun", group: "world" },
@@ -158,7 +159,6 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onO
   const q = query.trim().toLowerCase();
   const hits = q ? all.filter((row) => `${row.title} ${row.sub}`.toLowerCase().includes(q)) : null;
   const tiles = signedIn ? TILES.map((id) => all.find((row) => row.route === id)).filter((row): row is Entry => Boolean(row)) : [];
-  const install = useInstall();
   return (
     <Page title="Ще" kicker="Орбіти" onBack={onBack}>
       {profile ? (
@@ -168,18 +168,7 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onO
           <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
         </button>
       ) : null}
-      {install.can ? (
-        <button type="button" className="mh-install" onClick={() => void install.install()}>
-          <span className="mh-install-ico" aria-hidden><Download size={18} strokeWidth={1.8} /></span>
-          <span><b>Встановити «Орбіти»</b><small>Іконка на головному екрані, відкривається без браузера</small></span>
-          <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
-        </button>
-      ) : typeof window !== "undefined" && iosHint() ? (
-        <p className="mh-install" role="note">
-          <span className="mh-install-ico" aria-hidden><Download size={18} strokeWidth={1.8} /></span>
-          <span><b>Встановити на iPhone</b><small>У Safari натисни «Поділитися» → «На початковий екран»</small></span>
-        </p>
-      ) : null}
+      <InstallButton />
       <label className="mo-search">
         <Search size={16} strokeWidth={1.75} aria-hidden />
         <input type="search" value={query} placeholder="Пошук розділу" aria-label="Пошук розділу" maxLength={40} onChange={(event) => setQuery(event.target.value)} />

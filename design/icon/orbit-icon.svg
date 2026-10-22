@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- ORBIT app icon: planet + tilted ring. Content kept inside the maskable safe zone (r ≤ 205 around centre). -->
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="22%" r="95%">
+      <stop offset="0" stop-color="#2a2370"/>
+      <stop offset="0.45" stop-color="#121338"/>
+      <stop offset="1" stop-color="#05060f"/>
+    </radialGradient>
+    <linearGradient id="planet" x1="0.2" y1="0.1" x2="0.85" y2="0.95">
+      <stop offset="0" stop-color="#8ff0ff"/>
+      <stop offset="0.5" stop-color="#6f8cff"/>
+      <stop offset="1" stop-color="#6a3fd8"/>
+    </linearGradient>
+    <radialGradient id="shade" cx="35%" cy="30%" r="75%">
+      <stop offset="0.55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#05061a" stop-opacity="0.55"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffd98a"/>
+      <stop offset="0.5" stop-color="#fff4dc"/>
+      <stop offset="1" stop-color="#f2a65a"/>
+    </linearGradient>
+    <clipPath id="front"><rect x="0" y="256" width="512" height="256"/></clipPath>
+    <clipPath id="back"><rect x="0" y="0" width="512" height="256"/></clipPath>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g fill="#fff" opacity="0.7">
+    <circle cx="96" cy="120" r="3"/><circle cx="410" cy="96" r="2.4"/><circle cx="420" cy="400" r="3"/><circle cx="110" cy="404" r="2"/>
+  </g>
+  <g transform="rotate(-22 256 256)">
+    <ellipse cx="256" cy="256" rx="196" ry="58" fill="none" stroke="url(#ring)" stroke-width="22" opacity="0.55" clip-path="url(#back)"/>
+  </g>
+  <circle cx="256" cy="256" r="118" fill="url(#planet)"/>
+  <circle cx="256" cy="256" r="118" fill="url(#shade)"/>
+  <g transform="rotate(-22 256 256)">
+    <ellipse cx="256" cy="256" rx="196" ry="58" fill="none" stroke="url(#ring)" stroke-width="22" clip-path="url(#front)"/>
+    <circle cx="452" cy="256" r="20" fill="#fff4dc"/>
+  </g>
+</svg>

@@ -18,13 +18,19 @@ test("live: bot signal only on long, even, fast series", () => {
   assert.equal(looksScripted(even.map((t, i) => t + (i % 3) * 40)), false);
 });
 
-import { canUseRoom, normRoom, roomsFor } from "./live-rules.ts";
+import { canUseRoom, dmRoom, normRoom, roomsFor } from "./live-rules.ts";
 const mk = (status: string, id = "c-1") => ({
   accounts: ["a", "b", "c", "z"].map((x) => ({ id: x })),
   creations: [{ id, userId: "a", status, confirms: [{ witnessId: "b", at: 1 }] }],
 }) as never;
-test("rooms: world for any signed-in account, not for strangers", () => {
-  assert.equal(canUseRoom(mk("collecting"), "z", "world"), true);
+test("rooms: world chat is off; DM only for its two existing people", () => {
+  const w = { accounts: ["u-a", "u-b", "u-c"].map((id) => ({ id })), creations: [] } as never;
+  assert.equal(canUseRoom(w, "u-a", "d:u-a~u-b"), true);
+  assert.equal(canUseRoom(w, "u-b", "d:u-a~u-b"), true);
+  assert.equal(canUseRoom(w, "u-c", "d:u-a~u-b"), false);
+  assert.equal(canUseRoom(w, "u-a", "d:u-a~u-x"), false);
+  assert.equal(canUseRoom(w, "u-a", "d:u-b~u-a"), false);
+  assert.equal(canUseRoom(mk("collecting"), "z", "world"), false);
   assert.equal(canUseRoom(mk("collecting"), "ghost", "world"), false);
 });
 test("rooms: launch room only for author + confirmers", () => {
@@ -36,18 +42,21 @@ test("rooms: launch room only for author + confirmers", () => {
   assert.equal(canUseRoom(mk("failed"), "a", "l:c-1"), false);
 });
 test("rooms: ids are validated (no injection, no unknown kinds)", () => {
-  assert.equal(normRoom("world"), "world");
+  assert.equal(normRoom("world"), null);
+  assert.equal(dmRoom("u-b", "u-a"), "d:u-a~u-b");
+  assert.equal(dmRoom("u-a", "u-a"), null);
+  assert.equal(normRoom("d:u-a~u-b' or 1"), null);
   assert.equal(normRoom("l:c-1"), "l:c-1");
   assert.equal(normRoom("l:c-1' or 1=1"), null);
   assert.equal(normRoom("crew:1"), null);
-  assert.equal(normRoom(undefined), "world");
+  assert.equal(normRoom(undefined), null);
 });
-test("rooms: list shows world + only my launches, crew title after success", () => {
-  assert.deepEqual(roomsFor(mk("collecting"), "c").map((r) => r.id), ["world"]);
+test("rooms: list shows only my launches (no world), crew title after success", () => {
+  assert.deepEqual(roomsFor(mk("collecting"), "c").map((r) => r.id), []);
   const done = roomsFor(mk("done"), "b");
-  assert.equal(done[1].id, "l:c-1");
-  assert.equal(done[1].title, "Екіпаж №1");
-  assert.equal(done[1].members, 2);
+  assert.equal(done[0].id, "l:c-1");
+  assert.equal(done[0].title, "Екіпаж №1");
+  assert.equal(done[0].members, 2);
 });
 
 import { CHAT_PER_MIN, CHAT_PER_MIN_ALL, REACTIONS, normReaction, overChatCap } from "./live-rules.ts";

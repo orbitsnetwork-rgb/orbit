@@ -1,3 +1,5 @@
+import { ModeratorPage } from "@/components/orbit/moderator";
+import { SeekPage } from "@/components/orbit/seek";
 import { Assets } from "@/components/orbit/assets";
 import { Explorer } from "@/components/orbit/explorer";
 import { Fees } from "@/components/orbit/fees";
@@ -9,7 +11,7 @@ import { Security } from "@/components/orbit/security";
 import { Status } from "@/components/orbit/status";
 import { Inbox } from "@/components/orbit/inbox";
 import { Transparency } from "@/components/orbit/transparency";
-import { LiveHub, openRoomNext } from "@/components/orbit/live";
+import { LiveHub, openRoomNext, startDm } from "@/components/orbit/live";
 import { DocList, DocView, isDoc, MoreHub, type Route } from "@/components/orbit/more";
 import type { DocId } from "@/lib/orbit/docs";
 import type { Account, World } from "@/lib/orbit/engine";
@@ -46,6 +48,8 @@ export function Pages({
   if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
   if (top === "transparency") return <Transparency onBack={onPop} onClose={closer} />;
   if (top === "live" && world && user) return <LiveHub world={world} user={user} onBack={onPop} onClose={closer} />;
+  if (top === "seek" && world && user) return <SeekPage onBack={onPop} onClose={closer} onRoom={() => onReplace("live")} />;
+  if (top === "moderator" && world && user) return <ModeratorPage onBack={onPop} onClose={closer} />;
   if (top === "learn") return <Learn onBack={onPop} onClose={closer} />;
   if (top === "help") return <Help onBack={onPop} onClose={closer} onOpen={onPush} signedIn={Boolean(world && user)} />;
   if (top === "docs") return <DocList onOpen={(id) => onPush(`doc:${id}`)} onBack={onPop} onClose={closer} />;
@@ -70,6 +74,7 @@ export function Pages({
         user={user}
         onBack={onPop}
         onClose={closer}
+        onDm={(uid) => { void startDm(uid).then((out) => { if (typeof out !== "string") onReplace("live"); }); }}
         onGo={(tab) => {
           onClose();
           onTab?.(tab);

@@ -173,11 +173,14 @@ export default defineConfig(({ command, isPreview }) => ({
     ...(command === "build" || isPreview
       ? [
           nitro({
-            preset: process.env.HOST_NODE || process.env.RAILWAY_ENVIRONMENT ? "node-server" : process.env.NETLIFY ? "netlify" : "vercel",
+            preset: process.env.CF_WORKERS ? "cloudflare_module" : process.env.HOST_NODE || process.env.RAILWAY_ENVIRONMENT ? "node-server" : process.env.NETLIFY ? "netlify" : "vercel",
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
             serverDir: "./server",
+            ...(process.env.CF_WORKERS
+              ? { cloudflare: { deployConfig: false, nodeCompat: true } }
+              : {}),
           }),
         ]
       : []),

@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "orbit",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-01-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".output/public", "binding": "ASSETS" },
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "vars": { "ORBIT_HOST": "cloudflare", "URL": "https://orbit.orbits-network.workers.dev", "NODE_ENV": "production" }
+}

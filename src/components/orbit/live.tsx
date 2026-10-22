@@ -372,7 +372,7 @@ export function RoleGate() {
   }
   return (
     <section className="orbit-block" aria-labelledby="role-title">
-      <h2 className="orbit-h" id="role-title"><ShieldCheck size={18} aria-hidden /> Заявка на роль</h2>
+      <h2 className="orbit-h orbit-h-row" id="role-title"><ShieldCheck size={18} aria-hidden /> Заявка на роль</h2>
       <p className="orbit-note">Заявка нічого не вмикає автоматично. Довірену роль підтверджувача чи адміна видає лише власник світу після перевірки.</p>
       <div className="grid gap-2" role="radiogroup" aria-label="Роль">
         <button type="button" role="radio" aria-checked={role === "confirmer"} className={role === "confirmer" ? "orbit-go" : "orbit-quiet"} onClick={() => setRole("confirmer")}>Довірений підтверджувач</button>
@@ -392,7 +392,7 @@ export function QuestionList() {
   const [open, setOpen] = useState<number | null>(0);
   return (
     <section className="orbit-block" aria-labelledby="faq-title">
-      <h2 className="orbit-h" id="faq-title"><CircleHelp size={18} aria-hidden /> Часті питання</h2>
+      <h2 className="orbit-h orbit-h-row" id="faq-title"><CircleHelp size={18} aria-hidden /> Часті питання</h2>
       <ul className="orbit-stack">
         {QUESTIONS.map((item, i) => (
           <li key={item.q}>

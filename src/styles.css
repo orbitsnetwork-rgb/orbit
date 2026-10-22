@@ -2449,7 +2449,6 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .pd-page h1 { font-size: 1.6rem; margin: .8rem 0 .3rem; }
 .pd-page a { color: #cfc8ff; text-decoration: underline; }
 .pd-back { display: inline-block; min-height: 44px; padding-top: .6rem; text-decoration: none !important; }
-<<<<<<< HEAD
 /* ── Чат v2: розмови і бульбашки ───────────────────────── */
 .cv-split { display: grid; gap: 14px; }
 @media (min-width: 900px) { .cv-split { grid-template-columns: minmax(260px, 320px) 1fr; align-items: start; } .cv-list { position: sticky; top: 12px; } }
@@ -2608,7 +2607,6 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .sk-profile dd { margin: 2px 0 0; font-weight: 700; }
 .sk-quiet { opacity: .8; }
 .ox-dm { background: none; border: 0; padding: 0; color: var(--ion); text-decoration: underline; text-underline-offset: 2px; font: inherit; cursor: pointer; min-height: 24px; }
-=======
 
 /* ── Емблема і сузір'я (next-features) ── */
 .em-face { position: relative; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
@@ -2732,4 +2730,3 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .vw-done { color: var(--sun); background: rgb(242 196 109 / .1); }
 .cs-card-map .cs-dot > i { width: 6px; height: 6px; }
 .cs-card-map .cs-line { stroke-width: 1.6; }
->>>>>>> b3ad1c6 (next-features: Сузір'я, Емблема, Шлях довіри (1°/2°/3°), Відлуння, Слово поручителя; migrations 0050/0051 (additive); unit+e2e)

@@ -52,7 +52,7 @@ function InstallGuide({ kind, onClose }: { kind: "ios" | "other"; onClose: () =>
     <div className="ins-back" role="presentation" onClick={onClose}>
       <div ref={box} tabIndex={-1} className="ins-sheet" role="dialog" aria-modal="true" aria-labelledby="ins-title" onClick={(e) => e.stopPropagation()}>
         <header className="ins-head">
-          <img src="/icon-192.png" alt="" width={44} height={44} />
+          <img src="/favicon.svg" alt="" width={44} height={44} decoding="sync" />
           <div><h2 id="ins-title">Додати ORBIT на екран</h2><small>{kind === "ios" ? "iPhone і iPad · Safari" : "Твій браузер не показав вікно встановлення"}</small></div>
           <button type="button" className="mo-icon" aria-label="Закрити" onClick={onClose}><X size={18} aria-hidden /></button>
         </header>

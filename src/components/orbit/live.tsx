@@ -1,9 +1,9 @@
-import { Flag, Music, ShieldCheck, CircleHelp, MessageCircle } from "lucide-react";
+import { Flag, Music, ShieldCheck, CircleHelp, MessageCircle, Lock, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import { LockedList } from "@/components/orbit/locked";
-import { botSignal, chatRead, chatReport, chatSend, roleAsk, type ChatLine } from "@/lib/orbit/live";
-import { CHAT_MAX, WHY_MAX, WHY_MIN, looksScripted } from "@/lib/orbit/live-rules";
+import { botSignal, chatRead, chatReport, chatRooms, chatSend, roleAsk, type ChatLine } from "@/lib/orbit/live";
+import { CHAT_MAX, WHY_MAX, WHY_MIN, looksScripted, type RoomInfo } from "@/lib/orbit/live-rules";
 import { sessionCreds } from "@/lib/orbit/store";
 import type { Account, World } from "@/lib/orbit/engine";
 
@@ -14,7 +14,7 @@ const QUESTIONS = [
   { q: "Що таке іскра ✦?", a: "Внутрішня одиниця світу Орбіт. Це не гроші, не цінний папір і не обіцянка доходу. Вивести її зараз не можна." },
   { q: "Як стати підтверджувачем?", a: "Підтверджувати може кожен. Заявка — це прохання про довіру: власник світу перегляне її вручну." },
   { q: "Що буде, якщо акаунт схожий на бота?", a: "Автоматично нічого не забирається. Сервер лише ставить позначку, а людина її перевіряє. Якщо помилка — напиши нам." },
-  { q: "Хто бачить мої повідомлення?", a: "Усі, хто увійшов у світ. Показується лише «Ім’я П.». Не пиши паролі, ключ входу й коди." },
+  { q: "Хто бачить мої повідомлення?", a: "У чаті світу — усі, хто увійшов. У кімнаті запуску чи екіпажу — лише автор і ті, хто його підтвердив (це перевіряє сервер). Показується лише «Ім’я П.». Не пиши паролі, ключ входу й коди." },
 ];
 
 function ago(at: number, now: number) {
@@ -25,31 +25,73 @@ function ago(at: number, now: number) {
   return h < 24 ? `${h} год` : `${Math.round(h / 24)} дн`;
 }
 
-export function ChatRoom() {
+type RoomRow = RoomInfo & { unread: number };
+
+/**
+ * Живе оновлення: довге опитування (сервер тримає запит до 8 с і відповідає, щойно є нове).
+ * Працює лише поки вкладка видима; при помилках — пауза зі зростанням до 15 с.
+ */
+export function ChatRoom({ room = "world", title = "Чат світу", onOnline }: { room?: string; title?: string; onOnline?: (n: number) => void }) {
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [allowed, setAllowed] = useState(true);
+  const [online, setOnline] = useState(0);
   const [reported, setReported] = useState<number[]>([]);
   const box = useRef<HTMLDivElement>(null);
-  async function load() {
-    try {
-      const next = await chatRead({ data: sessionCreds() });
-      setLines(next.lines);
-    } catch {
-      /* мережа: спробуємо в наступному такті */
-    }
-    setLoaded(true);
+  const last = useRef(0);
+  function take(next: { lines: ChatLine[]; hidden: number[]; online: number; allowed: boolean }, full: boolean) {
+    setAllowed(next.allowed);
+    setOnline(next.online);
+    onOnline?.(next.online);
+    setLines((rows) => {
+      const base = full ? next.lines : [...rows, ...next.lines.filter((l) => !rows.some((r) => r.id === l.id))];
+      const out = base.filter((l) => !next.hidden.includes(l.id)).slice(-80);
+      last.current = out.length ? out[out.length - 1].id : last.current;
+      return out;
+    });
   }
   useEffect(() => {
-    void load();
-    // Опитування лише поки вкладка видима.
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void load();
-    }, 5000);
-    return () => window.clearInterval(id);
-  }, []);
+    let alive = true;
+    let pause = 0;
+    let timer = 0;
+    last.current = 0;
+    setLines([]);
+    setLoaded(false);
+    let busyLoop = false;
+    async function loop() {
+      if (!alive || busyLoop) return;
+      if (document.visibilityState !== "visible") return; // продовжимо на visibilitychange
+      busyLoop = true;
+      try {
+        const full = last.current === 0;
+        const next = await chatRead({ data: { ...sessionCreds(), room, after: last.current, wait: !full } });
+        if (!alive) return;
+        take(next, full);
+        setLoaded(true);
+        pause = 0;
+        if (!next.allowed) { busyLoop = false; return; }
+      } catch {
+        setLoaded(true);
+        pause = Math.min(15_000, (pause || 1000) * 2);
+      }
+      busyLoop = false;
+      timer = window.setTimeout(() => void loop(), pause || 50);
+    }
+    // Один запит за раз: новий цикл стартує лише коли попередній завершився і вкладка знову видима.
+    const onVis = () => {
+      if (document.visibilityState === "visible" && !busyLoop) { window.clearTimeout(timer); void loop(); }
+    };
+    void loop();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [room]);
   useEffect(() => {
     box.current?.scrollTo({ top: box.current.scrollHeight });
   }, [lines.length]);
@@ -59,29 +101,44 @@ export function ChatRoom() {
     setBusy(true);
     setError("");
     try {
-      const out = await chatSend({ data: { ...sessionCreds(), text: clean } });
+      const out = await chatSend({ data: { ...sessionCreds(), room, text: clean } });
       if (out.ok) setText("");
       else setError(out.error ?? "Не надіслано.");
     } catch {
       setError("Сервер не відповідає. Спробуй ще раз.");
     }
     setBusy(false);
-    await load();
+    // Свіже повідомлення приходить через довге опитування; разове читання — щоб не чекати.
+    try {
+      const next = await chatRead({ data: { ...sessionCreds(), room, after: last.current } });
+      take(next, false);
+    } catch { /* наступний цикл підхопить */ }
   }
   async function report(id: number) {
     setReported((rows) => [...rows, id]);
     await chatReport({ data: { ...sessionCreds(), id } }).catch(() => null);
   }
   const now = Date.now();
+  if (!allowed) {
+    return (
+      <section className="orbit-block" aria-labelledby="chat-title">
+        <h2 className="orbit-h" id="chat-title"><Lock size={18} aria-hidden /> {title}</h2>
+        <p className="orbit-note" role="alert">Ця кімната лише для учасників запуску: автора і тих, хто його підтвердив.</p>
+      </section>
+    );
+  }
   return (
     <section className="orbit-block" aria-labelledby="chat-title">
-      <h2 className="orbit-h" id="chat-title"><MessageCircle size={18} aria-hidden /> Чат світу</h2>
-      <p className="orbit-note">Будь чемним. Не пиши ключ входу, коди й паролі. Скарга від трьох людей ховає повідомлення до перевірки.</p>
-      <div ref={box} className="orbit-stack" style={{ maxHeight: 320, overflow: "auto" }} role="log" aria-live="polite" aria-label="Повідомлення чату">
+      <h2 className="orbit-h" id="chat-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <MessageCircle size={18} aria-hidden /> <span style={{ flex: 1 }}>{title}</span>
+        <span className="orbit-live-dot" role="status" aria-label={`Онлайн: ${online}`}><i aria-hidden /> {online} онлайн</span>
+      </h2>
+      <p className="orbit-note">{room === "world" ? "Бачать усі, хто увійшов у світ." : "Бачать лише автор запуску і його підтверджувачі."} Не пиши ключ входу, коди й паролі. Скарга від трьох людей ховає повідомлення.</p>
+      <div ref={box} className="orbit-stack" style={{ maxHeight: 340, overflow: "auto" }} role="log" aria-live="polite" aria-label="Повідомлення чату">
         {!loaded ? <p className="orbit-note">Завантажую…</p> : null}
-        {loaded && lines.length === 0 ? <p className="orbit-note">Поки тихо. Привітайся першим — і поклич друга, щоб було кому відповісти.</p> : null}
+        {loaded && lines.length === 0 ? <p className="orbit-note">Поки тихо. Привітайся першим — {room === "world" ? "і поклич друга, щоб було кому відповісти." : "твій екіпаж побачить."}</p> : null}
         {lines.map((line) => (
-          <div key={line.id} className="orbit-note" style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div key={line.id} className={line.mine ? "orbit-msg orbit-msg-mine" : "orbit-msg"}>
             <p style={{ flex: 1, margin: 0, overflowWrap: "anywhere" }}>
               <b>{line.mine ? "Я" : line.name}</b> <span style={{ opacity: 0.6, fontSize: 12 }}>{ago(line.at, now)}</span>
               <br />
@@ -102,6 +159,43 @@ export function ChatRoom() {
         {error ? <p className="orbit-note" role="alert">{error}</p> : null}
       </form>
     </section>
+  );
+}
+
+export function RoomList({ current, onPick }: { current: string; onPick: (room: RoomRow) => void }) {
+  const [rooms, setRooms] = useState<RoomRow[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const out = await chatRooms({ data: sessionCreds() });
+        if (alive) setRooms(out.rooms);
+      } catch { /* мережа */ }
+    };
+    void load();
+    const id = window.setInterval(() => void load(), 20_000);
+    return () => { alive = false; window.clearInterval(id); };
+  }, [current]);
+  if (!rooms.length) return null;
+  return (
+    <nav className="orbit-block" aria-labelledby="rooms-title">
+      <h2 className="orbit-h" id="rooms-title"><Users size={18} aria-hidden /> Кімнати</h2>
+      <ul className="orbit-rooms">
+        {rooms.map((room) => (
+          <li key={room.id}>
+            <button type="button" className={room.id === current ? "orbit-room is-on" : "orbit-room"} aria-current={room.id === current ? "true" : undefined}
+              aria-label={`${room.title}, ${room.members} учасн., ${room.unread ? `непрочитаних ${room.unread}` : "усе прочитано"}`}
+              onClick={() => { setRooms((rows) => rows.map((r) => (r.id === room.id ? { ...r, unread: 0 } : r))); onPick(room); }}>
+              <span className="orbit-room-k">{room.kind === "world" ? "🌍" : room.kind === "crew" ? "✦" : "🚀"}</span>
+              <span className="orbit-room-t">{room.title}<small>{room.kind === "world" ? `${room.members} у світі` : `${room.members} учасн.`}</small></span>
+              {room.unread && room.id !== current ? <span className="orbit-room-n" aria-hidden>{room.unread >= 99 ? "99+" : room.unread}</span> : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {rooms.length === 1 ? <p className="orbit-note">Свою кімнату отримує кожен запуск: ти, автор і ті, хто підтвердив. Почни запуск або підтвердь чийсь — і вона з'явиться тут.</p> : null}
+    </nav>
   );
 }
 
@@ -244,12 +338,14 @@ export function watchBot(): () => void {
 
 export function LiveHub({ world, onBack, onClose }: { world: World; user: Account; onBack: () => void; onClose?: () => void }) {
   const n = world.accounts.length;
+  const [room, setRoom] = useState({ id: "world", title: "Чат світу" });
   return (
     <Page title="Живе" kicker="Світ" onBack={onBack} onClose={onClose}>
       <div className="orbit-stack">
         <p className="orbit-note">У світі зараз {n} {n === 1 ? "людина" : "людей"}.</p>
-        <ChatRoom />
-        <LockedList ids={["chatRooms", "chatReact"]} title="Скоро в живому" />
+        <RoomList current={room.id} onPick={(next) => setRoom({ id: next.id, title: next.kind === "world" ? "Чат світу" : next.title })} />
+        <ChatRoom key={room.id} room={room.id} title={room.title} />
+        <LockedList ids={["chatReact"]} title="Скоро в живому" />
         <RoleGate />
         <QuestionList />
       </div>

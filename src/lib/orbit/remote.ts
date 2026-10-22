@@ -24,6 +24,7 @@ import { codeMail, mailReady, sendMail } from "@/lib/orbit/mail";
 import { verifyProof } from "@/lib/orbit/identity";
 import { clipTurnstile, turnstileSecret, turnstileSiteKey, TURNSTILE_ACTIONS, TURNSTILE_FAIL, verifyTurnstile } from "@/lib/orbit/turnstile";
 import { pickClientIp } from "@/lib/orbit/client-ip";
+import { clockQuiet, clockWindow, type ClockWindow } from "@/lib/orbit/clock-window";
 import { diffEvents, markDay, type Ev, type Extra, type Mine } from "@/lib/orbit/social";
 
 export type OrbitAction =
@@ -46,12 +47,17 @@ export type OrbitAction =
   | { type: "thank"; cr: string; to: string; p?: number }
   | { type: "nudge"; cr: string };
 
-type Call = { ts?: string | null; proof?: { kind: string; token: string } | null; verifiedEmail?: string | null; verifiedPhone?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
+type Call = { v?: string | null; ts?: string | null; proof?: { kind: string; token: string } | null; verifiedEmail?: string | null; verifiedPhone?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
-export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string>; /** v17: звідки історія (угоди, журнал) — з архівних таблиць чи, при розбіжності, зі світу. */ hist?: "archive" | "world" };
+export type OrbitReply = Step & { /** C1: версія світу (updated_at), яку клієнт тримає. */ v?: string; /** C1: світ не змінився з версії клієнта — world лише заглушка з now/sessionId, клієнт лишає свій. */ same?: true; key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string>; /** v17: звідки історія (угоди, журнал) — з архівних таблиць чи, при розбіжності, зі світу. */ hist?: "archive" | "world" };
 
 export const turnstileConfig = createServerFn({ method: "GET" }).handler(async () => ({ siteKey: turnstileSecret() ? turnstileSiteKey() : null }));
+
+/** Версія світу — текст updated_at з бази (напр. «2026-10-22 21:10:59.593+00»). */
+function clipVersion(value: unknown): string | null {
+  return typeof value === "string" && /^[0-9 :.+\-T]{10,40}$/.test(value) ? value : null;
+}
 
 function clipProof(value: unknown): { kind: string; token: string } | null {
   const v = value as { kind?: unknown; token?: unknown } | null;
@@ -157,6 +163,8 @@ export function devMailCode() {
 
 function reply(raw: OrbitReply, people: Identity[], social?: Social, hist?: Seen["hist"]): OrbitReply {
   const step = raw.self && raw.self.mailCode && !devMailCode() ? { ...raw, self: { ...raw.self, mailCode: null } } : raw;
+  // C1: світ не змінився — без проєкції й без мегабайтів: лише заглушка (now, sessionId) і особисте.
+  if (step.same && step.world.sessionId) return { ...step, world: { ...emptyWorld(step.world.now), sessionId: step.world.sessionId }, mine: social?.mine, origins: social?.origins };
   if (!step.world.sessionId) return { ...step, world: guestWorld(step.world), pub: statsOf(step.world) };
   // v17, крок 2: угоди й журнал для екранів — з архівних таблиць (якщо збігаються зі світом), інакше зі світу.
   const shown = hist ? { ...step.world, trades: hist.trades, log: hist.log.slice(0, step.world.log.length || 40) } : step.world;
@@ -308,7 +316,7 @@ function own(people: Identity[], id: string | null): Identity | null {
 }
 
 export const orbitAct = createServerFn({ method: "POST" })
-  .inputValidator((raw: unknown) => ({ ...clean(raw), ts: clipTurnstile((raw as { ts?: unknown } | null)?.ts), proof: clipProof((raw as { proof?: unknown } | null)?.proof), verifiedEmail: null }))
+  .inputValidator((raw: unknown) => ({ ...clean(raw), v: clipVersion((raw as { v?: unknown } | null)?.v), ts: clipTurnstile((raw as { ts?: unknown } | null)?.ts), proof: clipProof((raw as { proof?: unknown } | null)?.proof), verifiedEmail: null }))
   .handler(async ({ data }): Promise<OrbitReply> => {
     try {
       const out: Seen = { people: [] };
@@ -355,19 +363,37 @@ function sameWorld(a: World, b: World) {
 async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   const { getSql } = await import("@/lib/db");
   const sql = await getSql();
-  const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
-  if (!rows[0]) return null;
-  const bag = unpackDoc(rows[0].doc);
-  const stored = { ...bag.world, sessionId: null };
-  const clocked = adoptClock(stored);
-  if (!sameWorld(stored, clocked)) return null;
+  // C1: розпакований світ тримаємо в пам'яті процесу, поки не зміниться updated_at (щоразу читаємо лише версію).
+  const held = await peekCache((text, params) => sql.query(text, params));
+  if (!held) return null;
+  const wall = Date.now();
+  // C1: годинник нічого не змінює (clock-window.ts, property-тест) — без adoptClock і без двох JSON.stringify світу.
+  if (!clockQuiet(held.win, wall)) return null;
   const K = await import("@/lib/orbit/key-hash");
-  const self = K.verifyKey(bag.keys, data.sessionId, data.sessionKey, `v:${data.ip ?? "unknown"}`) ? data.sessionId : null;
-  out.people = bag.people;
-  const world = attach(clocked, self);
-  out.social = await loadSocial(sql, world, bag.extra);
+  const self = K.verifyKey(held.bag.keys, data.sessionId, data.sessionKey, `v:${data.ip ?? "unknown"}`) ? data.sessionId : null;
+  const me = self ? (held.people.get(self) ?? null) : null;
+  out.people = held.bag.people;
+  const world = attach({ ...held.bag.world, sessionId: null, now: wall }, self);
+  out.social = await loadSocial(sql, world, held.bag.extra);
+  if (self && data.v && data.v === held.v) return { world, self: me, same: true, v: held.v };
   out.hist = await loadHistory(sql, world);
-  return { world, self: own(bag.people, self) };
+  return { world, self: me, v: held.v };
+}
+
+type Peek = { v: string; bag: import("@/lib/orbit/access").Bag; win: ClockWindow; people: Map<string, Identity> };
+const peekHeld = globalThis as { __orbitPeek__?: Peek | null };
+async function peekCache(query: <T>(text: string, params: unknown[]) => Promise<T[]>): Promise<Peek | null> {
+  const head = await query<{ v: string }>(`select updated_at::text as v from orbit_world where id = 'world'`, []);
+  if (!head[0]) return (peekHeld.__orbitPeek__ = null);
+  const cached = peekHeld.__orbitPeek__;
+  if (cached && cached.v === head[0].v) return cached;
+  const rows = await query<{ doc: unknown; v: string }>(`select doc, updated_at::text as v from orbit_world where id = 'world'`, []);
+  if (!rows[0]) return (peekHeld.__orbitPeek__ = null);
+  const bag = unpackDoc(rows[0].doc);
+  const world = { ...bag.world, sessionId: null };
+  const next: Peek = { v: rows[0].v, bag: { ...bag, world }, win: clockWindow(world), people: new Map(bag.people.map((row) => [row.userId, row])) };
+  peekHeld.__orbitPeek__ = next;
+  return next;
 }
 
 /**

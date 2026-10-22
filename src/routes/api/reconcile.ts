@@ -40,9 +40,12 @@ export const Route = createFileRoute("/api/reconcile")({
           launchesMissing: launches.missing,
           ok: parity.ok && launches.ok,
         };
+        // C1: таблиці 0046 мають дзеркалити документ (null — міграцію ще не застосовано).
+        const split = await (await import("@/lib/orbit/split")).splitDiff((text, params) => sql.query(text, params));
+        if (split && !split.ok) console.error("orbit reconcile: split mismatch", JSON.stringify(split.rows));
         if (!archive.ok) console.error("orbit reconcile: archive mismatch", JSON.stringify(archive));
         if (!check.ok) console.error("orbit reconcile: mismatch", check.diff, check.unexplained);
-        return Response.json({ ...check, archive, at: new Date().toISOString() }, { status: check.ok ? 200 : 409, headers: { "cache-control": "no-store" } });
+        return Response.json({ ...check, archive, split, at: new Date().toISOString() }, { status: check.ok ? 200 : 409, headers: { "cache-control": "no-store" } });
       },
     },
   },

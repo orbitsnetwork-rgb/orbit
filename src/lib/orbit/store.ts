@@ -200,6 +200,9 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
   return sendNow(action, quiet, keyOverride);
 }
 
+/** C1: версія світу, яку тримає клієнт (лише для опитування; будь-яка відповідь без v її скидає). */
+let worldV: { v: string; sessionId: string | null } | null = null;
+
 function sendNow(action: OrbitAction, quiet = false, keyOverride?: string): Promise<OrbitReply | null> {
   if (action.type !== "pull" && action.type !== "probe") {
     lastOwnAction = Date.now();
@@ -214,8 +217,11 @@ function sendNow(action: OrbitAction, quiet = false, keyOverride?: string): Prom
       const ts = action.type === "register" || action.type === "enter" || action.type === "enterMail"
         ? await (await import("@/lib/orbit/turnstile-client")).turnstileToken()
         : null;
-      const step = await orbitAct({
+      const priorWorld = useOrbits.getState().world;
+      const askV = action.type === "pull" && worldV && worldV.sessionId === sessionId && priorWorld.sessionId === sessionId ? worldV.v : null;
+      const got = await orbitAct({
         data: {
+          ...(askV ? { v: askV } : {}),
           ...(ts ? { ts } : {}),
           ...(action.type === "register" && pendingProof ? { proof: pendingProof } : {}),
           sessionId,
@@ -226,6 +232,10 @@ function sendNow(action: OrbitAction, quiet = false, keyOverride?: string): Prom
         },
       });
       const prior = useOrbits.getState();
+      // C1: «світ не змінився» — лишаємо свій світ (лише годинник), якщо він для тієї самої сесії; інакше чекаємо повну відповідь.
+      const sameOk = Boolean(got.same) && prior.world.sessionId === got.world.sessionId;
+      const step: OrbitReply = got.same ? { ...got, world: sameOk ? { ...prior.world, now: got.world.now } : prior.world } : got;
+      worldV = got.v && (!got.same || sameOk) ? { v: got.v, sessionId: got.world.sessionId } : null;
       if (step.key && step.world.sessionId) remember(step.world.sessionId, step.key);
       else if (action.type === "enter" && !step.error && key) remember(action.id, key);
       else if (action.type === "enterMail" && !step.error && key && step.world.sessionId) remember(step.world.sessionId, key);

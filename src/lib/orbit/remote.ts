@@ -20,6 +20,7 @@ import {
 import { creditTopup, openCheckout, readCheckout } from "@/lib/orbit/stripe";
 import { knownSession, paymentsEnabled, PAYMENTS_OFF } from "@/lib/orbit/payments";
 import { phraseIndex } from "@/lib/orbit/pulse";
+import { clipTurnstile, turnstileSecret, turnstileSiteKey, TURNSTILE_ACTIONS, TURNSTILE_FAIL, verifyTurnstile } from "@/lib/orbit/turnstile";
 import { diffEvents, markDay, type Ev, type Extra, type Mine } from "@/lib/orbit/social";
 
 export type OrbitAction =
@@ -41,10 +42,12 @@ export type OrbitAction =
   | { type: "thank"; cr: string; to: string; p?: number }
   | { type: "nudge"; cr: string };
 
-type Call = { sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
+type Call = { ts?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
 export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string>; /** v17: звідки історія (угоди, журнал) — з архівних таблиць чи, при розбіжності, зі світу. */ hist?: "archive" | "world" };
+
+export const turnstileConfig = createServerFn({ method: "GET" }).handler(async () => ({ siteKey: turnstileSecret() ? turnstileSiteKey() : null }));
 
 const LOCKED = "Це ім’я відкрите на іншому пристрої. Потрібен його ключ.";
 
@@ -292,11 +295,21 @@ function own(people: Identity[], id: string | null): Identity | null {
 }
 
 export const orbitAct = createServerFn({ method: "POST" })
-  .inputValidator(clean)
+  .inputValidator((raw: unknown) => ({ ...clean(raw), ts: clipTurnstile((raw as { ts?: unknown } | null)?.ts) }))
   .handler(async ({ data }): Promise<OrbitReply> => {
     try {
       const out: Seen = { people: [] };
-      const step = await act(await stamp(data), out);
+      const stamped = await stamp(data);
+      const secret = turnstileSecret();
+      if (secret && TURNSTILE_ACTIONS.has(data.action.type)) {
+        const server = await import("@tanstack/react-start/server");
+        const ip = clientIp(server);
+        if (!(await verifyTurnstile(data.ts ?? null, ip, secret))) {
+          const view = await act({ ...stamped, action: { type: "pull" } }, out);
+          return reply({ ...view, error: TURNSTILE_FAIL }, out.people, out.social, out.hist);
+        }
+      }
+      const step = await act(stamped, out);
       return reply(step, out.people, out.social, out.hist);
     } catch (error) {
       // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
@@ -337,6 +350,12 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
  * Пристрій береться з підписаної cookie (сервер), а не з localStorage: очищення сховища більше не скидає ліміти.
  * Якщо cookie ще немає, приймаємо id з клієнта (для старих пристроїв) або створюємо новий — і підписуємо.
  */
+/** Справжня IP клієнта: Cloudflare (cf-connecting-ip), Netlify (x-nf-client-connection-ip), інакше X-Forwarded-For. */
+function clientIp(server: typeof import("@tanstack/react-start/server")): string {
+  const raw = server.getRequestHeader("cf-connecting-ip") ?? server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
+  return raw.split(",")[0].trim() || "unknown";
+}
+
 async function stamp(data: Call): Promise<Call> {
   const server = await import("@tanstack/react-start/server");
   const dev = await import("@/lib/orbit/device");
@@ -346,7 +365,7 @@ async function stamp(data: Call): Promise<Call> {
     const https = new URL(server.getRequestUrl()).protocol === "https:";
     server.setCookie(dev.DEVICE_COOKIE, dev.signDevice(device), { httpOnly: true, sameSite: "lax", secure: https, path: "/", maxAge: 60 * 60 * 24 * 400 });
   }
-  const rawIp = server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
+  const rawIp = clientIp(server);
   return { ...data, device, ip: dev.ipTag(rawIp.split(",")[0].trim()) };
 }
 

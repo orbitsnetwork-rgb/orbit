@@ -174,8 +174,12 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
     const held = deviceKeys();
     const key = keyOverride ?? null;
     try {
+      const ts = action.type === "register" || action.type === "enter" || action.type === "enterMail"
+        ? await (await import("@/lib/orbit/turnstile-client")).turnstileToken()
+        : null;
       const step = await orbitAct({
         data: {
+          ...(ts ? { ts } : {}),
           sessionId,
           sessionKey: sessionId ? (held[sessionId] ?? null) : null,
           key: key ?? (sessionId ? (held[sessionId] ?? null) : null),

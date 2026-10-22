@@ -166,8 +166,20 @@ function touch(world: World, id: string): World {
   return patchAccount(world, id, (account) => ({ ...account, lastActiveAt: world.now }));
 }
 
+/** crew3-міграція: старі заявки, що вже мають ≥ потрібних підтверджень (з епохи «8»), одразу йдуть на заряд. */
+function promoteReady(world: World): World {
+  const need = crewNeed(world);
+  if (!world.creations.some((item) => item.status === "collecting" && item.confirms.length >= need)) return world;
+  return {
+    ...world,
+    creations: world.creations.map((item) =>
+      item.status === "collecting" && item.confirms.length >= need ? { ...item, status: "charging", chargeStartedAt: world.now, code: null, codeExpires: 0 } : item,
+    ),
+  };
+}
+
 export function settle(world: World): World {
-  let next = resolveCharges(world);
+  let next = resolveCharges(promoteReady(world));
   next = rollPrice(next);
   next = distribute(next);
   return next;

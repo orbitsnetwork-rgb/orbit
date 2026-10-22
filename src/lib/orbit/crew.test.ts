@@ -90,3 +90,14 @@ test("guards: third non-holder is refused once 10+ people hold orbits", async ()
   assert.match(E.witnessBlock(world, open, acc(ids[3])) ?? "", /вже є орбіта/);
   assert.equal(E.witnessBlock(world, open, acc(ids[5])), null);
 });
+
+test("migration: an old collecting launch with ≥3 confirms starts charging on settle", async () => {
+  const E = await import("./engine.ts");
+  let world: World = emptyWorld(1_700_000_000_000);
+  for (let i = 0; i < 6; i++) world = E.register(as(world, ""), "Мі" + i).world;
+  const ids = world.accounts.map((a) => a.id);
+  const old = { id: "c-old", userId: ids[0], status: "collecting", confirms: ids.slice(1, 6).map((w) => ({ witnessId: w, at: world.now })), code: null, codeExpires: 0, codeDay: "", codesToday: 0, chargeStartedAt: null } as unknown as Creation;
+  const next = E.settle({ ...world, creations: [old] });
+  assert.equal(next.creations[0].status, "charging");
+  assert.equal(next.creations[0].chargeStartedAt, world.now);
+});

@@ -20,6 +20,8 @@ import {
 import { creditTopup, openCheckout, readCheckout } from "@/lib/orbit/stripe";
 import { knownSession, paymentsEnabled, PAYMENTS_OFF } from "@/lib/orbit/payments";
 import { phraseIndex } from "@/lib/orbit/pulse";
+import { codeMail, mailReady, sendMail } from "@/lib/orbit/mail";
+import { verifyProof } from "@/lib/orbit/identity";
 import { clipTurnstile, turnstileSecret, turnstileSiteKey, TURNSTILE_ACTIONS, TURNSTILE_FAIL, verifyTurnstile } from "@/lib/orbit/turnstile";
 import { diffEvents, markDay, type Ev, type Extra, type Mine } from "@/lib/orbit/social";
 
@@ -30,6 +32,7 @@ export type OrbitAction =
   | { type: "enter"; id: string }
   | { type: "enterMail"; email: string }
   | { type: "confirmMail"; code: string }
+  | { type: "resendMail" }
   | { type: "start" }
   | { type: "issue" }
   | { type: "accept"; code: string; q?: string }
@@ -42,12 +45,18 @@ export type OrbitAction =
   | { type: "thank"; cr: string; to: string; p?: number }
   | { type: "nudge"; cr: string };
 
-type Call = { ts?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
+type Call = { ts?: string | null; proof?: { kind: string; token: string } | null; verifiedEmail?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
 export type PublicStats = { price: number; orbits: number; queue: number; people: number; trades24h: number; fund: number };
 export type OrbitReply = Step & { key?: string; taken?: boolean; self?: Identity | null; url?: string; pub?: PublicStats; mine?: Mine; origins?: Record<string, string>; /** v17: звідки історія (угоди, журнал) — з архівних таблиць чи, при розбіжності, зі світу. */ hist?: "archive" | "world" };
 
 export const turnstileConfig = createServerFn({ method: "GET" }).handler(async () => ({ siteKey: turnstileSecret() ? turnstileSiteKey() : null }));
+
+function clipProof(value: unknown): { kind: string; token: string } | null {
+  const v = value as { kind?: unknown; token?: unknown } | null;
+  if (!v || (v.kind !== "google" && v.kind !== "phone") || typeof v.token !== "string" || v.token.length > 4096) return null;
+  return { kind: v.kind, token: v.token };
+}
 
 const LOCKED = "Це ім’я відкрите на іншому пристрої. Потрібен його ключ.";
 
@@ -94,6 +103,7 @@ function clean(input: unknown): Call {
       },
     };
   }
+  if (type === "resendMail") return { sessionId, sessionKey, key, device, action: { type } };
   if (type === "enterMail") return { sessionId, sessionKey, key, device, action: { type, email: String(action.email ?? "").slice(0, 80) } };
   if (type === "confirmMail") {
     return { sessionId, sessionKey, key, device, action: { type, code: String(action.code ?? "").replace(/\D/g, "").slice(0, 6) } };
@@ -295,7 +305,7 @@ function own(people: Identity[], id: string | null): Identity | null {
 }
 
 export const orbitAct = createServerFn({ method: "POST" })
-  .inputValidator((raw: unknown) => ({ ...clean(raw), ts: clipTurnstile((raw as { ts?: unknown } | null)?.ts) }))
+  .inputValidator((raw: unknown) => ({ ...clean(raw), ts: clipTurnstile((raw as { ts?: unknown } | null)?.ts), proof: clipProof((raw as { proof?: unknown } | null)?.proof), verifiedEmail: null }))
   .handler(async ({ data }): Promise<OrbitReply> => {
     try {
       const out: Seen = { people: [] };
@@ -309,7 +319,17 @@ export const orbitAct = createServerFn({ method: "POST" })
           return reply({ ...view, error: TURNSTILE_FAIL }, out.people, out.social, out.hist);
         }
       }
+      if (data.action.type === "register" && data.proof) {
+        const proof = await verifyProof(data.proof.kind, data.proof.token);
+        if (proof?.kind === "google") stamped.verifiedEmail = proof.email;
+      }
       const step = await act(stamped, out);
+      if (mailReady() && (data.action.type === "register" || data.action.type === "resendMail") && !step.error && step.self && !step.self.confirmed && step.self.mailCode) {
+        const letter = codeMail(step.self.mailCode, "confirm");
+        const sent = await sendMail(step.self.email, letter.subject, letter.text);
+        if (!sent) (step as { notice?: string }).notice = "Лист поки не відправився. Натисни «Надіслати код ще раз» за хвилину.";
+        else if (data.action.type === "resendMail") (step as { notice?: string }).notice = `Новий код надіслано на ${step.self.email}.`;
+      }
       return reply(step, out.people, out.social, out.hist);
     } catch (error) {
       // Внутрішні подробиці (SQL, стек) лишаються в журналі сервера.
@@ -565,6 +585,21 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         ]);
         return { world: base, error: LOCKED };
       }
+      if (self && mailReady() && actsAsSelf(data.action) && data.action.type !== "confirmMail" && data.action.type !== "resendMail") {
+        const me = bag.people.find((row) => row.userId === self);
+        if (me && !me.confirmed) return { world: base, error: "Спершу підтвердь пошту: введи 6 цифр з листа.", self: me };
+      }
+      if (data.action.type === "resendMail" && self) {
+        const blocked = await gate(`m:${self}`, "mail");
+        if (blocked) return blocked;
+        const me = bag.people.find((row) => row.userId === self);
+        if (!me) return { world: base, error: "У цього імені немає пошти.", self: null };
+        if (me.confirmed) return { world: base, self: me, notice: "Пошта вже підтверджена." };
+        miss(`m:${self}`, "mail");
+        const people = bag.people.map((row) => (row.userId === self ? { ...row, mailCode: mailCode() } : row));
+        await persist(people);
+        return { world: base, self: people.find((row) => row.userId === self) ?? null };
+      }
       if (actsAsSelf(data.action) && !self) {
         const step = data.sessionId ? { world: base, error: LOCKED } : run(base, data.action);
         await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
@@ -700,7 +735,10 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           ]);
           return { world: base, error: data.device ? "Сьогодні з цього пристрою вже 3 імені." : "Пристрій не впізнано." };
         }
-        fresh = { userId: "", ...person, confirmed: false, mailCode: mailCode() };
+        // Пошта підтверджена Google — код не потрібен. Без поштового сервісу (і без dev-показу коду) код вимагати не можна: це глухий кут.
+        const trusted = Boolean(data.verifiedEmail && data.verifiedEmail === person.email.trim().toLowerCase());
+        const confirmed = trusted || (!mailReady() && !devMailCode());
+        fresh = { userId: "", ...person, confirmed, mailCode: confirmed ? null : mailCode() };
       }
 
       const step =

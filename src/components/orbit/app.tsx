@@ -2,6 +2,7 @@ import { useRouterState } from "@tanstack/react-router";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
 import { PioneerBoard, PioneerCard } from "@/components/orbit/pioneer";
+import { DailyCharge } from "@/components/orbit/daily-charge";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, ListOrdered, Rocket, ShoppingCart, Tag } from "lucide-react";
 import { ArrowLeftRight, Bell, CircleHelp, GraduationCap, Telescope, Trophy, Hexagon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
@@ -634,6 +635,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
     <div className="orbit-stack hm">
       {isNewcomer(world, user) && !pendingMail ? <FirstStep onTab={onTab} /> : null}
       {!pendingMail ? <PioneerCard world={world} user={user} /> : null}
+      <DailyCharge world={world} user={user} />
       <WalletCard world={world} user={user} onTab={onTab} onLocked={() => setLock("buy")} />
       {!pendingMail ? <Checklist world={world} user={user} onTab={onTab} /> : null}
       <section className="orbit-block hm-price" aria-labelledby="hm-price-title">

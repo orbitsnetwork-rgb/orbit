@@ -1,3 +1,4 @@
+import { ritualFrame } from "@/components/orbit/daily-charge";
 import { Download } from "lucide-react";
 import { LockedList } from "@/components/orbit/locked";
 import { HUB_LOCKS } from "@/lib/orbit/locked";
@@ -162,7 +163,7 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onO
     <Page title="Ще" kicker="Орбіти" onBack={onBack}>
       {profile ? (
         <button type="button" className="mh-me" onClick={() => onOpen("assets")}>
-          <Avatar id={profile.id} name={profile.name} size={44} me />
+          <Avatar id={profile.id} name={profile.name} size={44} me frame={typeof window === "undefined" ? undefined : ritualFrame(profile.id)} />
           <span><b>{profile.name}</b><small>{profile.line}</small></span>
           <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
         </button>

@@ -111,6 +111,16 @@ await step("mail confirm + checklist", async () => {
     await pn.scrollIntoViewIfNeeded();
     await shot(host, "05b_pioneer");
   }
+  {
+    const dc = host.getByTestId("daily-charge");
+    check("v23: daily charge card on home", (await dc.count()) === 1);
+    await dc.evaluate((el) => el.scrollIntoView({ block: "center" })); await host.waitForTimeout(300);
+    await dc.getByRole("button", { name: "Зарядитися на сьогодні" }).click({ force: true }); // кнопка «дихає» — Playwright не чекає стабільності
+    await host.waitForTimeout(400);
+    check("v23: daily charge tapped → streak 1, no ✦", (await hasText(host, "Заряджено на сьогодні")) && /Серія: 1 день/.test(await dc.innerText()));
+    await dc.scrollIntoViewIfNeeded();
+    await shot(host, "05c_daily_charge");
+  }
 });
 await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
   check("v19: bell still in header", (await host.locator(".mo-bell").count()) === 1);

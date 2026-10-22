@@ -69,8 +69,8 @@ export function ChargeResult({ outcome, onView, onRestart, onClose }: { outcome:
             <circle className="cr-ring cr-ring-back" cx="50" cy="50" r="42" />
             <circle className="cr-ring cr-ring-draw" cx="50" cy="50" r="42" strokeDasharray={c} strokeDashoffset={0} style={{ ["--c" as string]: c }} transform="rotate(-90 50 50)" />
           </svg>
-          {Array.from({ length: 8 }, (_, i) => {
-            const t = ((-90 + i * 45) * Math.PI) / 180;
+          {Array.from({ length: Math.max(1, names.length || 3) }, (_, i) => {
+            const t = ((-90 + (i * 360) / Math.max(1, names.length || 3)) * Math.PI) / 180;
             return <span key={i} className="cr-sat" style={{ left: `${50 + 42 * Math.cos(t)}%`, top: `${50 + 42 * Math.sin(t)}%`, ["--i" as string]: i, ["--dx" as string]: `${Math.cos(t) * 26}px`, ["--dy" as string]: `${Math.sin(t) * 26}px` }} />;
           })}
           <div className="cr-planet">{passed ? <span className="cr-no">{orbitId ? no(orbitId) : <OrbitIcon size={26} strokeWidth={1.6} />}</span> : null}</div>

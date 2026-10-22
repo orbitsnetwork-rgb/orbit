@@ -76,10 +76,10 @@ function hue(seed: string) {
 }
 
 /** Аватар-літера з кольором від id: однаковий для людини всюди. */
-export function Avatar({ id, name, size = 36, badge, me = false }: { id: string; name: string; size?: number; badge?: ReactNode; me?: boolean }) {
+export function Avatar({ id, name, size = 36, badge, me = false, frame }: { id: string; name: string; size?: number; badge?: ReactNode; me?: boolean; frame?: string }) {
   const h = hue(id || name);
   return (
-    <span className="k-ava" data-me={me ? "1" : "0"} style={{ width: size, height: size, fontSize: Math.round(size * 0.42), ["--h" as string]: h }} aria-hidden>
+    <span className={frame && frame !== "none" ? `k-ava avatar-frame-${frame}` : "k-ava"} data-me={me ? "1" : "0"} style={{ width: size, height: size, fontSize: Math.round(size * 0.42), ["--h" as string]: h }} aria-hidden>
       {(name || "?").slice(0, 1).toUpperCase()}
       {badge ? <i className="k-ava-badge">{badge}</i> : null}
     </span>

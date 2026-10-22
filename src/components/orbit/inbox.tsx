@@ -20,7 +20,7 @@ const TABS: { id: Filter; label: string }[] = [
 ];
 const ICON: Record<Topic, typeof Info> = { me: UserRound, market: ArrowLeftRight, charge: CircleDot, fund: Sparkles, system: Info, chat: MessageCircle };
 
-export function Inbox({ world, user, onBack, onClose }: { world: World; user: Account; onBack: () => void; onClose?: () => void }) {
+export function Inbox({ world, user, onBack, onClose, onRoom }: { world: World; user: Account; onBack: () => void; onClose?: () => void; onRoom?: (room: string) => void }) {
   const ready = useOrbits((state) => state.ready);
   const inbox = useInbox(world, user);
   const [filter, setFilter] = useState<Filter>("all");
@@ -61,7 +61,7 @@ export function Inbox({ world, user, onBack, onClose }: { world: World; user: Ac
       ) : (
         <div className="mo-card" role="tabpanel" aria-label={`${rows.length} подій, нових ${unreadHere}`}>
           {rows.map((note) => (
-            <Item key={note.key} note={note} now={world.now} unread={inbox.isUnread(note)} onRead={() => inbox.mark(note)} />
+            <Item key={note.key} note={note} now={world.now} unread={inbox.isUnread(note)} onRead={() => { inbox.mark(note); if (note.room && onRoom) onRoom(note.room); }} />
           ))}
         </div>
       )}

@@ -503,9 +503,19 @@ export function watchBot(): () => void {
   return () => document.removeEventListener("click", onClick, true);
 }
 
+/** Кімната, яку треба відкрити при наступному вході в «Живе» (дотик до сповіщення в дзвіночку). */
+let pendingRoom: string | null = null;
+export function openRoomNext(room: string) {
+  pendingRoom = room;
+}
+
 export function LiveHub({ world, onBack, onClose }: { world: World; user: Account; onBack: () => void; onClose?: () => void }) {
   const n = world.accounts.length;
-  const [room, setRoom] = useState({ id: "world", title: "Чат світу" });
+  const [room, setRoom] = useState(() => {
+    const id = pendingRoom;
+    pendingRoom = null;
+    return id && id !== "world" ? { id, title: "Кімната екіпажу" } : { id: "world", title: "Чат світу" };
+  });
   const [unread, setUnread] = useState<Record<string, number> | undefined>(undefined);
   return (
     <Page title="Живе" kicker="Світ" onBack={onBack} onClose={onClose}>

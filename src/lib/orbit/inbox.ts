@@ -8,7 +8,7 @@ import type { Ev } from "@/lib/orbit/social";
 import { useOrbits } from "@/lib/orbit/store";
 
 export type Topic = "me" | "market" | "charge" | "fund" | "system" | "chat";
-export type Note = { key: string; at: number; text: string; topic: Topic; mine: boolean; orbitId?: number };
+export type Note = { key: string; at: number; text: string; topic: Topic; mine: boolean; orbitId?: number; room?: string };
 
 const EVENT = "orbit-inbox";
 const readKey = (userId: string) => `orbits-read-${userId}`;
@@ -120,7 +120,7 @@ async function pullChat(userId: string) {
     const [{ chatNotes }, { sessionCreds }] = await Promise.all([import("@/lib/orbit/live"), import("@/lib/orbit/store")]);
     const out = await chatNotes({ data: sessionCreds() });
     chatHeld.userId = userId;
-    chatHeld.notes = out.notes.map((n) => ({ key: n.key, at: n.at, text: n.text, topic: "chat" as const, mine: false }));
+    chatHeld.notes = out.notes.map((n) => ({ key: n.key, at: n.at, text: n.text, topic: "chat" as const, mine: false, room: n.room }));
     window.dispatchEvent(new Event(CHAT_EVENT));
   } catch { /* мережа — наступна спроба */ }
 }

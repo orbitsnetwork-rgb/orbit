@@ -417,6 +417,11 @@ await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)
   check("v22: bell shows crew-room messages as one grouped note", /«Запуск, який я підтримав»: 2 нові повідомлення/.test(bell), bell.match(/[^\n]*Запуск, який я підтримав[^\n]*/)?.[0]);
   await shot(g, "40_bell_chat");
   await axe(g, "v22 bell");
+  // v23: дотик до сповіщення кімнати відкриває саме цю кімнату.
+  await g.getByText(/Запуск, який я підтримав»: 2 нові повідомлення/).first().click();
+  await g.waitForTimeout(1500);
+  check("v23: tapping a room note opens that room", (await hasText(g, "Бачать лише автор запуску")) && (await g.locator("#chat-input").count()) === 1);
+  await shot(g, "40b_bell_opens_room");
   await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
   // 2) М'який фільтр: грубе слово маскується, повідомлення надсилається.
   await host.locator("#chat-input").fill("ну ти сука, але дякую");

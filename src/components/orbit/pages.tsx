@@ -9,7 +9,7 @@ import { Security } from "@/components/orbit/security";
 import { Status } from "@/components/orbit/status";
 import { Inbox } from "@/components/orbit/inbox";
 import { Transparency } from "@/components/orbit/transparency";
-import { LiveHub } from "@/components/orbit/live";
+import { LiveHub, openRoomNext } from "@/components/orbit/live";
 import { DocList, DocView, isDoc, MoreHub, type Route } from "@/components/orbit/more";
 import type { DocId } from "@/lib/orbit/docs";
 import type { Account, World } from "@/lib/orbit/engine";
@@ -79,7 +79,7 @@ export function Pages({
   }
   if (top === "security" && world && user) return <Security world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "fees" && world && user) return <Fees world={world} user={user} onBack={onPop} onClose={closer} />;
-  if (top === "inbox" && world && user) return <Inbox world={world} user={user} onBack={onPop} onClose={closer} />;
+  if (top === "inbox" && world && user) return <Inbox world={world} user={user} onBack={onPop} onClose={closer} onRoom={(room) => { openRoomNext(room); onReplace("live"); }} />;
   if (top === "assets" && world && user) {
     return (
       <Assets

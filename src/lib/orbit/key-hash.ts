@@ -11,6 +11,8 @@
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 const PREFIX = "s1$";
+/** v2: швидкий keyed HMAC-SHA256 (ключ — 60 біт випадковості, тож повільний scrypt не потрібен; ~0,01 мс CPU замість ~50 мс). */
+const FAST = "h1$";
 const PARAMS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const cache = new Map<string, true>();
 
@@ -20,7 +22,13 @@ function pepper() {
 }
 
 export function isHashed(stored: string | undefined): boolean {
-  return typeof stored === "string" && stored.startsWith(PREFIX);
+  return typeof stored === "string" && (stored.startsWith(PREFIX) || stored.startsWith(FAST));
+}
+export function isFast(stored: string | undefined): boolean {
+  return typeof stored === "string" && stored.startsWith(FAST);
+}
+function macOf(key: string, with_ = pepper()) {
+  return createHmac("sha256", with_).update(`key2:${key}`).digest("hex");
 }
 
 export function lookupOf(key: string, with_ = pepper()) {
@@ -29,6 +37,11 @@ export function lookupOf(key: string, with_ = pepper()) {
 const DEV_PEPPER = "orbit-dev-only-lookup";
 
 export function hashKey(key: string): string {
+  return `${FAST}${macOf(key)}`;
+}
+
+/** Старий формат (scrypt) — лише для тестів міграції. */
+export function hashKeySlow(key: string): string {
   const salt = randomBytes(16);
   const hash = scryptSync(key, salt, 32, PARAMS);
   return `${PREFIX}${lookupOf(key)}$${salt.toString("base64url")}$${hash.toString("base64url")}`;
@@ -74,6 +87,11 @@ export function verifyKey(keys: Record<string, string>, id: string | null, key: 
   if (!id || !key) return false;
   const stored = keys[id];
   if (typeof stored !== "string") return false;
+  if (isFast(stored)) {
+    if (!plausibleKey(key)) return false;
+    const want = stored.slice(FAST.length);
+    return same(macOf(key), want) || same(macOf(key, DEV_PEPPER), want);
+  }
   if (!isHashed(stored)) return same(stored, key);
   const memo = createHash("sha256").update(`${id}\n${key}\n${stored}`).digest("base64url");
   if (cache.has(memo)) return true;
@@ -97,15 +115,16 @@ export function findByKey(keys: Record<string, string>, key: string | null): str
   if (!key) return null;
   // R5: ключі, захешовані до появи DEVICE_SECRET (lookup з dev-рядком), теж знаходяться. Перевіряє все одно scrypt.
   const looks = new Set([lookupOf(key), lookupOf(key, DEV_PEPPER)]);
+  const macs = new Set([macOf(key), macOf(key, DEV_PEPPER)]);
   for (const [id, stored] of Object.entries(keys)) {
-    if (isHashed(stored) ? looks.has(stored.split("$")[1]) && verifyKey(keys, id, key) : same(stored, key)) return id;
+    if (isFast(stored) ? plausibleKey(key) && macs.has(stored.slice(FAST.length)) : isHashed(stored) ? looks.has(stored.split("$")[1]) && verifyKey(keys, id, key) : same(stored, key)) return id;
   }
   return null;
 }
 
 /** Якщо ключ id ще текстовий і збігся — повертає ключі з хешем замість тексту (міграція при вході). */
 export function upgradeKey(keys: Record<string, string>, id: string | null, key: string | null): Record<string, string> {
-  if (!id || !key || isHashed(keys[id]) || !verifyKey(keys, id, key)) return keys;
+  if (!id || !key || isFast(keys[id]) || !verifyKey(keys, id, key)) return keys;
   return { ...keys, [id]: hashKey(key) };
 }
 

@@ -54,3 +54,20 @@ test("R7: malformed keys never reach scrypt; failed scrypt checks are budgeted p
   assert.ok(K.verifyKey(K.hashAll({ a: KD }).keys, "a", KD, "v:net3"), "other networks unaffected");
   K.resetFails();
 });
+
+test("v2: new keys use fast HMAC; old scrypt hashes verify once and upgrade transparently", () => {
+  const fresh = K.hashKey(KA);
+  assert.ok(fresh.startsWith("h1$") && K.isHashed(fresh));
+  const old = { a: K.hashKeySlow(KA) };
+  assert.ok(K.verifyKey(old, "a", KA));
+  const up = K.upgradeKey(old, "a", KA);
+  assert.ok(up.a.startsWith("h1$"), "upgraded to HMAC");
+  assert.ok(K.verifyKey(up, "a", KA) && !K.verifyKey(up, "a", KB));
+  assert.equal(K.upgradeKey(up, "a", KA), up, "already fast → no write");
+  assert.equal(K.upgradeKey(old, "a", KB), old, "wrong key never upgrades");
+  assert.equal(K.findByKey(up, KA), "a");
+  const t0 = performance.now();
+  for (let i = 0; i < 1000; i++) K.verifyKey({ a: fresh }, "a", KA);
+  const per = (performance.now() - t0) / 1000;
+  assert.ok(per < 0.5, `fast verify per call ${per.toFixed(3)} ms`);
+});

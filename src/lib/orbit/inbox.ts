@@ -7,7 +7,7 @@ import { STARTER_OD, type Account, type World } from "@/lib/orbit/engine";
 import type { Ev } from "@/lib/orbit/social";
 import { useOrbits } from "@/lib/orbit/store";
 
-export type Topic = "me" | "market" | "charge" | "fund" | "system";
+export type Topic = "me" | "market" | "charge" | "fund" | "system" | "chat";
 export type Note = { key: string; at: number; text: string; topic: Topic; mine: boolean; orbitId?: number };
 
 const EVENT = "orbit-inbox";
@@ -109,6 +109,50 @@ export function notesOf(world: World, user: Account, events: Ev[] = [], publicOn
   return [...personal, ...shared].sort((a, b) => b.at - a.at);
 }
 
+/* ---------- Чат у дзвіночку: реакції на мої повідомлення й нове в кімнатах екіпажу (згруповано сервером) ---------- */
+const CHAT_EVENT = "orbit-chat-notes";
+const chatHeld: { userId: string; notes: Note[] } = { userId: "", notes: [] };
+let chatTimer = 0;
+let chatUsers = 0;
+async function pullChat(userId: string) {
+  if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+  try {
+    const [{ chatNotes }, { sessionCreds }] = await Promise.all([import("@/lib/orbit/live"), import("@/lib/orbit/store")]);
+    const out = await chatNotes({ data: sessionCreds() });
+    chatHeld.userId = userId;
+    chatHeld.notes = out.notes.map((n) => ({ key: n.key, at: n.at, text: n.text, topic: "chat" as const, mine: false }));
+    window.dispatchEvent(new Event(CHAT_EVENT));
+  } catch { /* мережа — наступна спроба */ }
+}
+/** Одне спільне опитування раз на хвилину (лише коли вкладка видима) для всіх, хто показує дзвіночок. */
+function useChatNotes(userId: string): Note[] {
+  const [notes, setNotes] = useState<Note[]>([]);
+  useEffect(() => {
+    if (!userId) return;
+    const take = () => setNotes(chatHeld.userId === userId ? chatHeld.notes : []);
+    take();
+    window.addEventListener(CHAT_EVENT, take);
+    chatUsers += 1;
+    if (chatUsers === 1) {
+      void pullChat(userId);
+      chatTimer = window.setInterval(() => void pullChat(userId), 60_000);
+    }
+    const onVis = () => { if (document.visibilityState === "visible") void pullChat(userId); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener(CHAT_EVENT, take);
+      document.removeEventListener("visibilitychange", onVis);
+      chatUsers -= 1;
+      if (chatUsers === 0) window.clearInterval(chatTimer);
+    };
+  }, [userId]);
+  return notes;
+}
+/** Після читання кімнати — оновити дзвіночок одразу. */
+export function refreshChatNotes() {
+  if (chatHeld.userId) void pullChat(chatHeld.userId);
+}
+
 export function useInbox(world: World, user: Account | null) {
   const [state, setState] = useState<ReadState>({ upTo: 0, keys: [] });
   const id = user?.id ?? "";
@@ -120,7 +164,8 @@ export function useInbox(world: World, user: Account | null) {
     return () => window.removeEventListener(EVENT, read);
   }, [id]);
   const events = useOrbits((st) => st.mine?.events);
-  const notes = user ? notesOf(world, user, events ?? []) : [];
+  const chat = useChatNotes(id);
+  const notes = user ? [...chat, ...notesOf(world, user, events ?? [])].sort((a, b) => b.at - a.at) : [];
   // Нового користувача не засипаємо старою історією світу: усе до реєстрації вважається прочитаним.
   const floor = Math.max(state.upTo, user?.createdAt ?? 0);
   const unreadOf = (note: Note) => note.at > floor && !state.keys.includes(note.key);

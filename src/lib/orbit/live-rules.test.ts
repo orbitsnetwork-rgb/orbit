@@ -69,3 +69,33 @@ test("reactions: fixed set, unique ids and names, unknown refused", () => {
   assert.equal(normReaction("<b>"), null);
   assert.equal(normReaction(undefined), null);
 });
+
+import { keepDays, maskWords, muteFor, reactNoteText, roomNoteText } from "./live-rules.ts";
+test("moderation: soft mask, no false positives", () => {
+  assert.equal(maskWords("ти сука така").text, "ти с••• така");
+  assert.equal(maskWords("What the FUCK man").masked, 1);
+  assert.equal(maskWords("Нахуй це").masked, 1);
+  for (const ok of ["потребами", "Dickens", "психологія", "skyscraper", "Hello world", "Підтримую"]) {
+    assert.equal(maskWords(ok).masked, 0, ok);
+  }
+  assert.equal(maskWords("скорочення").masked, 0);
+});
+test("moderation: mute ladder 1h then 24h", () => {
+  assert.equal(muteFor(0), 0);
+  assert.equal(muteFor(1), 0);
+  assert.equal(muteFor(2), 3_600_000);
+  assert.equal(muteFor(5), 86_400_000);
+});
+test("retention disabled by default", () => {
+  assert.equal(keepDays(undefined), 0);
+  assert.equal(keepDays("abc"), 0);
+  assert.equal(keepDays("3"), 0);
+  assert.equal(keepDays("30"), 30);
+});
+test("chat notes are grouped text", () => {
+  assert.equal(reactNoteText(["Оля К."], 1, "Привіт"), "Нова реакція на твоє повідомлення «Привіт» — Оля К.");
+  assert.equal(reactNoteText(["Оля К.", "Іван П."], 5, "x"), "Реакцій: 5 на твоє повідомлення «x» — Оля К., Іван П. і ще 3");
+  assert.equal(roomNoteText("Екіпаж №2", 1), "«Екіпаж №2»: 1 нове повідомлення");
+  assert.equal(roomNoteText("Екіпаж №2", 3), "«Екіпаж №2»: 3 нові повідомлення");
+  assert.equal(roomNoteText("Екіпаж №2", 12), "«Екіпаж №2»: 12 нових повідомлень");
+});

@@ -105,3 +105,57 @@ export function normReaction(raw: unknown): ReactionId | null {
 export function reactionName(id: string): string {
   return REACTIONS.find((r) => r.id === id)?.name ?? id;
 }
+
+/* ---------- Модерація (м'яко: маскуємо, не блокуємо; пауза лише після схованих скаргами повідомлень) ---------- */
+
+/**
+ * Грубі слова (укр/рос/англ) — маскуються «х•••», повідомлення все одно надсилається.
+ * Корені матчаться лише з початку слова (з поширеними префіксами), щоб не чіпати «потребами», «Dickens» тощо.
+ */
+const ROOTS = ["хуй", "хуя", "хує", "хуї", "хуе", "пизд", "пізд", "бля", "єба", "єбу", "їба", "їбу", "еба", "ебу", "йоба", "сука", "суки", "сучк", "мудак", "мудил", "підар", "підор", "пидор", "пидар", "гандон", "залуп", "курва", "шлюх", "fuck", "shit", "bitch", "cunt", "asshole", "motherf", "dickhead", "bastard"];
+const PREFIX = "(?:за|на|від|ви|роз|по|при|пере|до|о|з|у|від|от|вы|раз|mother)?";
+const BAD_RE = new RegExp(`(^|[^\\p{L}])(${PREFIX}(?:${ROOTS.join("|")})[\\p{L}]*)`, "giu");
+export function maskWords(text: string): { text: string; masked: number } {
+  let masked = 0;
+  const out = text.replace(BAD_RE, (_m, lead: string, word: string) => {
+    masked += 1;
+    const chars = Array.from(word);
+    return lead + chars[0] + "•".repeat(Math.max(2, chars.length - 1));
+  });
+  return { text: out, masked };
+}
+
+/** Тимчасова пауза в чаті: 2 сховані скаргами повідомлення за 30 днів → 1 год; 3 і більше → 24 год. ✦ не чіпаються. */
+export const MUTE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+export function muteFor(hiddenRecent: number): number {
+  if (hiddenRecent >= 3) return 24 * 60 * 60 * 1000;
+  if (hiddenRecent >= 2) return 60 * 60 * 1000;
+  return 0;
+}
+export function muteText(until: number): string {
+  const d = new Date(until);
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const left = until - Date.now();
+  const when = left > 20 * 60 * 60 * 1000 ? `завтра о ${hm}` : `до ${hm}`;
+  return `Чат для тебе на паузі ${when}: кілька твоїх повідомлень сховали скаргами. Читати можна, писати — пізніше. ✦ і орбіти це не зачіпає. Якщо це помилка — «Ще» → «Написати нам».`;
+}
+
+/** Автовидалення старих повідомлень — рішення власника. Вимкнено, якщо змінна не задана (0 = вимкнено). */
+export function keepDays(raw: string | undefined): number {
+  const n = Math.floor(Number(raw ?? ""));
+  return Number.isFinite(n) && n >= 7 && n <= 3650 ? n : 0;
+}
+
+/* ---------- Сповіщення з чату (згруповано: одне на повідомлення / одне на кімнату) ---------- */
+export type ChatNote = { key: string; at: number; text: string; room: string };
+/** Без роду дієслова (не знаємо стать): «Нова реакція на твоє повідомлення «…» — Оля К.» / «Реакцій: 5 … — Оля К., Іван П. і ще 3». */
+export function reactNoteText(names: string[], total: number, snippet: string): string {
+  const two = names.slice(0, 2);
+  const who = (two.join(", ") || "учасник") + (total > two.length ? ` і ще ${total - two.length}` : "");
+  const s = snippet.length > 40 ? `${snippet.slice(0, 39)}…` : snippet;
+  return `${total === 1 ? "Нова реакція" : `Реакцій: ${total}`} на твоє повідомлення «${s}» — ${who}`;
+}
+export function roomNoteText(title: string, n: number): string {
+  const word = n % 10 === 1 && n % 100 !== 11 ? "нове повідомлення" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "нові повідомлення" : "нових повідомлень";
+  return `«${title}»: ${n >= 99 ? "99+" : n} ${word}`;
+}

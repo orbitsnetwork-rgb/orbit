@@ -1,8 +1,8 @@
-import { ArrowLeftRight, BellOff, CheckCheck, CircleDot, Info, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeftRight, BellOff, MessageCircle, CheckCheck, CircleDot, Info, Sparkles, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import type { Account, World } from "@/lib/orbit/engine";
-import { ago, setToasts, toastsOn, useInbox, type Note, type Topic } from "@/lib/orbit/inbox";
+import { ago, refreshChatNotes, setToasts, toastsOn, useInbox, type Note, type Topic } from "@/lib/orbit/inbox";
 import { clock } from "@/lib/orbit/ledger";
 import { useOrbits } from "@/lib/orbit/store";
 import { LockedRow, LockedSheet } from "@/components/orbit/locked";
@@ -15,9 +15,10 @@ const TABS: { id: Filter; label: string }[] = [
   { id: "market", label: "Ринок" },
   { id: "charge", label: "Заряди" },
   { id: "fund", label: "Фонд" },
+  { id: "chat", label: "Чат" },
   { id: "system", label: "Світ" },
 ];
-const ICON: Record<Topic, typeof Info> = { me: UserRound, market: ArrowLeftRight, charge: CircleDot, fund: Sparkles, system: Info };
+const ICON: Record<Topic, typeof Info> = { me: UserRound, market: ArrowLeftRight, charge: CircleDot, fund: Sparkles, system: Info, chat: MessageCircle };
 
 export function Inbox({ world, user, onBack, onClose }: { world: World; user: Account; onBack: () => void; onClose?: () => void }) {
   const ready = useOrbits((state) => state.ready);
@@ -25,7 +26,7 @@ export function Inbox({ world, user, onBack, onClose }: { world: World; user: Ac
   const [filter, setFilter] = useState<Filter>("all");
   const [pops, setPops] = useState(true);
   const [lock, setLock] = useState<LockId | null>(null);
-  useEffect(() => setPops(toastsOn()), []);
+  useEffect(() => { setPops(toastsOn()); refreshChatNotes(); }, []);
   const rows = inbox.notes.filter((note) => (filter === "all" ? true : filter === "me" ? note.mine : note.topic === filter));
   const unreadHere = rows.filter(inbox.isUnread).length;
 
@@ -86,7 +87,7 @@ export function Inbox({ world, user, onBack, onClose }: { world: World; user: Ac
           {lock ? <LockedSheet id={lock} onClose={() => setLock(null)} /> : null}
         </div>
       </section>
-      <p className="orbit-note as-small">Журнал світу тримає останні 40 подій. Позначки «прочитано» живуть на цьому телефоні.</p>
+      <p className="orbit-note as-small">Журнал світу тримає останні 40 подій. Чат у дзвіночку — згруповано: реакції на твої повідомлення і нове в кімнатах твоїх запусків. Позначки «прочитано» живуть на цьому телефоні.</p>
     </Page>
   );
 }

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import { ReactionIcon } from "@/components/orbit/reactions";
 import { botSignal, chatRead, chatReact, chatReport, chatRooms, chatSend, chatWho, roleAsk, type ChatLine, type ChatReacts, type ChatReadOut } from "@/lib/orbit/live";
-import { CHAT_MAX, REACTIONS, WHY_MAX, WHY_MIN, looksScripted, type ReactionId, type RoomInfo } from "@/lib/orbit/live-rules";
+import { CHAT_MAX, REACTIONS, WHY_MAX, WHY_MIN, looksScripted, muteText, type ReactionId, type RoomInfo } from "@/lib/orbit/live-rules";
 import { sessionCreds } from "@/lib/orbit/store";
 import type { Account, World } from "@/lib/orbit/engine";
 
@@ -14,6 +14,7 @@ const QUESTIONS = [
   { q: "Що таке іскра ✦?", a: "Внутрішня одиниця світу Орбіт. Це не гроші, не цінний папір і не обіцянка доходу. Вивести її зараз не можна." },
   { q: "Як стати підтверджувачем?", a: "Підтверджувати може кожен. Заявка — це прохання про довіру: власник світу перегляне її вручну." },
   { q: "Що буде, якщо акаунт схожий на бота?", a: "Автоматично нічого не забирається. Сервер лише ставить позначку, а людина її перевіряє. Якщо помилка — напиши нам." },
+  { q: "Що буде за грубощі в чаті?", a: "Грубі слова автоматично ховаються зірочками. Якщо скарги трьох людей сховали два твої повідомлення за 30 днів — пауза в чаті на 1 годину, якщо три — на 24 години. ✦ і орбіти це не зачіпає. Власник переглядає сховане вручну; якщо це помилка — «Ще» → «Написати нам»." },
   { q: "Хто бачить мої повідомлення?", a: "У чаті світу — усі, хто увійшов. У кімнаті запуску чи екіпажу — лише автор і ті, хто його підтвердив (це перевіряє сервер). Показується лише «Ім’я П.». Не пиши паролі, ключ входу й коди." },
 ];
 
@@ -74,6 +75,8 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
   const [picker, setPicker] = useState<number | null>(null);
   const [who, setWho] = useState<{ id: number; list: Record<string, string[]> } | null>(null);
   const [fresh, setFresh] = useState(0);
+  const [muted, setMuted] = useState(0);
+  const [notice, setNotice] = useState("");
   const box = useRef<HTMLDivElement>(null);
   const last = useRef(0);
   const first = useRef(0);
@@ -86,6 +89,7 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
   function take(next: ChatReadOut, full: boolean) {
     setAllowed(next.allowed);
     setOnline(next.online);
+    setMuted(next.mutedUntil ?? 0);
     unreadCb.current?.(next.unread ?? {});
     rx.current = next.rx ?? rx.current;
     setReacts(next.reacts ?? {});
@@ -120,7 +124,7 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
         const full = last.current === 0;
         const next = await chatRead({ data: { ...sessionCreds(), room, after: last.current, from: first.current, rx: rx.current, wait: !full } });
         if (!alive) return;
-        if (full) stick.current = true;
+        if (full) { stick.current = true; void import("@/lib/orbit/inbox").then((m) => m.refreshChatNotes()); }
         take(next, full);
         setLoaded(true);
         pause = 0;
@@ -172,9 +176,10 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
     if (!clean || busy) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       const out = await chatSend({ data: { ...sessionCreds(), room, text: clean } });
-      if (out.ok) setText("");
+      if (out.ok) { setText(""); if (out.error) setNotice(out.error); }
       else setError(out.error ?? "Не надіслано.");
     } catch {
       setError("Сервер не відповідає. Спробуй ще раз.");
@@ -303,14 +308,16 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
           <button type="button" className="orbit-chat-pill" onClick={toEnd}><ArrowDown size={14} aria-hidden /> {fresh} {fresh === 1 ? "нове" : "нових"}</button>
         ) : null}
       </div>
+      {muted > Date.now() ? <p className="orbit-chat-mute" role="status">{muteText(muted)}</p> : null}
       <form className="grid gap-2" onSubmit={(event) => { event.preventDefault(); void send(); }}>
         <label className="sr-only" htmlFor="chat-input">Повідомлення</label>
-        <input id="chat-input" className="orbit-field" value={text} maxLength={CHAT_MAX} placeholder="Коротко і по-людськи" onChange={(event) => setText(event.target.value)} />
+        <input id="chat-input" className="orbit-field" disabled={muted > Date.now()} value={text} maxLength={CHAT_MAX} placeholder="Коротко і по-людськи" onChange={(event) => setText(event.target.value)} />
         <div className="orbit-chat-foot">
           <span className="orbit-note" aria-live="off">{text.length > CHAT_MAX - 40 ? `${CHAT_MAX - text.length} знаків лишилось` : ""}</span>
-          <button type="submit" className="orbit-go" disabled={busy || text.trim().length < 1}>Надіслати</button>
+          <button type="submit" className="orbit-go" disabled={busy || muted > Date.now() || text.trim().length < 1}>Надіслати</button>
         </div>
         {error ? <p className="orbit-note" role="alert">{error}</p> : null}
+        {notice && !error ? <p className="orbit-note" role="status">{notice}</p> : null}
       </form>
     </section>
   );

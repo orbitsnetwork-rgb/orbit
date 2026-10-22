@@ -94,7 +94,7 @@ await step("money locked: visible, lock sheet, no dates/income; legacy routes 40
 });
 
 // ───────── Phase 2: dev mail flag on, full launch with 8 confirms ─────────
-await L.startServer({ ORBIT_DEV_MAIL_CODE: "1", ORBIT_E2E_SEED: "7" });
+await L.startServer({ ORBIT_DEV_MAIL_CODE: "1", ORBIT_E2E_SEED: "7", ORBIT_ADMIN_TOKEN: "e2e-local-owner-token-not-real-0123456789" });
 const host = await person("host");
 await L.register(host, "Ганна", "Шевченко"); await L.passKey(host); await L.skipIntro(host);
 await step("mail confirm + checklist", async () => {
@@ -314,6 +314,12 @@ await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async
   check("v21: picker shows 10 named cosmic reactions", (await pick.getByRole("button").count()) === 10);
   check("v21: picker uses SVG icons, not emoji", (await pick.locator("svg.orbit-rx-ico").count()) === 10);
   await shot(host, "34_reaction_picker");
+  const fit = await host.evaluate(() => {
+    const pick = document.querySelector(".orbit-rx-pick")?.getBoundingClientRect();
+    const labels = [...document.querySelectorAll(".orbit-rx-opt span")].every((el) => el.getBoundingClientRect().width <= el.parentElement.getBoundingClientRect().width + 0.5);
+    return { page: document.documentElement.scrollWidth <= window.innerWidth, inView: !!pick && pick.right <= window.innerWidth, labels };
+  });
+  check("v22: picker fits 390px (no page overflow, labels not clipped)", fit.page && fit.inView && fit.labels, JSON.stringify(fit));
   await pick.getByRole("button", { name: "✦ Підтримую" }).click();
   check("v21: picker closes after pick", (await host.getByRole("group", { name: "Обери реакцію" }).count()) === 0);
   await msg.getByRole("button", { name: /^Реакція на повідомлення/ }).click();
@@ -358,6 +364,104 @@ await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async
   check("v21: unknown reaction kind refused", bad && bad.ok === false);
   const anon = await call(urls.react, { sessionId: stranger.id, sessionKey: "WRONG", id, kind: "spark" });
   check("v21: wrong key can't react", anon && anon.ok === false);
+  await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape");
+  await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
+});
+await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)", async () => {
+  const OWNER = "e2e-local-owner-token-not-real-0123456789";
+  const urls = {};
+  const spy = (r) => { const b = r.postData() || ""; if (!r.url().includes("/_serverFn/")) return; if (b.includes('"text"') && b.includes('"room"')) urls.send = r.url(); if (/^\{"data":\{[^}]*"id":\d+\}?/.test(b) || (b.includes('"id"') && !b.includes('"kind"') && !b.includes('"room"'))) urls.idfn = urls.idfn || r.url(); };
+  const g = crew[0];
+  await g.reload(); await g.waitForTimeout(9500); // учасник поза чатом; старе довге опитування (≤8 с) встигає завершитись
+  // 1) Нове в кімнаті запуску, поки учасник не в чаті → дзвіночок (одне згруповане сповіщення на кімнату).
+  host.on("request", spy);
+  await host.getByRole("button", { name: "Ще", exact: true }).click();
+  await host.getByText("Живе", { exact: true }).first().click();
+  await host.locator("#rooms-title").waitFor({ timeout: 8000 });
+  await host.locator(".orbit-room", { hasText: "Мій запуск" }).click();
+  await host.locator("#chat-input").waitFor({ timeout: 8000 });
+  for (const t of ["Хто завтра на зв'язку?", "Пишу ще раз для дзвіночка"]) {
+    await host.locator("#chat-input").fill(t);
+    await host.getByRole("button", { name: "Надіслати" }).click();
+    await host.waitForTimeout(500);
+  }
+  await g.waitForTimeout(1000);
+  await g.getByRole("button", { name: /^Сповіщення/ }).first().click();
+  await g.waitForTimeout(1500);
+  await g.getByRole("tab", { name: /Чат/ }).click().catch(() => {});
+  const bell = await text(g);
+  check("v22: bell shows reaction on my message (grouped)", /реакція на твоє повідомлення «Тут! Підтримую[^»]*» — Ганна Ш\./.test(bell), bell.match(/[^\n]*реакці[^\n]*/)?.[0]);
+  check("v22: bell shows crew-room messages as one grouped note", /«Запуск, який я підтримав»: 2 нові повідомлення/.test(bell), bell.match(/[^\n]*Запуск, який я підтримав[^\n]*/)?.[0]);
+  await shot(g, "40_bell_chat");
+  await axe(g, "v22 bell");
+  await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
+  // 2) М'який фільтр: грубе слово маскується, повідомлення надсилається.
+  await host.locator("#chat-input").fill("ну ти сука, але дякую");
+  await host.getByRole("button", { name: "Надіслати" }).click();
+  check("v22: rude word masked, message still sent", await hasText(host, "ну ти с••• , але дякую".replace(" ,", ",")), "");
+  check("v22: gentle notice about masking", await hasText(host, "приховано зірочками"));
+  await shot(host, "41_masked");
+  host.off("request", spy);
+  // 3) Пауза: два повідомлення сховані скаргами (3 різні люди) → пауза 1 год, автор бачить пояснення.
+  const call = async (url, data, ip) => { const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "x-tsr-serverfn": "true", accept: "application/json", "x-forwarded-for": ip, origin: L.BASE }, body: L.encode(data) }); return L.decode(await r.text())?.result; };
+  check("v22: captured send endpoint", !!urls.send);
+  const rude = await L.apiRegister("Різкий", { ip: "10.88.0.1" });
+  const R = { sessionId: rude.id, sessionKey: rude.key };
+  for (const t of ["перше погане повідомлення", "друге погане повідомлення"]) await call(urls.send, { ...R, room: "world", text: t }, "10.88.0.1");
+  // id-шники повідомлень і адреса функції скарги — з UI: учасник скаржиться на одне з них.
+  const viewer = g;
+  const rep = {};
+  const repSpy = (r) => { const b = r.postData() || ""; if (r.url().includes("/_serverFn/") && /"id"/.test(b) && !b.includes('"kind"') && !b.includes('"room"')) rep.url = rep.url || r.url(); };
+  viewer.on("request", repSpy);
+  await viewer.getByRole("button", { name: "Ще", exact: true }).click();
+  await viewer.getByText("Живе", { exact: true }).first().click();
+  await viewer.locator("#rooms-title").waitFor({ timeout: 8000 });
+  await viewer.locator(".orbit-room", { hasText: "Світ" }).click();
+  await viewer.getByText("друге погане повідомлення").waitFor({ timeout: 10000 });
+  const ids = [];
+  for (const t of ["перше погане повідомлення", "друге погане повідомлення"]) ids.push(Number(await viewer.locator(".orbit-msg", { hasText: t }).getAttribute("data-msg")));
+  await viewer.locator(".orbit-msg", { hasText: "перше погане" }).getByRole("button", { name: /^Поскаржитись/ }).click();
+  await viewer.waitForTimeout(800);
+  // «Хто?» теж шле id — беремо саме скаргу: остання відповідь з id без kind.
+  viewer.off("request", repSpy);
+  check("v22: captured report endpoint", !!rep.url);
+  const reporters = [];
+  for (let i = 0; i < 3; i++) reporters.push(await L.apiRegister(`Свідок${i}`, { ip: `10.88.1.${i + 1}` }));
+  for (const [i, r] of reporters.entries()) for (const id of ids) await call(rep.url, { sessionId: r.id, sessionKey: r.key, id }, `10.88.1.${i + 1}`);
+  const blocked = await call(urls.send, { ...R, room: "world", text: "третє" }, "10.88.0.1");
+  check("v22: repeat offender muted with clear message + appeal path", blocked && blocked.ok === false && /на паузі/.test(blocked.error) && /Написати нам/.test(blocked.error), JSON.stringify(blocked));
+  check("v22: mute changes no ✦ (copy says so)", /✦ і орбіти це не зачіпає/.test(blocked?.error || ""));
+  const goneForOthers = await viewer.getByText("друге погане повідомлення").waitFor({ state: "detached", timeout: 12000 }).then(() => true, () => false);
+  check("v22: hidden messages disappear for others live", goneForOthers);
+  // 4) Сторінка власника: без токена — нічого; з токеном — сховані, повернення знімає паузу.
+  const bad = await person("owner-bad");
+  await bad.goto(L.BASE + "/owner");
+  await bad.locator("#ow-token").fill("not-the-token-at-all-xxxxxxxx");
+  await bad.getByRole("button", { name: "Увійти" }).click();
+  check("v22: wrong owner token refused", await hasText(bad, "Невірний токен"));
+  check("v22: owner page shows nothing without token", !(await text(bad)).includes("погане повідомлення"));
+  await bad.close(); pages.splice(pages.indexOf(bad), 1);
+  const own = await person("owner");
+  await own.goto(L.BASE + "/owner");
+  await own.locator("#ow-token").fill(OWNER);
+  await own.getByRole("button", { name: "Увійти" }).click();
+  await own.getByText("Сховані скаргами").waitFor({ timeout: 8000 }).catch(() => {});
+  const ot = await text(own);
+  check("v22: owner sees both hidden messages with report counts", ot.includes("перше погане повідомлення") && ot.includes("друге погане повідомлення") && ot.includes("скарг: 3"), ot.slice(0, 400));
+  check("v22: owner sees role application + mute", ot.includes("Заявки на роль") && ot.includes("Пауза в чаті (1)"));
+  await shot(own, "42_owner_review");
+  await axe(own, "v22 owner");
+  await own.locator(".ow-row", { hasText: "перше погане" }).getByRole("button", { name: "Повернути" }).click();
+  await own.waitForTimeout(1200);
+  check("v22: restore lifts the mute when no longer repeated", (await text(own)).includes("Пауза в чаті (0)"));
+  const again = await call(urls.send, { ...R, room: "world", text: "вибачте, більше не буду" }, "10.88.0.1");
+  check("v22: unmuted author can write again", again && again.ok === true, JSON.stringify(again));
+  check("v22: restored message visible again", await viewer.getByText("перше погане повідомлення").waitFor({ timeout: 12000 }).then(() => true, () => false));
+  // Токен не потрапляє в клієнтський код.
+  const { execSync } = await import("node:child_process");
+  const leak = execSync(`grep -rl "ORBIT_ADMIN_TOKEN\\|${OWNER}" ${L.ROOT}/.output/public || true`).toString().trim();
+  check("v22: admin token name/value absent from client bundle", leak === "", leak);
+  await own.close(); pages.splice(pages.indexOf(own), 1);
   await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape");
   await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
 });

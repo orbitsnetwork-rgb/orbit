@@ -2315,8 +2315,8 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .orbit-rx-list { list-style: none; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); font-size: 12px; display: grid; gap: 4px; }
 .orbit-rx-list li { line-height: 1.5; }
 .orbit-rx-list li .orbit-rx-ico { display: inline-block; vertical-align: -3px; margin-right: 4px; }
-.orbit-rx-pick { margin-top: 8px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 6px; border-radius: 16px; background: #141a2b; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); animation: orbit-rx-in 0.18s ease-out; }
-.orbit-rx-opt { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; min-height: 58px; padding: 6px 1px; border-radius: 12px; border: 1px solid transparent; background: none; color: inherit; font-size: 9.5px; letter-spacing: -0.01em; line-height: 1.15; text-align: center; }
+.orbit-rx-pick { margin-top: 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(252px, calc(100vw - 140px)); max-width: 100%; box-sizing: border-box; gap: 4px; padding: 6px; border-radius: 16px; background: #141a2b; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); animation: orbit-rx-in 0.18s ease-out; }
+.orbit-rx-opt { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; min-height: 60px; padding: 6px 0; border-radius: 12px; border: 1px solid transparent; background: none; color: inherit; font-size: 10.5px; letter-spacing: -0.02em; line-height: 1.2; text-align: center; }
 .orbit-rx-opt span { max-width: 100%; overflow-wrap: normal; }
 .orbit-rx-opt:hover { background: rgba(255, 255, 255, 0.06); }
 .orbit-rx-opt:hover .orbit-rx-ico { transform: scale(1.15) rotate(-6deg); }
@@ -2333,3 +2333,13 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
   .orbit-rx-ico, .orbit-msg-a { transition: none; }
   .orbit-rx-opt:hover .orbit-rx-ico { transform: none; }
 }
+/* v22: сторінка власника */
+.ow-page { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 14px; }
+.ow-login { display: grid; gap: 8px; }
+.ow-bar, .ow-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ow-sec { display: grid; gap: 8px; }
+.ow-sec h2 { font-size: 17px; font-weight: 700; margin: 8px 0 0; }
+.ow-row { padding: 12px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.03); display: grid; gap: 6px; font-size: 14px; }
+.ow-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-2, #cfd3e0); }
+.ow-danger { border-color: rgba(255, 110, 110, 0.6) !important; color: #ffb4b4; }
+.orbit-chat-mute { padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 196, 92, 0.5); background: rgba(255, 196, 92, 0.08); font-size: 13px; line-height: 1.45; }

@@ -44,9 +44,10 @@ await step("gate + key screen", async () => {
   await p.waitForTimeout(1500);
   check("onboarding does not re-appear after skip", (await p.locator(".ob-screen").count()) === 0);
   const body = await text(p);
-  check("mail code hidden without dev flag (UI)", body.includes("Код на пошті.") && !/Код: \d{6}/.test(body));
+  // Без поштового сервісу (і без dev-показу) код не вимагається — жодного глухого кута; код ніколи не показується.
+  check("mail code hidden without dev flag (UI)", !body.includes("Підтвердь пошту: 6 цифр") && !/Код: \d{6}/.test(body));
   const self = lastWorld(p)?.self;
-  check("mail code hidden without dev flag (server reply)", self && !self.mailCode, JSON.stringify(self?.mailCode));
+  check("mail code hidden without dev flag (server reply)", self && !self.mailCode && self.confirmed === true, JSON.stringify(self?.mailCode));
   await p.reload(); await p.waitForTimeout(2000);
   check("reload: onboarding not shown again", (await p.locator(".ob-screen").count()) === 0);
   check("reload: key screen not shown again", !(await text(p)).includes("Твій ключ входу"));

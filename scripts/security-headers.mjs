@@ -7,13 +7,13 @@
  */
 export const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://grok.com https://challenges.cloudflare.com",
-  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://grok.com https://challenges.cloudflare.com https://accounts.google.com https://apis.google.com https://www.google.com https://www.gstatic.com",
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "media-src 'self' blob:",
-  "connect-src 'self' https://challenges.cloudflare.com",
-  "frame-src https://challenges.cloudflare.com",
+  "connect-src 'self' https://challenges.cloudflare.com https://accounts.google.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com",
+  "frame-src https://challenges.cloudflare.com https://accounts.google.com https://www.google.com https://*.firebaseapp.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self' https://checkout.stripe.com",

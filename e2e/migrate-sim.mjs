@@ -125,8 +125,8 @@ export async function migrationPhase() {
   const names = (await pg.query("select name from _migrations order by name")).rows.map((r) => r.name);
   check("migrations 0031–0033 applied on top", ["0031_orbit_social.sql", "0032_orbit_payouts.sql", "0033_orbit_emission.sql"].every((x) => names.includes(x)), names.slice(-4).join(","));
   const doc = (await pg.query("select doc from orbit_world where id = 'world'")).rows[0].doc;
-  const plain = Object.values(doc.keys).filter((k) => !String(k).startsWith("s1$")).length;
-  check("logged-in old keys hashed; the rest is being hashed gradually", doc.keys[old.A1].startsWith("s1$") && plain < 24 - 5, `plaintext left ${plain}`);
+  const plain = Object.values(doc.keys).filter((k) => !/^(s1|h1)\$/.test(String(k))).length;
+  check("logged-in old keys hashed; the rest is being hashed gradually", /^(s1|h1)\$/.test(doc.keys[old.A1]) && plain < 24 - 5, `plaintext left ${plain}`);
   const ev = (await pg.query("select count(*)::int as n from orbit_events")).rows[0].n;
   check("events now go to orbit_events", ev > 0, String(ev));
   check("document keeps people/identities (24)", doc.people.length === 24);
@@ -135,6 +135,6 @@ export async function migrationPhase() {
   const pg2 = new PGlite({ dataDir: join(L.RUN, "data", "pglite") });
   await pg2.waitReady;
   const doc2 = (await pg2.query("select doc from orbit_world where id = 'world'")).rows[0].doc;
-  check("scripts/hash-keys.mjs hashes all remaining plaintext keys", Object.values(doc2.keys).every((k) => String(k).startsWith("s1$")));
+  check("scripts/hash-keys.mjs hashes all remaining plaintext keys", Object.values(doc2.keys).every((k) => /^(s1|h1)\$/.test(String(k))));
   await pg2.close();
 }

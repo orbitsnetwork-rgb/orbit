@@ -33,6 +33,7 @@
     "@tanstack/react-start": "~1.168.60",
     "@tanstack/router-plugin": "^1.168.0",
     "better-auth": "~1.6.30",
+    "firebase": "^11.10.0",
     "jose": "6.2.9",
     "kysely": "^0.28.5",
     "lucide-react": "^0.510.0",

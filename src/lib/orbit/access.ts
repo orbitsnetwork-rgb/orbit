@@ -291,8 +291,8 @@ function asKeys(raw: unknown): Record<string, string> {
   if (!raw || typeof raw !== "object") return {};
   const keys: Record<string, string> = {};
   for (const [id, key] of Object.entries(raw)) {
-    // Текстовий ключ (старий) або scrypt-хеш `s1$…` (11).
-    if (id.startsWith("u-") && typeof key === "string" && ((key.length >= 8 && key.length <= 64) || (key.startsWith("s1$") && key.length <= 160))) keys[id] = key;
+    // Текстовий ключ (старий), scrypt-хеш `s1$…` (11) або HMAC `h1$<64 hex>` (v2).
+    if (id.startsWith("u-") && typeof key === "string" && ((key.length >= 8 && key.length <= 64) || (key.startsWith("s1$") && key.length <= 160) || /^h1\$[0-9a-f]{64}$/.test(key))) keys[id] = key;
   }
   return keys;
 }

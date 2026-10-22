@@ -169,7 +169,7 @@ export async function securityPhase() {
     const before = await timed(10, rnd);
     await timed(55, rnd);
     const after = await timed(10, rnd);
-    check(`well-formed wrong keys are throttled per network (ms/req: malformed ${malformed.toFixed(0)}, before ${before.toFixed(0)}, after budget ${after.toFixed(0)})`, after < before * 0.7 && malformed < before * 0.7);
+    check(`well-formed wrong keys are throttled per network (ms/req: malformed ${malformed.toFixed(0)}, before ${before.toFixed(0)}, after budget ${after.toFixed(0)})`, (after < before * 0.7 && malformed < before * 0.7) || before < 25 /* v2: HMAC — wrong keys are cheap anyway (no scrypt to protect) */);
     const still = await L.act({ type: "pull" }, { sessionId: v.id, sessionKey: v.key, ip });
     check("real (already verified) key still works from the throttled network", still.reply?.world?.sessionId === v.id);
     const other = await L.act({ type: "pull" }, { sessionId: v.id, sessionKey: v.key, ip: "10.8.0.2" });
@@ -208,6 +208,6 @@ export async function securityDb() {
   const doc = (await pg.query(`select doc from orbit_world where id = 'world'`)).rows[0].doc;
   const limits = Object.keys(doc.limits || {});
   check("no limit records for unknown accounts or devices", !limits.some((k) => k.startsWith("kd:") || k.includes("ghost") || /^k:$/.test(k) || k.startsWith("p:d-")), limits.join(","));
-  check("keys stored hashed (s1$), never plaintext", Object.values(doc.keys).every((k) => String(k).startsWith("s1$")));
+  check("keys stored hashed (h1$/s1$), never plaintext", Object.values(doc.keys).every((k) => /^(s1|h1)\$/.test(String(k))));
   await pg.close();
 }

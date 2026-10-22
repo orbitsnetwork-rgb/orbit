@@ -1,0 +1,8 @@
+{
+  "name": "orbit-backup",
+  "main": "index.mjs",
+  "compatibility_date": "2026-01-15",
+  "workers_dev": false,
+  "triggers": { "crons": ["30 2 * * *"] },
+  "observability": { "enabled": true }
+}

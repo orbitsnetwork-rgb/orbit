@@ -2426,3 +2426,16 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
   .orbit-shell { max-width: 600px; }
   .orbit-nav { max-width: 600px; }
 }
+
+/* Вітальний екран: коротко «що це» (згорнуто за замовчуванням) і швидкий вхід. */
+.gt-about { margin-top: .6rem; border-radius: 14px; background: var(--glass); border: 1px solid var(--glass-line); padding: .15rem .9rem; color: var(--text-1); }
+.gt-about summary { cursor: pointer; padding: .65rem 0; font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
+.gt-about summary::-webkit-details-marker { display: none; }
+.gt-about summary::after { content: "＋"; opacity: .7; transition: transform .2s ease; }
+.gt-about[open] summary::after { transform: rotate(45deg); }
+.gt-about ul { margin: 0 0 .8rem; padding: 0; list-style: none; display: grid; gap: .55rem; font-size: .92rem; line-height: 1.4; }
+.gt-about b { color: #cfc8ff; }
+.gt-methods { display: grid; gap: .6rem; }
+.gt-method { min-height: 44px; width: 100%; text-align: center; }
+.gt-google { display: flex; justify-content: center; }
+@media (prefers-reduced-motion: reduce) { .gt-about summary::after { transition: none; } }

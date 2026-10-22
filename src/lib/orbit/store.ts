@@ -46,6 +46,9 @@ type OrbitState = {
   registerPerson: (input: { name: string; family: string; birth: string; email: string; phone: string }) => Promise<void>;
   enterMail: (email: string, key: string) => Promise<void>;
   enterId: (id: string, key: string) => Promise<void>;
+  /** Вхід після відновлення (Google / SMS / код з пошти): новий ключ показуємо на екрані ключа. */
+  adoptRecovered: (id: string, key: string) => Promise<void>;
+  resendMail: () => Promise<void>;
   confirmMail: (code: string) => Promise<void>;
   leave: () => void;
   start: () => Promise<void>;
@@ -155,6 +158,11 @@ export function pendingKeyScreen(id: string): { id: string; key: string } | null
 export const OFFLINE = "Спільний світ не відповідає.";
 
 let tail: Promise<unknown> = Promise.resolve();
+/** Підтвердження особи від Google/SMS для реєстрації (сервер перевіряє токен сам). */
+let pendingProof: { kind: "google" | "phone"; token: string } | null = null;
+export function setPendingProof(proof: typeof pendingProof) {
+  pendingProof = proof;
+}
 
 /** Коли людина востаннє щось зробила сама: одразу після дії опитуємо частіше. */
 let lastOwnAction = 0;
@@ -180,6 +188,7 @@ function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise
       const step = await orbitAct({
         data: {
           ...(ts ? { ts } : {}),
+          ...(action.type === "register" && pendingProof ? { proof: pendingProof } : {}),
           sessionId,
           sessionKey: sessionId ? (held[sessionId] ?? null) : null,
           key: key ?? (sessionId ? (held[sessionId] ?? null) : null),
@@ -241,6 +250,14 @@ export const useOrbits = create<OrbitState>()(() => ({
   registerPerson: (input) => send({ type: "register", ...input }).then(() => undefined),
   enterMail: (email, key) => send({ type: "enterMail", email }, false, key).then(() => undefined),
   enterId: (id, key) => send({ type: "enter", id }, false, key).then(() => undefined),
+  adoptRecovered: async (id, key) => {
+    await send({ type: "enter", id }, false, key);
+    if (useOrbits.getState().world.sessionId === id) {
+      holdKeyScreen(id);
+      useOrbits.setState({ fresh: { id, key }, flash: "", bad: false });
+    }
+  },
+  resendMail: () => send({ type: "resendMail" }).then(() => undefined),
   confirmMail: (code) => send({ type: "confirmMail", code }).then(() => undefined),
   leave: () => {
     keep(null);

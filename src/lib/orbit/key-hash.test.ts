@@ -71,3 +71,12 @@ test("v2: new keys use fast HMAC; old scrypt hashes verify once and upgrade tran
   const per = (performance.now() - t0) / 1000;
   assert.ok(per < 0.5, `fast verify per call ${per.toFixed(3)} ms`);
 });
+
+test("v2: HMAC key records survive the world document round-trip (unpackDoc)", async () => {
+  const { packDoc, unpackDoc } = await import("./access");
+  const { emptyWorld } = await import("./engine");
+  const keys = { "u-a": K.hashKey(KA) };
+  const back = unpackDoc(JSON.parse(packDoc(emptyWorld(), keys))).keys;
+  assert.equal(back["u-a"], keys["u-a"]);
+  assert.ok(K.verifyKey(back, "u-a", KA));
+});

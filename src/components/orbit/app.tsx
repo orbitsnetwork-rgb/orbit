@@ -1,3 +1,4 @@
+import { AuthMethods } from "@/components/orbit/auth-methods";
 import { useRouterState } from "@tanstack/react-router";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
@@ -403,6 +404,15 @@ function Gate({
             <li><b>2</b><span>Друг підтверджує твій запуск</span></li>
             <li><b>3</b><span>24 години заряду — і орбіта твоя</span></li>
           </ol>
+          <details className="gt-about">
+            <summary>Що таке Орбіти?</summary>
+            <ul>
+              <li><b>Світ з обмеженим числом орбіт.</b> Усього їх 8 000 000, більше не з’явиться. У кожної — свій номер і власник.</li>
+              <li><b>Орбіта народжується з довіри.</b> Ти подаєш заявку, одна жива людина підтверджує її кодом — і за 24 години заряду орбіта твоя.</li>
+              <li><b>✦ — іскри гри.</b> Ними купують і продають орбіти всередині світу. Це не гроші: курсу немає, вивести не можна.</li>
+              <li><b>Без обіцянок доходу.</b> Ми не обіцяємо прибутку. Оплата — «Скоро», лише після юридичного оформлення.</li>
+            </ul>
+          </details>
         </section>
         <GuestStats />
         {invited ? (
@@ -410,6 +420,13 @@ function Gate({
             {host?.who ? `${host.who} запрошує тебе підтвердити запуск орбіти · підтверджень уже: ${host.n}.` : "Тебе запросили підтвердити запуск орбіти."} Увійди або створи акаунт — код уже чекатиме у вкладці «Заявка».
           </p>
         ) : null}
+        <AuthMethods
+          onPrefill={(p) => {
+            setHaveKey(false);
+            if (p.email) setEmail(p.email);
+            if (p.phone) setPhone(p.phone);
+          }}
+        />
         <form
           className="orbit-block gt-form"
           aria-labelledby="gt-form-title"
@@ -464,13 +481,16 @@ function MailGate() {
   const typed = code.replace(/\D/g, "").slice(0, 6);
   return (
     <>
-      <p className="orbit-note">{self.mailCode ? `Код: ${self.mailCode}` : "Код на пошті."}</p>
+      <p className="orbit-note">{self.mailCode ? `Код: ${self.mailCode}` : `Ми надіслали 6 цифр на ${self.email}. Немає листа — глянь у «Спам».`}</p>
       <label className="grid gap-1.5">
         <span className="orbit-kicker">Підтвердь пошту: 6 цифр з листа</span>
         <input className="orbit-field" inputMode="numeric" maxLength={6} value={typed} onChange={(event) => setCode(event.target.value)} />
       </label>
       <button type="button" className="orbit-go" disabled={typed.length < 6} onClick={() => useOrbits.getState().confirmMail(typed)}>
         Підтвердити пошту
+      </button>
+      <button type="button" className="orbit-quiet" onClick={() => useOrbits.getState().resendMail()}>
+        Надіслати код ще раз
       </button>
       <Notice inline />
     </>

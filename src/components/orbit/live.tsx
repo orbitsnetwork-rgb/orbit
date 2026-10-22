@@ -36,19 +36,21 @@ function clock(at: number) {
 /** Вибір реакції: 10 власних значків. Esc закриває, фокус повертається на кнопку, з якої відкрили. */
 function ReactPicker({ msgId, mine, onPick, onClose }: { msgId: number; mine: Record<string, boolean>; onPick: (kind: ReactionId) => void; onClose: () => void }) {
   const first = useRef<HTMLButtonElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    first.current?.focus();
+    first.current?.focus({ preventScroll: true });
+    root.current?.scrollIntoView({ block: "nearest" });
     const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } };
     document.addEventListener("keydown", key, true);
     return () => document.removeEventListener("keydown", key, true);
   }, [onClose]);
   return (
-    <div className="orbit-rx-pick" role="group" aria-label="Обери реакцію" id={`rx-pick-${msgId}`}>
+    <div ref={root} className="orbit-rx-pick" role="group" aria-label="Обери реакцію" id={`rx-pick-${msgId}`}>
       {REACTIONS.map((r, i) => (
         <button key={r.id} ref={i === 0 ? first : undefined} type="button" className={mine[r.id] ? "orbit-rx-opt is-on" : "orbit-rx-opt"}
           aria-pressed={!!mine[r.id]} aria-label={r.name} title={r.name} onClick={() => { onPick(r.id); onClose(); }}>
           <ReactionIcon id={r.id} size={26} />
-          <span>{r.name.replace(/^✦ /, "")}</span>
+          <span>{r.short}</span>
         </button>
       ))}
     </div>
@@ -275,7 +277,7 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
                   {who?.id === line.id ? (
                     <ul className="orbit-rx-list" aria-label="Хто відреагував">
                       {REACTIONS.filter((r) => who.list[r.id]?.length).map((r) => (
-                        <li key={r.id}><ReactionIcon id={r.id} size={16} /> <b>{r.name}</b>: {who.list[r.id].join(", ")}</li>
+                        <li key={r.id}><ReactionIcon id={r.id} size={16} /><b>{r.name.replace(/^✦ /, "")}</b>: {who.list[r.id].join(", ")}</li>
                       ))}
                       {!REACTIONS.some((r) => who.list[r.id]?.length) ? <li>Поки ніхто.</li> : null}
                     </ul>

@@ -2288,8 +2288,6 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .orbit-room-t { flex: 1; display: flex; flex-direction: column; font-weight: 600; font-size: 15px; }
 .orbit-room-t small { font-weight: 400; font-size: 12px; opacity: 0.6; }
 .orbit-room-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #ffc45c; color: #1a1205; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-.orbit-msg { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); font-size: 14px; line-height: 1.4; }
-.orbit-msg-mine { background: rgba(255, 196, 92, 0.1); margin-left: 24px; }
 
 /* ---------- Чат v21: бульбашки, реакції, «нові» ---------- */
 .orbit-h-row { display: flex; align-items: center; gap: 8px; }
@@ -2298,7 +2296,7 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .orbit-chat { max-height: 380px; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; overscroll-behavior: contain; }
 .orbit-chat-empty { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; border: 1px dashed rgba(255, 255, 255, 0.14); color: var(--text-3); }
 .orbit-chat-empty p { margin: 0; font-size: 0.92rem; line-height: 1.45; }
-.orbit-msg { display: flex; align-items: flex-start; gap: 4px; max-width: 92%; align-self: flex-start; -webkit-touch-callout: none; }
+.orbit-msg { display: flex; align-items: flex-start; gap: 4px; max-width: 92%; font-size: 14px; align-self: flex-start; -webkit-touch-callout: none; }
 .orbit-msg.is-cont { margin-top: -2px; }
 .orbit-msg-mine { align-self: flex-end; flex-direction: row-reverse; }
 .orbit-msg-b { position: relative; padding: 8px 12px; border-radius: 16px 16px 16px 6px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); min-width: 0; }
@@ -2315,9 +2313,11 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .orbit-rx:focus-visible, .orbit-rx-opt:focus-visible, .orbit-rx-who:focus-visible, .orbit-chat-pill:focus-visible { outline: 2px solid #ffc45c; outline-offset: 2px; }
 .orbit-rx-who { min-height: 28px; padding: 2px 8px; border: 0; background: none; color: var(--text-3); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
 .orbit-rx-list { list-style: none; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); font-size: 12px; display: grid; gap: 4px; }
-.orbit-rx-list li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.orbit-rx-list li { line-height: 1.5; }
+.orbit-rx-list li .orbit-rx-ico { vertical-align: -3px; margin-right: 4px; }
 .orbit-rx-pick { margin-top: 8px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 6px; border-radius: 16px; background: #141a2b; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); animation: orbit-rx-in 0.18s ease-out; }
-.orbit-rx-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; padding: 6px 2px; border-radius: 12px; border: 1px solid transparent; background: none; color: inherit; font-size: 10px; line-height: 1.15; text-align: center; }
+.orbit-rx-opt { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; min-height: 58px; padding: 6px 1px; border-radius: 12px; border: 1px solid transparent; background: none; color: inherit; font-size: 10.5px; line-height: 1.15; text-align: center; }
+.orbit-rx-opt span { max-width: 100%; overflow-wrap: normal; }
 .orbit-rx-opt:hover { background: rgba(255, 255, 255, 0.06); }
 .orbit-rx-opt:hover .orbit-rx-ico { transform: scale(1.15) rotate(-6deg); }
 .orbit-rx-opt.is-on { border-color: rgba(255, 196, 92, 0.6); background: rgba(255, 196, 92, 0.1); }

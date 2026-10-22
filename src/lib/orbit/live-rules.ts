@@ -86,16 +86,16 @@ export function overChatCap(nRoom: number, nAll: number): boolean {
 /* ---------- Реакції (лише прикраса: жодних ✦, жодного впливу на економіку) ---------- */
 
 export const REACTIONS = [
-  { id: "spark", name: "✦ Підтримую" },
-  { id: "launch", name: "До запуску" },
-  { id: "galaxy", name: "Вау, галактика" },
-  { id: "thanks", name: "Дякую" },
-  { id: "hold", name: "Тримаймось разом" },
-  { id: "star", name: "Зірка дня" },
-  { id: "funny", name: "Смішно" },
-  { id: "sad", name: "Сумно" },
-  { id: "see", name: "Бачу тебе" },
-  { id: "planet", name: "Новий світ" },
+  { id: "spark", name: "✦ Підтримую", short: "Підтримую" },
+  { id: "launch", name: "До запуску", short: "До запуску" },
+  { id: "galaxy", name: "Вау, галактика", short: "Вау!" },
+  { id: "thanks", name: "Дякую", short: "Дякую" },
+  { id: "hold", name: "Тримаймось разом", short: "Разом" },
+  { id: "star", name: "Зірка дня", short: "Зірка дня" },
+  { id: "funny", name: "Смішно", short: "Смішно" },
+  { id: "sad", name: "Сумно", short: "Сумно" },
+  { id: "see", name: "Бачу тебе", short: "Бачу тебе" },
+  { id: "planet", name: "Новий світ", short: "Новий світ" },
 ] as const;
 export type ReactionId = (typeof REACTIONS)[number]["id"];
 export const REACT_PER_MIN = 30;

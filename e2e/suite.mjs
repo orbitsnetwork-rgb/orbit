@@ -137,7 +137,7 @@ await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
   await host.getByRole("button", { name: "Подати заявку" }).click();
   await host.waitForTimeout(800);
   check("v19: role ask stored, not auto-granted", await hasText(host, "перегляне її вручну"));
-  check("v19: reactions still locked «Скоро»", await hasText(host, "Скоро в живому"));
+  check("v21: reactions lock removed (reactions are live)", !(await hasText(host, "Скоро в живому")));
   await host.locator("#faq-title").scrollIntoViewIfNeeded();
   await shot(host, "21_live_roles_faq");
   await host.keyboard.press("Escape");
@@ -288,6 +288,76 @@ await step("v20: rooms + live chat + room access control", async () => {
   check("v20: wrong key reads nothing", anon && anon.signedIn === false && anon.lines.length === 0);
   const memberText = await text(host);
   check("v20: stranger's text never appears", !memberText.includes("я тут чужий"));
+  await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape");
+  await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
+});
+await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async () => {
+  const urls = {};
+  const spy = (r) => { const b = r.postData() || ""; if (r.url().includes("/_serverFn/") && b.includes('"kind"')) urls.react = r.url(); };
+  host.on("request", spy);
+  const open = async (p, label) => {
+    await p.getByRole("button", { name: "Ще", exact: true }).click();
+    await p.getByText("Живе", { exact: true }).first().click();
+    await p.locator("#rooms-title").waitFor({ timeout: 8000 });
+    await p.locator(".orbit-room", { hasText: label }).click();
+    await p.getByText("Екіпаже, тримаймось!").waitFor({ timeout: 8000 });
+  };
+  const g = crew[0];
+  await open(host, "Мій запуск");
+  await open(g, "Запуск, який я підтримав");
+  await host.locator("#rooms-title").scrollIntoViewIfNeeded();
+  await host.evaluate(() => document.querySelector("#rooms-title")?.scrollIntoView({ block: "start" }));
+  await shot(host, "33_room_list");
+  const msg = host.locator(".orbit-msg", { hasText: "Тут! Підтримую" });
+  await msg.getByRole("button", { name: /^Реакція на повідомлення/ }).click();
+  const pick = host.getByRole("group", { name: "Обери реакцію" });
+  check("v21: picker shows 10 named cosmic reactions", (await pick.getByRole("button").count()) === 10);
+  check("v21: picker uses SVG icons, not emoji", (await pick.locator("svg.orbit-rx-ico").count()) === 10);
+  await shot(host, "34_reaction_picker");
+  await pick.getByRole("button", { name: "✦ Підтримую" }).click();
+  check("v21: picker closes after pick", (await host.getByRole("group", { name: "Обери реакцію" }).count()) === 0);
+  await msg.getByRole("button", { name: /^Реакція на повідомлення/ }).click();
+  await host.getByRole("group", { name: "Обери реакцію" }).getByRole("button", { name: "Вау, галактика" }).click();
+  const chip = msg.getByRole("button", { name: /^✦ Підтримую: 1/ });
+  await chip.waitFor({ timeout: 6000 }).catch(() => {});
+  check("v21: my reaction chip pressed with count 1", (await chip.getAttribute("aria-pressed")) === "true");
+  // Учасник бачить реакцію наживо (довге опитування прокидається від реакції) і додає свою.
+  const gMsg = g.locator(".orbit-msg", { hasText: "Тут! Підтримую" });
+  const live = await gMsg.getByRole("button", { name: /^✦ Підтримую: 1/ }).waitFor({ timeout: 12000 }).then(() => true, () => false);
+  check("v21: member sees reaction live without reload", live);
+  await gMsg.getByRole("button", { name: /^✦ Підтримую: 1/ }).click();
+  const two = await msg.getByRole("button", { name: /^✦ Підтримую: 2/ }).waitFor({ timeout: 12000 }).then(() => true, () => false);
+  check("v21: counts merge across people (2)", two);
+  await msg.getByRole("button", { name: "Хто?" }).click();
+  const list = host.getByRole("list", { name: "Хто відреагував" });
+  await list.waitFor({ timeout: 6000 }).catch(() => {});
+  const lt = await list.innerText().catch(() => "");
+  check("v21: who-reacted list names people", lt.includes("Я") && lt.includes("Підтримую"), lt);
+  await msg.scrollIntoViewIfNeeded();
+  await shot(host, "35_message_reactions");
+  // Перемикач: повторний дотик прибирає мою реакцію.
+  await msg.getByRole("button", { name: /^Вау, галактика: 1/ }).click();
+  const gone = await msg.getByRole("button", { name: /^Вау, галактика/ }).waitFor({ state: "detached", timeout: 12000 }).then(() => true, () => false);
+  check("v21: tapping my reaction again removes it", gone);
+  // Long-press відкриває вибір.
+  const box = await msg.locator(".orbit-msg-t").boundingBox();
+  if (box) { await host.mouse.move(box.x + 5, box.y + 5); await host.mouse.down(); await host.waitForTimeout(650); await host.mouse.up(); }
+  check("v21: long-press opens picker", (await host.getByRole("group", { name: "Обери реакцію" }).count()) === 1);
+  await host.keyboard.press("Escape");
+  check("v21: Esc closes picker", (await host.getByRole("group", { name: "Обери реакцію" }).count()) === 0);
+  await axe(host, "v21 reactions");
+  host.off("request", spy);
+  // Напряму на сервер: чужий не може реагувати в кімнаті запуску; невідомий вид — відмова.
+  const stranger = await L.apiRegister("Чужий 2", { ip: "10.77.1.3" });
+  const call = async (url, data) => { const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "x-tsr-serverfn": "true", accept: "application/json", "x-forwarded-for": "10.77.1.3", origin: L.BASE }, body: L.encode(data) }); return L.decode(await r.text())?.result; };
+  check("v21: captured react endpoint", !!urls.react);
+  const id = Number(await msg.getAttribute("data-msg"));
+  const sr = await call(urls.react, { sessionId: stranger.id, sessionKey: stranger.key, id, kind: "spark" });
+  check("v21: non-member can't react in launch room", sr && sr.ok === false, JSON.stringify(sr));
+  const bad = await call(urls.react, { sessionId: stranger.id, sessionKey: stranger.key, id, kind: "<script>" });
+  check("v21: unknown reaction kind refused", bad && bad.ok === false);
+  const anon = await call(urls.react, { sessionId: stranger.id, sessionKey: "WRONG", id, kind: "spark" });
+  check("v21: wrong key can't react", anon && anon.ok === false);
   await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape");
   await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
 });

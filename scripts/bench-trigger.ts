@@ -1,4 +1,4 @@
-/** C1: DB-side cost of the 0046 mirror trigger. node --import ./scripts/ts-register.mjs scripts/bench-trigger.ts */
+/** C1: DB-side cost of the 0048 mirror trigger. node --import ./scripts/ts-register.mjs scripts/bench-trigger.ts */
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { benchWorld } from "../src/lib/orbit/bench-world.ts";

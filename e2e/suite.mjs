@@ -6,7 +6,7 @@ import { join } from "node:path";
 const { check, step, shot, text, hasText, tab, more, H } = L;
 const pages = [];
 const person = async (label) => { const p = await L.newPerson(label); pages.push(p); return p; };
-const lastWorld = (p) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const d = L.decode(p.bodies[i]); const w = d?.result?.world; if (w?.accounts) return d.result; } return null; };
+const lastWorld = (p) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const d = L.decode(p.bodies[i]); const w = d?.result?.world; if (w?.accounts && !d.result.same) return d.result; } return null; };
 const linkOf = (p, cr) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const l = L.decode(p.bodies[i])?.result?.mine?.links?.[cr]; if (l) return l; } return null; };
 const axeIssues = [];
 async function axe(page, where) {

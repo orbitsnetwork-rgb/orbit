@@ -1,4 +1,5 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
+import { createEdgePool, isWorkersRuntime } from "./neon-edge";
 
 /** Which database backend is active. */
 export type DbSource = "neon" | "pglite";
@@ -90,6 +91,14 @@ function createNeonSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
     // Regular Postgres driver: node-postgres (`pg`) — works directly with Neon's
     // pooled endpoint. One pool per process; warm serverless instances reuse it.
+    if (isWorkersRuntime) {
+      const pool = createEdgePool(databaseUrl!);
+      globalRef.__pgPool__ = pool as unknown as import("pg").Pool;
+      return toSql(async <T>(text: string, params: unknown[]) => {
+        const res = await pool.query(text, params);
+        return res.rows as T[];
+      });
+    }
     const { Pool, types } = await import("pg");
     types.setTypeParser(OID_INT8, Number);
     types.setTypeParser(OID_DATE, identity);

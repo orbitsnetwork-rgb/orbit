@@ -47,13 +47,14 @@ function MessageMenu({ line, mine, isMod, onReact, onReply, onCopy, onEdit, onDe
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     first.current?.focus({ preventScroll: true });
-    root.current?.scrollIntoView({ block: "nearest", behavior: reduce() ? "auto" : "smooth" });
+    const raf = requestAnimationFrame(() => root.current?.scrollIntoView({ block: "nearest", behavior: reduce() ? "auto" : "smooth" }));
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
     const away = (e: PointerEvent) => { if (root.current && !root.current.contains(e.target as Node) && !(e.target as HTMLElement).closest?.(".cv-more")) onClose(); };
     document.addEventListener("keydown", key, true);
     document.addEventListener("pointerdown", away, true);
-    return () => { document.removeEventListener("keydown", key, true); document.removeEventListener("pointerdown", away, true); };
-  }, [onClose]);
+    return () => { cancelAnimationFrame(raf); document.removeEventListener("keydown", key, true); document.removeEventListener("pointerdown", away, true); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const act = (fn: () => void) => () => { fn(); onClose(); };
   return (
     <div ref={root} className="cv-menu" role="dialog" aria-label="Дії з повідомленням">

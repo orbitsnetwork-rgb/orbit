@@ -318,6 +318,8 @@ await step("v20: rooms + live chat + room access control", async () => {
   await g.getByText("Живе", { exact: true }).first().click();
   await g.locator("#rooms-title").waitFor({ timeout: 8000 });
   const gRoom = g.locator(".orbit-room", { hasText: "Запуск, який я підтримав" });
+  await gRoom.waitFor({ timeout: 8000 }).catch(() => {});
+  await g.waitForTimeout(500);
   check("v20: member sees the launch room with unread badge", (await gRoom.count()) === 1 && (await gRoom.locator(".orbit-room-n").innerText().catch(() => "")) === "1", `rooms=${await gRoom.count()} n=${await gRoom.locator(".orbit-room-n").innerText({ timeout: 1000 }).catch(() => "-")} txt=${(await g.locator(".cv-list").innerText().catch(() => "")).slice(0, 200)}`);
   await shot(g, "30_room_list");
   await gRoom.click();
@@ -550,7 +552,9 @@ await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)
   await host.reload(); await host.waitForTimeout(2500);
   await host.getByRole("button", { name: "Ще", exact: true }).click();
   await host.getByText("Стати модератором", { exact: true }).first().click();
-  check("v24: applicant now sees moderator status", await host.getByText("Ти модератор").waitFor({ timeout: 8000 }).then(() => true, () => false));
+  const isModNow = await host.locator("#mod-state", { hasText: "Ти модератор" }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+  if (!isModNow) await shot(host, "43x_mod_status_fail");
+  check("v24: applicant now sees moderator status", isModNow, (await host.locator("#mod-page").innerText().catch(() => "no page")).slice(0, 160));
   await host.keyboard.press("Escape"); await host.waitForTimeout(300);
   await host.getByText("Живе", { exact: true }).first().click();
   await host.locator("#rooms-title").waitFor({ timeout: 8000 });
@@ -562,7 +566,7 @@ await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)
   host.once("dialog", (d) => d.accept());
   await host.getByRole("dialog", { name: "Дії з повідомленням" }).getByRole("button", { name: "Видалити (модератор)" }).click();
   await host.waitForTimeout(1500);
-  check("v24: moderator delete → tombstone", !(await hasText(host, "вибачте, більше не буду")));
+  check("v24: moderator delete → tombstone", (await host.locator(".cv-log", { hasText: "вибачте, більше не буду" }).count()) === 0);
   await own.reload(); await own.waitForTimeout(2500);
   const log = await text(own);
   check("v24: audit log records approve + delete", /затвердив модератора/.test(log) && /видалив повідомлення/.test(log), log.slice(log.indexOf("Журнал"), log.indexOf("Журнал") + 300));
@@ -791,7 +795,7 @@ await step("offline / empty / error states", async () => {
   await tab(e, "Обмін");
   check("empty state: no own orbits", await hasText(e, "У тебе ще немає орбіт") || await hasText(e, "Черга порожня") || await hasText(e, "Поки"));
   await shot(e, "23_empty");
-  await more(e, "Історія");
+  await more(e, "Історія").catch(async (err) => { await shot(e, "23x_more_fail"); throw err; });
   check("history page renders", await hasText(e, "Історія"));
   await L.closePages(e);
   e.allowErrors = true;

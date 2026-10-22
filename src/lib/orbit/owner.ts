@@ -46,8 +46,11 @@ export type OwnerView = {
   bots: { userId: string; name: string; reason: string; hits: number; lastAt: number }[];
   mutes: { userId: string; name: string; until: number; hiddenN: number }[];
   keepDays: number;
+  modApps: { userId: string; name: string; why: string; exp: string; at: number; state: string }[];
+  mods: { userId: string; name: string; at: number }[];
+  modLog: { id: number; mod: string; action: string; target: string; msgId: number | null; note: string; at: number }[];
 };
-const NONE = { hidden: [], roles: [], bots: [], mutes: [], keepDays: 0 };
+const NONE = { hidden: [], roles: [], bots: [], mutes: [], keepDays: 0, modApps: [], mods: [], modLog: [] };
 
 export const ownerView = createServerFn({ method: "POST" })
   .inputValidator((raw: unknown) => ({ token: (raw as { token?: unknown })?.token }))
@@ -64,8 +67,14 @@ export const ownerView = createServerFn({ method: "POST" })
     const bots = await sql.query<{ user_id: string; reason: string; hits: number; last_at: string }>(`select user_id, reason, hits, last_at from orbit_bot_flags where state = 'review' order by last_at desc limit 100`, []);
     const mutes = await sql.query<{ user_id: string; until_at: string; hidden_n: number }>(`select user_id, until_at, hidden_n from orbit_chat_mutes where until_at > $1 order by until_at desc limit 100`, [Date.now()]);
     const { keepDays } = await import("@/lib/orbit/live-rules");
+    const apps = await sql.query<{ user_id: string; why: string; experience: string; at: string; state: string }>(`select user_id, why, experience, at, state from orbit_mod_apps where state = 'pending' order by at asc limit 100`, []);
+    const mods = await sql.query<{ user_id: string; at: string }>(`select user_id, at from orbit_mods order by at desc limit 200`, []);
+    const log = await sql.query<{ id: string; mod_id: string; action: string; target_user: string | null; msg_id: string | null; note: string; at: string }>(`select id, mod_id, action, target_user, msg_id, note, at from orbit_mod_log order by id desc limit 100`, []);
     return {
       ok: true,
+      modApps: apps.map((r) => ({ userId: r.user_id, name: nm(r.user_id), why: r.why, exp: r.experience, at: Number(r.at), state: r.state })),
+      mods: mods.map((r) => ({ userId: r.user_id, name: nm(r.user_id), at: Number(r.at) })),
+      modLog: log.map((r) => ({ id: Number(r.id), mod: nm(r.mod_id), action: r.action, target: r.target_user ? nm(r.target_user) : "—", msgId: r.msg_id ? Number(r.msg_id) : null, note: r.note, at: Number(r.at) })),
       hidden: hidden.map((r) => ({ id: Number(r.id), room: r.room, name: r.name, userId: r.user_id, text: r.text, at: Number(r.at), reports: r.n })),
       roles: roles.map((r) => ({ userId: r.user_id, name: nm(r.user_id), role: r.role, why: r.why, at: Number(r.at) })),
       bots: bots.map((r) => ({ userId: r.user_id, name: nm(r.user_id), reason: r.reason, hits: r.hits, lastAt: Number(r.last_at) })),
@@ -74,8 +83,8 @@ export const ownerView = createServerFn({ method: "POST" })
     };
   });
 
-type Op = "restore" | "delete" | "roleSeen" | "botSeen" | "unmute";
-const OPS: Op[] = ["restore", "delete", "roleSeen", "botSeen", "unmute"];
+type Op = "restore" | "delete" | "roleSeen" | "botSeen" | "unmute" | "modApprove" | "modReject" | "modRevoke";
+const OPS: Op[] = ["restore", "delete", "roleSeen", "botSeen", "unmute", "modApprove", "modReject", "modRevoke"];
 
 export const ownerAct = createServerFn({ method: "POST" })
   .inputValidator((raw: unknown) => {
@@ -119,6 +128,24 @@ export const ownerAct = createServerFn({ method: "POST" })
         return { ok: true };
       case "unmute":
         await sql.query(`update orbit_chat_mutes set until_at = 0 where user_id = $1`, [data.userId]);
+        return { ok: true };
+      case "modApprove": {
+        const out = await sql.query<{ user_id: string }>(`update orbit_mod_apps set state = 'approved', decided_at = $2 where user_id = $1 and state = 'pending' returning user_id`, [data.userId, now]);
+        if (!out[0]) return { ok: false, error: "Заявку не знайдено." };
+        await sql.query(`insert into orbit_mods (user_id, at) values ($1, $2) on conflict do nothing`, [data.userId, now]);
+        await sql.query(`insert into orbit_mod_log (mod_id, action, target_user, at) values ('owner', 'approve', $1, $2)`, [data.userId, now]);
+        return { ok: true };
+      }
+      case "modReject": {
+        const out = await sql.query<{ user_id: string }>(`update orbit_mod_apps set state = 'rejected', decided_at = $2 where user_id = $1 and state = 'pending' returning user_id`, [data.userId, now]);
+        if (!out[0]) return { ok: false, error: "Заявку не знайдено." };
+        await sql.query(`insert into orbit_mod_log (mod_id, action, target_user, at) values ('owner', 'reject', $1, $2)`, [data.userId, now]);
+        return { ok: true };
+      }
+      case "modRevoke":
+        await sql.query(`delete from orbit_mods where user_id = $1`, [data.userId]);
+        await sql.query(`update orbit_mod_apps set state = 'rejected', decided_at = $2, note = 'Роль знято власником' where user_id = $1`, [data.userId, now]);
+        await sql.query(`insert into orbit_mod_log (mod_id, action, target_user, at) values ('owner', 'revoke', $1, $2)`, [data.userId, now]);
         return { ok: true };
     }
   });

@@ -20,7 +20,7 @@ export function check(name, ok, detail = "") {
   return Boolean(ok);
 }
 export async function step(name, fn) {
-  try { await fn(); } catch (e) { check(`${name} (threw)`, false, String(e?.message || e).split("\n")[0]); }
+  try { await fn(); } catch (e) { check(`${name} (threw)`, false, (() => { const m = String(e?.message || e).split("\n"); return [m[0], m.find((l) => /waiting for/.test(l)) || ""].join(" | ").slice(0, 400); })()); }
 }
 export const summary = () => ({ pass: results.filter((r) => r.ok).length, fail: results.filter((r) => !r.ok).length, results });
 

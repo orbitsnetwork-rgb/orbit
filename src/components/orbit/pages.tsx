@@ -1,3 +1,4 @@
+import { ModeratorPage } from "@/components/orbit/moderator";
 import { Assets } from "@/components/orbit/assets";
 import { Explorer } from "@/components/orbit/explorer";
 import { Fees } from "@/components/orbit/fees";
@@ -46,6 +47,7 @@ export function Pages({
   if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
   if (top === "transparency") return <Transparency onBack={onPop} onClose={closer} />;
   if (top === "live" && world && user) return <LiveHub world={world} user={user} onBack={onPop} onClose={closer} />;
+  if (top === "moderator" && world && user) return <ModeratorPage onBack={onPop} onClose={closer} />;
   if (top === "learn") return <Learn onBack={onPop} onClose={closer} />;
   if (top === "help") return <Help onBack={onPop} onClose={closer} onOpen={onPush} signedIn={Boolean(world && user)} />;
   if (top === "docs") return <DocList onOpen={(id) => onPush(`doc:${id}`)} onBack={onPop} onClose={closer} />;

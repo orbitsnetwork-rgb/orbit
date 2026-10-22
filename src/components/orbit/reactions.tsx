@@ -78,6 +78,21 @@ const DRAW: Record<ReactionId, ReactNode> = {
       <ellipse cx="12" cy="12" rx="10" ry="3.2" transform="rotate(-18 12 12)" stroke={GOLD} strokeWidth="1.5" fill="none" />
     </>
   ),
+  comet: (
+    <>
+      <path d="M3 21l9.5-9.5" stroke={GOLD} strokeWidth="1.4" strokeLinecap="round" opacity=".55" />
+      <path d="M5.5 21.5l8-8M2.5 18.5l8-8" stroke={ROSE} strokeWidth="1.1" strokeLinecap="round" opacity=".5" />
+      <circle cx="15.5" cy="8.5" r="4.6" fill={GOLD} />
+      <circle cx="14.4" cy="7.4" r="1.5" fill="#fff4e4" />
+    </>
+  ),
+  moon: (
+    <>
+      <path d="M14.5 3.5a8.5 8.5 0 1 0 6 13.9A7 7 0 0 1 14.5 3.5z" fill="#e9e2ff" />
+      <circle cx="9" cy="12" r="1.1" fill="#9a8fc9" /><circle cx="12.5" cy="16" r=".8" fill="#9a8fc9" />
+      <circle cx="19" cy="5" r=".9" fill={GOLD} /><circle cx="21.2" cy="9" r=".6" fill={GOLD} />
+    </>
+  ),
 };
 
 export function ReactionIcon({ id, size = 20 }: { id: ReactionId; size?: number }) {

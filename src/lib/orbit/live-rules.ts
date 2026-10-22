@@ -96,6 +96,8 @@ export const REACTIONS = [
   { id: "sad", name: "Сумно", short: "Сумно" },
   { id: "see", name: "Бачу тебе", short: "Бачу тебе" },
   { id: "planet", name: "Новий світ", short: "Новий світ" },
+  { id: "comet", name: "Вогонь", short: "Вогонь" },
+  { id: "moon", name: "Думаю", short: "Думаю" },
 ] as const;
 export type ReactionId = (typeof REACTIONS)[number]["id"];
 export const REACT_PER_MIN = 30;

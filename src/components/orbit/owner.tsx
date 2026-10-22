@@ -29,8 +29,9 @@ export function OwnerPage() {
     if (t) { setToken(t); void load(t); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  async function act(op: "restore" | "delete" | "roleSeen" | "botSeen" | "unmute", extra: { id?: number; userId?: string; role?: string }) {
+  async function act(op: "restore" | "delete" | "roleSeen" | "botSeen" | "unmute" | "modApprove" | "modReject" | "modRevoke", extra: { id?: number; userId?: string; role?: string }) {
     if (op === "delete" && !window.confirm("Видалити повідомлення назавжди?")) return;
+    if (op === "modRevoke" && !window.confirm("Зняти роль модератора?")) return;
     const out = await ownerAct({ data: { token, op, ...extra } }).catch(() => ({ ok: false, error: "Сервер не відповідає." }));
     if (!out.ok) setError(out.error ?? "Не вдалося.");
     await load();
@@ -70,6 +71,40 @@ export function OwnerPage() {
                 </div>
               </article>
             ))}
+          </section>
+          <section aria-labelledby="ow-h5" className="ow-sec">
+            <h2 id="ow-h5">Заявки в модератори ({view.modApps.length})</h2>
+            {view.modApps.length === 0 ? <p className="orbit-note">Порожньо.</p> : null}
+            {view.modApps.map((a) => (
+              <article key={a.userId} className="ow-row" data-modapp={a.userId}>
+                <p><b>{a.name}</b> · {when(a.at)}</p>
+                <p className="ow-text"><b>Чому:</b> {a.why}</p>
+                {a.exp ? <p className="ow-text"><b>Досвід:</b> {a.exp}</p> : null}
+                <div className="ow-acts">
+                  <button type="button" className="orbit-chip" onClick={() => void act("modApprove", { userId: a.userId })}>Затвердити</button>
+                  <button type="button" className="orbit-chip ow-danger" onClick={() => void act("modReject", { userId: a.userId })}>Відхилити</button>
+                </div>
+              </article>
+            ))}
+          </section>
+          <section aria-labelledby="ow-h6" className="ow-sec">
+            <h2 id="ow-h6">Модератори ({view.mods.length})</h2>
+            {view.mods.length === 0 ? <p className="orbit-note">Поки нікого.</p> : null}
+            {view.mods.map((m) => (
+              <article key={m.userId} className="ow-row">
+                <p><b>{m.name}</b> · з {when(m.at)}</p>
+                <div className="ow-acts"><button type="button" className="orbit-chip ow-danger" onClick={() => void act("modRevoke", { userId: m.userId })}>Зняти роль</button></div>
+              </article>
+            ))}
+          </section>
+          <section aria-labelledby="ow-h7" className="ow-sec">
+            <h2 id="ow-h7">Журнал модерації</h2>
+            {view.modLog.length === 0 ? <p className="orbit-note">Дій ще не було.</p> : null}
+            <ul className="ow-log">
+              {view.modLog.map((l) => (
+                <li key={l.id}>{when(l.at)} · <b>{l.mod === "—" ? "Власник" : l.mod}</b> · {({ delete: "видалив повідомлення", mute: "поставив паузу", approve: "затвердив модератора", reject: "відхилив заявку", revoke: "зняв роль" } as Record<string, string>)[l.action] ?? l.action} · {l.target}{l.note ? ` · ${l.note}` : ""}</li>
+              ))}
+            </ul>
           </section>
           <section aria-labelledby="ow-h2" className="ow-sec">
             <h2 id="ow-h2">Заявки на роль ({view.roles.length})</h2>

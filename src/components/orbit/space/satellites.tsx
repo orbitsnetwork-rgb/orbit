@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { buzz, chime } from "@/lib/orbit/feel";
 
-const COUNT = 8;
+const DEFAULT_COUNT = 3;
 const R = 42; // % від розміру: радіус кільця, на якому стоять супутники
 /** Скільки супутників людина вже бачила засвіченими (на вкладці, між станами збору і заряду). */
 const SEEN = new Map<string, number>();
 
 /**
- * Кільце з 8 супутників (ORBIT_REDESIGN 5.5.4). Новий засвічений — «спалах» і хвиля.
+ * Кільце супутників (скільки підтверджень треба — стільки супутників) (ORBIT_REDESIGN 5.5.4). Новий засвічений — «спалах» і хвиля.
  * Під час заряду між супутниками малюється дуга 24 год (іон → сонце).
  */
 export function Satellites({
@@ -17,8 +17,11 @@ export function Satellites({
   label,
   children,
   trackId,
+  count = DEFAULT_COUNT,
 }: {
   trackId?: string;
+  /** Скільки підтверджень потрібно (crewNeed). */
+  count?: number;
   lit: number;
   /** 0..1 — частка 24 год, що минула. Лише під час заряду. */
   charge?: number;
@@ -36,7 +39,7 @@ export function Satellites({
     if (was === null || lit <= was) return;
     const born = Array.from({ length: lit - was }, (_, i) => was + i);
     setFresh(born);
-    if (lit >= COUNT) {
+    if (lit >= count) {
       buzz([20, 80, 20]);
       chime([523, 784], 0.12);
     } else {
@@ -71,8 +74,8 @@ export function Satellites({
           />
         ) : null}
       </svg>
-      {Array.from({ length: COUNT }, (_, i) => {
-        const theta = ((-90 + i * 45) * Math.PI) / 180;
+      {Array.from({ length: count }, (_, i) => {
+        const theta = ((-90 + (i * 360) / count) * Math.PI) / 180;
         return (
           <span
             key={i}

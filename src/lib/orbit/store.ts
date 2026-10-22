@@ -51,6 +51,7 @@ type OrbitState = {
   start: () => Promise<void>;
   issue: () => Promise<void>;
   accept: (code: string, q?: string) => Promise<void>;
+  confirmLaunch: (cr: string) => Promise<void>;
   list: (orbitId: number) => Promise<void>;
   cancel: (orbitId: number) => Promise<void>;
   /** expected — ціна, яку людина бачила у вікні підтвердження. */
@@ -245,6 +246,7 @@ export const useOrbits = create<OrbitState>()(() => ({
   },
   start: () => send({ type: "start" }).then(() => undefined),
   issue: () => send({ type: "issue" }).then(() => undefined),
+  confirmLaunch: (cr) => send({ type: "confirm", cr }).then(() => undefined),
   accept: (code, q) => send(q ? { type: "accept", code, q } : { type: "accept", code }).then(() => undefined),
   list: (orbitId) => send({ type: "list", orbitId }).then(() => undefined),
   cancel: (orbitId) => send({ type: "cancel", orbitId }).then(() => undefined),

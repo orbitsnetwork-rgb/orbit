@@ -4,7 +4,7 @@ import { orbitNo } from "@/lib/orbit/traits";
  * (угоди, виплати, заявки, черга, журнал) і з поповнень, записаних на цьому телефоні.
  * Рушій і формули не змінюються.
  */
-import { CHARGE_MS, CONFIRM_NEED, STARTER_OD, WITNESS_OD, type Account, type World } from "@/lib/orbit/engine";
+import { CHARGE_MS, crewNeed, STARTER_OD, WITNESS_OD, type Account, type World } from "@/lib/orbit/engine";
 import type { Ev } from "@/lib/orbit/social";
 
 export type Kind = "topup" | "buy" | "sell" | "charge" | "fund" | "bonus";
@@ -129,10 +129,10 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
         at: item.confirms.at(-1)?.at ?? opened,
         amount: 0,
         title: "Заявка на орбіту",
-        status: `${item.confirms.length} з ${CONFIRM_NEED}`,
+        status: `${item.confirms.length} з ${crewNeed(world)}`,
         pending: true,
         source: "world",
-        lines: [["Підтверджень", `${item.confirms.length} з ${CONFIRM_NEED}`]],
+        lines: [["Підтверджень", `${item.confirms.length} з ${crewNeed(world)}`]],
       });
       continue;
     }
@@ -161,7 +161,7 @@ export function buildLedger(world: World, user: Account, topups: LocalTopup[], e
       orbitId,
       source: "world",
       lines: [
-        ["Підтверджень", `${item.confirms.length} з ${CONFIRM_NEED}`],
+        ["Підтверджень", `${item.confirms.length} з ${crewNeed(world)}`],
         ["Результат", passed ? "Орбіта твоя" : "Без орбіти"],
       ],
     });

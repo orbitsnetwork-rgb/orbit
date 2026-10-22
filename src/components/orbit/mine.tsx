@@ -2,11 +2,11 @@
 import { orbitNo } from "@/lib/orbit/traits";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { QrCode, Rocket, ShieldCheck } from "lucide-react";
-import { LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
+import { CrewTasks, WitnessRules, LaunchIntro, LaunchStats, LaunchSteps, LiveLaunches, OnlineStrip, PastLaunches } from "@/components/orbit/mine-extras";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { NudgeButton } from "@/components/orbit/nudge";
 import { sparkText } from "@/lib/orbit/copy";
-import { activeCreation, chanceOf, CHARGE_MS, CODES_PER_DAY, STABILITY_CONFIRM, STABILITY_FAIL, WITNESS_OD, utcDay, type Account, type World } from "@/lib/orbit/engine";
+import { activeCreation, chanceOf, crewNeed, CHARGE_MS, CODES_PER_DAY, STABILITY_CONFIRM, STABILITY_FAIL, WITNESS_OD, utcDay, type Account, type World } from "@/lib/orbit/engine";
 import { useOrbits } from "@/lib/orbit/store";
 import { Satellites } from "@/components/orbit/space/satellites";
 import { OrbitRings } from "@/components/orbit/space/orbit-rings";
@@ -44,8 +44,8 @@ export function Mine({ world, user }: { world: World; user: Account }) {
     return (
       <div className="orbit-stack">
         <section className="orbit-block ch-hero ch-live">
-          <LaunchSteps creation={creation} now={wall} />
-          <Satellites trackId={creation.id} lit={8} charge={elapsed} state="charge" label={`Усі 8 супутників на місці. Заряджено ${Math.round(elapsed * 100)}%, залишилось ${left(leftMs)}.`}>
+          <LaunchSteps creation={creation} now={wall} need={crewNeed(world)} />
+          <Satellites trackId={creation.id} lit={creation.confirms.length} count={Math.max(1, creation.confirms.length)} charge={elapsed} state="charge" label={`Усі ${creation.confirms.length} супутники на місці. Заряджено ${Math.round(elapsed * 100)}%, залишилось ${left(leftMs)}.`}>
             <b className="ch-big">Шанс {chance}%</b>
             <small className="ch-small">{leftMs > 0 ? `Залишилось ${left(leftMs)}` : "Ось-ось буде результат"}</small>
           </Satellites>
@@ -65,9 +65,9 @@ export function Mine({ world, user }: { world: World; user: Account }) {
     return (
       <div className="orbit-stack">
       <section className="orbit-block ch-hero">
-        <LaunchSteps creation={creation} now={wall} />
-        <Satellites trackId={creation.id} lit={creation.confirms.length} state="collect" label={`${creation.confirms.length} з 8 супутників світяться`}>
-          <b className="ch-big">{creation.confirms.length} з 8</b>
+        <LaunchSteps creation={creation} now={wall} need={crewNeed(world)} />
+        <Satellites trackId={creation.id} lit={creation.confirms.length} count={crewNeed(world)} state="collect" label={`${creation.confirms.length} з ${crewNeed(world)} супутників світяться`}>
+          <b className="ch-big">{creation.confirms.length} з {crewNeed(world)}</b>
           <small className="ch-small">підтверджень</small>
         </Satellites>
         <Witnesses world={world} creation={creation} title="Підтвердили" />
@@ -105,11 +105,13 @@ export function Mine({ world, user }: { world: World; user: Account }) {
         <p className="orbit-kicker">Наступна орбіта у світі — {orbitNo(world.nextNo)}</p>
         <h1 className="orbit-h mn-h1" id="mn-idle-title">Запусти свою орбіту</h1>
         <LaunchIntro chance={chance} />
+        <CrewTasks world={world} user={user} />
+        <WitnessRules need={crewNeed(world)} />
         <button type="button" className="orbit-go k-go" onClick={() => void useOrbits.getState().start()}>
           <Rocket size={18} strokeWidth={2} aria-hidden />
           Почати запуск
         </button>
-        <p className="ex-hint mn-center">Перша орбіта — приблизно за 4 дні. Безкоштовно.</p>
+        <p className="ex-hint mn-center">Перша орбіта — приблизно за 2 дні. Безкоштовно.</p>
         <Notice />
       </section>
       <ConfirmCard userId={user.id} ownCode={null} />

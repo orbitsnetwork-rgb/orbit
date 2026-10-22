@@ -41,7 +41,9 @@ test("v16: live codes are crypto-random (Math.random is not used) and never coll
   const realRandom = Math.random;
   Math.random = () => 0.5; // the old generator would give 550000 every time
   try {
+    // crew3: свідок старше години (правило від 10 людей) — акаунти «старші» на 2 год.
     let w = people(60);
+    w = { ...w, accounts: w.accounts.map((a) => ({ ...a, createdAt: a.createdAt - 2 * 60 * 60 * 1000 })) };
     for (let i = 0; i < 60; i++) {
       w = startCreation(as(w, i)).world;
       const step = issueCode(as(w, i));

@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 import { Copy, Send, Sparkles, Users } from "lucide-react";
-import { CONFIRM_NEED, ORBIT_CAP, type Account, type World } from "@/lib/orbit/engine";
+import { CONFIRM_NEED, ORBIT_CAP, crewNeed, type Account, type World } from "@/lib/orbit/engine";
 
 const fmt = new Intl.NumberFormat("uk-UA");
 export const PIONEERS = 100;
@@ -16,13 +16,13 @@ export function pioneerNo(world: World, user: Account) {
   return sorted.findIndex((a) => a.id === user.id) + 1;
 }
 
-/** Скільки ще людей потрібно, щоб хоча б одна заявка могла зібрати 8 підтверджень (автор + 8 інших). */
+/** Скільки ще людей потрібно, щоб хоча б одна заявка могла зібрати екіпаж: з двох людей вистачає одного свідка. */
 export function peopleShort(world: World) {
-  return Math.max(0, CONFIRM_NEED + 1 - world.accounts.length);
+  return Math.max(0, 2 - world.accounts.length);
 }
 
 export function inviteText(no: number, origin: string) {
-  return `Я піонер №${no} в «Орбітах» — тестовому застосунку, де орбіти запускають тільки разом: 8 людей підтверджують одне одному запуск. Зараз усе на тестових іскрах, без грошей. Долучайся до перших ${PIONEERS}: ${origin}`;
+  return `Я піонер №${no} в «Орбітах» — тестовому застосунку, де орбіти запускають тільки разом: люди підтверджують одне одному запуск, кожен кожного — лише раз. Зараз усе на тестових іскрах, без грошей. Долучайся до перших ${PIONEERS}: ${origin}`;
 }
 
 export function PioneerCard({ world, user }: { world: World; user: Account }) {
@@ -59,10 +59,10 @@ export function PioneerCard({ world, user }: { world: World; user: Account }) {
       <p className="pn-sub"><Users size={14} strokeWidth={1.8} aria-hidden /> Піонерів: {fmt.format(filled)} з {PIONEERS} · Запущено {fmt.format(launched)} орбіт з {fmt.format(ORBIT_CAP)}</p>
       {short > 0 ? (
         <p className="pn-need" data-testid="pioneer-need">
-          Для першої орбіти потрібно щонайменше {CONFIRM_NEED + 1} людей: ти і {CONFIRM_NEED}, хто підтвердить. Зараз нас {people}. Ще {short} — і запуски стануть можливими. Поки що ✦ ніхто не отримує: стартові 200 ✦ приходять після першої успішної орбіти, яку ти запустив або підтвердив.
+          Для першої орбіти потрібна ще хоча б одна людина, яка тебе підтвердить. Зараз нас {people}. Запроси когось — і запуск стане можливим. Поки що ✦ ніхто не отримує: стартові 200 ✦ приходять після першої успішної орбіти, яку ти запустив або підтвердив.
         </p>
       ) : (
-        <p className="pn-need">Людей достатньо для запуску. Кожна орбіта — це 8 підтверджень від різних людей і 24 години заряду.</p>
+        <p className="pn-need">Людей достатньо для запуску. Зараз орбіта — це {crewNeed(world)} підтвердження від різних людей і 24 години заряду. Від 4 людей — завжди {CONFIRM_NEED}. Одна людина підтверджує тебе лише раз за життя, тож що більше друзів, то більше запусків.</p>
       )}
       <div className="pn-actions">
         <a className="pn-tg" href={tg} target="_blank" rel="noopener noreferrer"><Send size={16} strokeWidth={2} aria-hidden /> Запросити в Telegram</a>
@@ -73,7 +73,7 @@ export function PioneerCard({ world, user }: { world: World; user: Account }) {
       {why ? (
         <ul className="pn-why" data-testid="pioneer-why">
           <li><b>Їх обмаль.</b> Усього {fmt.format(ORBIT_CAP)}. Ранні мають малі номери — №{fmt.format(launched + 1)} буде наступним.</li>
-          <li><b>Її не купиш першою.</b> Нова орбіта з’являється тільки коли 8 людей підтвердили запуск. Це довіра, а не клік.</li>
+          <li><b>Її не купиш першою.</b> Нова орбіта з’являється тільки коли різні люди підтвердили запуск (від 4 людей у світі — троє), і кожен може підтвердити тебе лише раз. Це довіра, а не клік.</li>
           <li><b>Фонд — власникам.</b> Частка з кожної угоди йде у фонд, який раз на 3 доби ділиться між власниками орбіт.</li>
           <li><b>Чесно:</b> зараз це тест на іскрах ✦. Виведення і гривня — після юридичного оформлення, без обіцянок доходу.</li>
         </ul>

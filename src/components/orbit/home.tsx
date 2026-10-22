@@ -77,7 +77,7 @@ export function FirstStep({ onTab, busy = false }: { onTab: (tab: HomeTab) => vo
       <div className="hm-first-head">
         <p className="orbit-kicker">Перший крок</p>
         <h2 id="hm-first-title">З чого почати</h2>
-        <p>Орбіти запускають люди разом: 8 підтверджень і 24 години заряду.</p>
+        <p>Орбіти запускають люди разом: 3 підтвердження і 24 години заряду.</p>
       </div>
       <form
         className="hm-first-step"
@@ -112,7 +112,7 @@ export function FirstStep({ onTab, busy = false }: { onTab: (tab: HomeTab) => vo
       </form>
       <div className="hm-first-step">
         <b><span className="hm-first-num" aria-hidden>2</span>Почни запуск</b>
-        <small>Відкрий власну заявку й поділися кодом з вісьмома людьми. Перша орбіта — приблизно за 4 дні.</small>
+        <small>Відкрий власну заявку й поділися кодом з трьома людьми. Перша орбіта — приблизно за 2 дні.</small>
         <button
           type="button"
           className="orbit-go k-go"
@@ -195,7 +195,7 @@ export function Banners({ world, user, onTab, onOpen, onLocked }: { world: World
     const due = world.lastDistributionAt + FUND_PERIOD_MS;
     const creation = activeCreation(world, user.id);
     const out: Banner[] = [];
-    if (!creation) out.push({ id: "launch", kicker: "Запуск", title: "Перша орбіта — приблизно за 4 дні", text: "8 підтверджень від людей і 24 години заряду. Почни зараз — коди можна пересилати посиланням.", cta: "Почати запуск", icon: <Rocket size={44} strokeWidth={1.3} />, tone: "nebula", onClick: () => onTab("mine") });
+    if (!creation) out.push({ id: "launch", kicker: "Запуск", title: "Перша орбіта — приблизно за 2 дні", text: "3 підтвердження від різних людей і 24 години заряду. Почни зараз — коди можна пересилати посиланням.", cta: "Почати запуск", icon: <Rocket size={44} strokeWidth={1.3} />, tone: "nebula", onClick: () => onTab("mine") });
     out.push({ id: "learn", kicker: `Навчання · ${LESSONS.length} уроків`, title: "Як працює орбіта", text: "Короткі уроки з тестом наприкінці: ціна дня, черга, фонд і заряд.", cta: "Почати урок", icon: <GraduationCap size={44} strokeWidth={1.3} />, tone: "ion", onClick: () => onOpen("learn") });
     if (leader && leader.stability > 0) out.push({ id: "leader", kicker: "Рейтинг", title: `Лідер стабільності — ${leader.name}`, text: `${leader.stability} стабільності. ${place ? `Ти на ${place} місці з ${ranked.length}.` : ""}`, cta: "Весь рейтинг", icon: <Trophy size={44} strokeWidth={1.3} />, tone: "sun", onClick: () => onOpen("leaders") });
     out.push({ id: "fund", kicker: "Фонд", title: `Поділ через ${leftShort(due - world.now)}`, text: `У фонді ${fmt.format(world.fund)} ✦. Він ділиться між активними учасниками.`, cta: "До фонду", icon: <Hourglass size={44} strokeWidth={1.3} />, tone: "aurora", onClick: () => onTab("flow") });

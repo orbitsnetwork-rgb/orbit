@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 /**
  * 18: жива сторінка запуску /l/<заявка> — без встановлення і без входу.
- * Повертає лише «Ім’я П.» автора і тих, хто підтвердив, скільки з 8 і стан заряду. Код ніколи не повертається:
+ * Повертає лише «Ім’я П.» автора і тих, хто підтвердив, скільки підтверджень і стан заряду. Код ніколи не повертається:
  * якщо в посиланні є ?c=, сервер лише каже, чи він ще живий (codeLive), і тоді кнопка веде на /?c=… у застосунку.
  */
 export type LaunchLive = {
@@ -71,7 +71,7 @@ export const launchLive = createServerFn({ method: "GET" })
         found: true,
         who: nameOf(item.userId),
         n: item.confirms.length,
-        need: E.CONFIRM_NEED,
+        need: E.crewNeed(bag.world),
         status: item.status,
         names: item.confirms.map((row) => nameOf(row.witnessId)),
         codeLive: item.status === "collecting" && checkCode && item.code === data.c && now < item.codeExpires,

@@ -54,9 +54,9 @@ export const launchPreview = createServerFn({ method: "GET" })
 
 export function previewMeta(p: LaunchPreview | undefined) {
   const origin = p?.origin ?? "";
-  const title = p?.who ? `Запуск ${p.who} · ${p.n} з 8` : "Орбіти — запускаємо разом";
+  const title = p?.who ? `Запуск ${p.who} · підтверджень: ${p.n}` : "Орбіти — запускаємо разом";
   const description = p?.who
-    ? "Підтверди запуск орбіти: потрібно 8 людей і 24 години заряду. Код уже в посиланні."
+    ? "Підтверди запуск орбіти: потрібно 3 підтвердження від різних людей і 24 години заряду. Код уже в посиланні."
     : "Вісім мільйонів рівних орбіт. Одна ціна. Внутрішня одиниця — іскра ✦. Запускаємо разом.";
   const image = `${origin}/og-launch.png`;
   return [

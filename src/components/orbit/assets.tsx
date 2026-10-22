@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Page } from "@/components/orbit/more";
 import type { Tab } from "@/components/orbit/pages";
 import { sparkWord, spk } from "@/lib/orbit/copy";
-import { activeCreation, CONFIRM_NEED, DAY_MS, holdBonus, ORBIT_CAP, type Account, type World, walletSplit } from "@/lib/orbit/engine";
+import { activeCreation, crewNeed, DAY_MS, holdBonus, ORBIT_CAP, type Account, type World, walletSplit } from "@/lib/orbit/engine";
 import { no } from "@/lib/orbit/ledger";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { useOrbits } from "@/lib/orbit/store";
@@ -70,10 +70,10 @@ export function Assets({ world, user, onBack, onClose, onGo }: { world: World; u
         <button type="button" className="as-creation" onClick={() => onGo("mine")}>
           <span>
             <small>{creation.status === "charging" ? "Заряд іде" : "Заявка"}</small>
-            <b>{creation.status === "charging" ? "Чекаємо результат" : `${creation.confirms.length} з ${CONFIRM_NEED} підтверджень`}</b>
+            <b>{creation.status === "charging" ? "Чекаємо результат" : `${creation.confirms.length} з ${crewNeed(world)} підтверджень`}</b>
           </span>
           <span className="as-dots" aria-hidden>
-            {Array.from({ length: CONFIRM_NEED }, (_, index) => (
+            {Array.from({ length: crewNeed(world) }, (_, index) => (
               <i key={index} data-on={index < creation.confirms.length ? "1" : "0"} />
             ))}
           </span>

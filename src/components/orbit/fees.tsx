@@ -132,9 +132,9 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
             <p className="mo-group-title">Правила</p>
             <div className="fe-table" role="table">
               <Tr name="Активних заявок" value="1" note="На людину" />
-              <Tr name="Підтверджень для орбіти" value={String(CONFIRM_NEED)} note="Від різних людей, свій код — ні" />
+              <Tr name="Підтверджень для орбіти" value={String(CONFIRM_NEED)} note="Від 4 людей у світі; поки людей 2–3 — менше. Кожен підтверджує тебе лише раз" />
               <Tr name="Код живе" value={`${Math.round(CODE_MS / 60_000)} хв`} note="Потім — новий" />
-              <Tr name="Заряд" value={`${Math.round(CHARGE_MS / 3_600_000)} год`} note="Після восьмого підтвердження" />
+              <Tr name="Заряд" value={`${Math.round(CHARGE_MS / 3_600_000)} год`} note="Після останнього потрібного підтвердження" />
               <Tr name="Нових імен з пристрою" value={String(NAMES_PER_DEVICE)} note="На добу" />
               <Tr name="Купівля і продаж" value="пошта" note="Лише з підтвердженою поштою" />
               <Tr name="Ліміти за рівнями перевірки" value="—" note="Після юридичного оформлення" soon />

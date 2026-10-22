@@ -42,7 +42,7 @@ function escape(text: string) {
 export function topicOf(text: string): Topic {
   if (/Фонд поділено/.test(text)) return "fund";
   if (/купив #|поставив #|зняв #|Ціна на добу/.test(text)) return "market";
-  if (/Заряд|заявку|підтвердив|вісімку|випустив код/.test(text)) return "charge";
+  if (/Заряд|заявку|підтвердив|вісімку|екіпаж|випустив код/.test(text)) return "charge";
   return "system";
 }
 
@@ -56,8 +56,8 @@ export function eventText(ev: Ev, world: World): { text: string; topic: Topic } 
     case "join": return { text: ev.amt ? `Ти в Орбітах. Стартові ${sp(ev.amt)} на рахунку.` : `Ти в Орбітах. Стартові ${STARTER_OD} ✦ — після першого внеску.`, topic: "me" };
     case "starter": return { text: `Стартові ${sp(ev.amt)} зараховано — перший заряд пройшов.`, topic: "me" };
     case "launch": return { text: "Твою заявку на орбіту відкрито.", topic: "charge" };
-    case "confirmGiven": return { text: `Ти підтвердив запуск ${who(ev.other)} · ${ev.n} з 8.`, topic: "charge" };
-    case "confirmed": return { text: `${who(ev.other)} підтвердив твій запуск · ${ev.n} з 8.`, topic: "charge" };
+    case "confirmGiven": return { text: `Ти підтвердив запуск ${who(ev.other)} · підтверджень: ${ev.n}.`, topic: "charge" };
+    case "confirmed": return { text: `${who(ev.other)} підтвердив твій запуск · підтверджень: ${ev.n}.`, topic: "charge" };
     case "charging": return { text: "Вісімка зібрана. Заряд на 24 години.", topic: "charge" };
     case "chargeOk": return { text: `Заряд пройшов. Орбіта ${no7(ev.orbit)} твоя.`, topic: "charge" };
     case "chargeFail": return { text: "Заряд зірвався. Підтвердження згоріли.", topic: "charge" };
@@ -71,7 +71,7 @@ export function eventText(ev: Ev, world: World): { text: string; topic: Topic } 
     case "topup": return { text: `Тестове поповнення: +${sp(ev.amt)}.`, topic: "me" };
     case "thanksGot": { const ph = phraseOf(ev.p); return { text: ph ? `${who(ev.other)}: «${ph}»` : `${who(ev.other)} дякує тобі за підтвердження ✦`, topic: "me" }; }
     case "thanksSent": { const ph = phraseOf(ev.p); return { text: ph ? `Ти подякував ${who(ev.other)}: «${ph}»` : `Ти подякував ${who(ev.other)}.`, topic: "me" }; }
-    case "nudge": return { text: `${who(ev.other)} нагадує про свій запуск · ${ev.n ?? 0} з 8. Попроси свіжий код і підтверди.`, topic: "charge" };
+    case "nudge": return { text: `${who(ev.other)} нагадує про свій запуск · підтверджень: ${ev.n ?? 0}. Попроси свіжий код і підтверди.`, topic: "charge" };
     case "nudgeSent": return { text: `Ти нагадав ${ev.n ?? 0} ${(ev.n ?? 0) === 1 ? "людині" : "людям"} про свій запуск.`, topic: "charge" };
     default: return { text: "Подія", topic: "system" };
   }

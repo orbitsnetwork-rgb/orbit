@@ -2343,3 +2343,9 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .ow-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-2, #cfd3e0); }
 .ow-danger { border-color: rgba(255, 110, 110, 0.6) !important; color: #ffb4b4; }
 .orbit-chat-mute { padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 196, 92, 0.5); background: rgba(255, 196, 92, 0.08); font-size: 13px; line-height: 1.45; }
+.ex-rules { margin-top: 10px; border: 1px solid var(--line, rgba(255,255,255,.08)); border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,.03); }
+.ex-rules > summary { cursor: pointer; list-style: none; color: var(--text-2, #cfd3e6); font: 600 13px/1.35 var(--font-sans); display: flex; align-items: center; gap: 8px; }
+.ex-rules > summary::-webkit-details-marker { display: none; }
+.ex-rules > summary::before { content: "✦"; color: var(--sun, #f5c451); }
+.ex-rules[open] > summary { margin-bottom: 8px; }
+.ex-rules .mn-intro { margin: 0 0 8px; }

@@ -9,7 +9,11 @@ export const CHARGE_MS = 24 * 60 * 60 * 1000;
 export const CODE_MS = 10 * 60 * 1000;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const FUND_PERIOD_MS = 3 * DAY_MS;
-export const CONFIRM_NEED = 8;
+export const CONFIRM_NEED = 3;
+/** Постійний екіпаж. Поки людей менше чотирьох — стільки свідків, скільки є, щоб старт був з двох. */
+export const CREW_EASY_UNTIL = 4;
+/** Зі стрічки можна підтвердити лише після 10 хвилин життя акаунта. Код від людини — одразу. */
+export const FEED_MIN_AGE_MS = 10 * 60 * 1000;
 export const CODES_PER_DAY = 3;
 export const NOVICE_CODES_PER_DAY = 1;
 export const STABILITY_GATE = 20;
@@ -133,6 +137,11 @@ export function holdBonus(heldMs: number) {
 
 export function me(world: World) {
   return world.accounts.find((account) => account.id === world.sessionId) ?? null;
+}
+
+export function crewNeed(world: World) {
+  if (world.accounts.length >= CREW_EASY_UNTIL) return CONFIRM_NEED;
+  return Math.max(1, world.accounts.length - 1);
 }
 
 export function activeCreation(world: World, userId: string) {
@@ -419,25 +428,46 @@ export function issueCode(world: World): Step {
   };
 }
 
-export function acceptCode(world: World, raw: string): Step {
-  const user = me(world);
-  if (!user) return { world, error: "Спочатку ім’я." };
-  const code = raw.replace(/\D/g, "").slice(0, 6);
-  if (code.length !== 6) return { world, error: "Код — це 6 цифр." };
-  const base = settle(world);
-  const creation = base.creations.find((item) => item.status === "collecting" && item.code === code && base.now < item.codeExpires);
-  if (!creation) return { world: base, error: "Код недійсний або вже згас." };
-  if (creation.userId === user.id) return { world: base, error: "Свій код не приймають." };
-  if (creation.confirms.some((confirm) => confirm.witnessId === user.id)) return { world: base, error: "Ти вже підтвердив цю заявку." };
+/** Захист від кілець фейків (ціну, Фонд і заряд не змінює). */
+export const MUTUAL_MAX = 2;
+export const GUARD_FROM = 10;
+/** Скільки власників орбіт має бути у світі, щоб діяло правило «останній свідок — з орбітою». */
+export const ANCHOR_FROM = 10;
+export const WITNESS_MIN_AGE_MS = 60 * 60 * 1000;
+
+/** Автор уже підтверджував цього свідка раніше — «взаємне» підтвердження. */
+export function isMutual(world: World, authorId: string, witnessId: string) {
+  return world.creations.some((item) => item.userId === witnessId && item.confirms.some((row) => row.witnessId === authorId));
+}
+
+/** Чому цей свідок зараз не може підтвердити цей запуск (або null). */
+export function witnessBlock(world: World, creation: Creation, witness: Account): string | null {
+  if (world.accounts.length < GUARD_FROM || crewNeed(world) < CONFIRM_NEED) return null;
+  if (world.now - witness.createdAt < WITNESS_MIN_AGE_MS) return "Новий акаунт може підтверджувати через годину після реєстрації.";
+  if (isMutual(world, creation.userId, witness.id) && creation.confirms.filter((row) => isMutual(world, creation.userId, row.witnessId)).length >= MUTUAL_MAX) {
+    return "У цьому екіпажі вже двоє людей, яких автор сам підтверджував. Третім має бути хтось поза вашим колом.";
+  }
+  const anchor = (id: string) => world.orbits.some((orbit) => orbit.ownerId === id);
+  const anchors = new Set(world.orbits.map((orbit) => orbit.ownerId)).size;
+  if (anchors >= ANCHOR_FROM && !anchor(witness.id) && creation.confirms.filter((row) => !anchor(row.witnessId)).length >= CONFIRM_NEED - 1) {
+    return "Останнім у екіпажі має бути хтось, у кого вже є орбіта. Так нові акаунти не запускають орбіти лише між собою.";
+  }
+  return null;
+}
+
+function applyConfirm(base: World, creation: Creation, user: Account): Step {
   const day = utcDay(base.now);
   const fresh = base.accounts.find((account) => account.id === user.id) ?? user;
+  const blocked = witnessBlock(base, creation, fresh);
+  if (blocked) return { world: base, error: blocked };
   const used = fresh.confirmDay === day ? fresh.confirmsToday : 0;
   const cap = fresh.stability >= STABILITY_GATE ? CODES_PER_DAY : NOVICE_CODES_PER_DAY;
   if (used >= cap) {
-    return { world: base, error: fresh.stability >= STABILITY_GATE ? "Сьогодні вже 3 коди." : "До стабільності 20 — один код на добу." };
+    return { world: base, error: fresh.stability >= STABILITY_GATE ? "Сьогодні вже 3 підтвердження." : "До стабільності 20 — одне підтвердження на добу." };
   }
+  const need = crewNeed(base);
   const confirms = [...creation.confirms, { witnessId: user.id, at: base.now }];
-  const full = confirms.length >= CONFIRM_NEED;
+  const full = confirms.length >= need;
   const nextCreation: Creation = {
     ...creation,
     confirms,
@@ -456,8 +486,44 @@ export function acceptCode(world: World, raw: string): Step {
     confirmsToday: used + 1,
     lastActiveAt: next.now,
   }));
-  next = note(next, full ? `${user.name} закрив вісімку підтверджень. Заряд на 24 години.` : `${user.name} підтвердив. Тепер ${confirms.length} з 8.`);
-  return { world: next, notice: full ? "Заряд пішов. Результат через 24 години." : `${confirms.length} з 8.` };
+  next = note(next, full ? `${user.name} зібрав екіпаж. Заряд на 24 години.` : `${user.name} підтвердив. Тепер ${confirms.length} з ${need}.`);
+  return { world: next, notice: full ? "Заряд пішов. Результат через 24 години." : `${confirms.length} з ${need}.` };
+}
+
+/** Один свідок підтверджує одну й ту саму людину лише раз за життя. */
+function alreadyVouched(world: World, witnessId: string, authorId: string) {
+  return world.creations.some((item) =>
+    item.userId === authorId && item.confirms.some((confirm) => confirm.witnessId === witnessId),
+  );
+}
+
+export function acceptCode(world: World, raw: string): Step {
+  const user = me(world);
+  if (!user) return { world, error: "Спочатку ім’я." };
+  const code = raw.replace(/\D/g, "").slice(0, 6);
+  if (code.length !== 6) return { world, error: "Код — це 6 цифр." };
+  const base = settle(world);
+  const creation = base.creations.find((item) => item.status === "collecting" && item.code === code && base.now < item.codeExpires);
+  if (!creation) return { world: base, error: "Код недійсний або вже згас." };
+  if (creation.userId === user.id) return { world: base, error: "Свій код не приймають." };
+  if (creation.confirms.some((confirm) => confirm.witnessId === user.id)) return { world: base, error: "Ти вже підтвердив цю заявку." };
+  if (alreadyVouched(base, user.id, creation.userId)) return { world: base, error: "Цю людину ти вже підтверджував. Одну людину — лише раз за життя." };
+  return applyConfirm(base, creation, user);
+}
+
+/** Підтвердження зі стрічки: без коду, з віковим лімітом. Одну людину — лише раз за життя. */
+export function confirmLaunch(world: World, creationId: string): Step {
+  const user = me(world);
+  if (!user) return { world, error: "Спочатку ім’я." };
+  const base = settle(world);
+  const creation = base.creations.find((item) => item.id === creationId && item.status === "collecting");
+  if (!creation) return { world: base, error: "Цей запуск уже не збирає екіпаж." };
+  if (creation.userId === user.id) return { world: base, error: "Свій запуск підтвердити не можна." };
+  if (creation.confirms.some((confirm) => confirm.witnessId === user.id)) return { world: base, error: "Ти вже підтвердив цю заявку." };
+  if (alreadyVouched(base, user.id, creation.userId)) return { world: base, error: "Цю людину ти вже підтверджував. Одну людину — лише раз за життя." };
+  const fresh = base.accounts.find((account) => account.id === user.id) ?? user;
+  if (base.now - fresh.createdAt < FEED_MIN_AGE_MS) return { world: base, error: "Зі стрічки можна підтвердити через 10 хвилин після реєстрації. Код від людини працює одразу." };
+  return applyConfirm(base, creation, user);
 }
 
 export function listOrbit(world: World, orbitId: number): Step {

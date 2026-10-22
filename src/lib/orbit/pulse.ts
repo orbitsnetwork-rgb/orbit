@@ -96,7 +96,7 @@ export function monthRecap(world: Pick<World, "creations">, userId: string, now:
 export const THANK_PHRASES = [
   "Дякую, що підтвердив(-ла)!",
   "Ти — частина моєї орбіти ✦",
-  "Без тебе вісімки б не було",
+  "Без тебе екіпажу б не було",
   "Дякую за довіру!",
   "Разом — до зірок!",
   "Ти зробив(-ла) мій день",

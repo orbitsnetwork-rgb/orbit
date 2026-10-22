@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { forgive, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
+  confirmLaunch,
   adoptClock,
   buyOldest,
   cancelListing,
@@ -31,6 +32,7 @@ export type OrbitAction =
   | { type: "start" }
   | { type: "issue" }
   | { type: "accept"; code: string; q?: string }
+  | { type: "confirm"; cr: string }
   | { type: "list"; orbitId: number }
   | { type: "cancel"; orbitId: number }
   | { type: "buy"; price: number }
@@ -101,6 +103,10 @@ function clean(input: unknown): Call {
   if (type === "accept") {
     const q = typeof action.q === "string" && /^[a-z0-9]{1,12}\.[A-Za-z0-9_-]{22}$/.test(action.q) ? action.q : undefined;
     return { sessionId, sessionKey, key, device, action: { type, code: String(action.code ?? ""), ...(q ? { q } : {}) } };
+  }
+  if (type === "confirm") {
+    const cr = String(action.cr ?? "").slice(0, 40);
+    return { sessionId, sessionKey, key, device, action: { type, cr } };
   }
   if (type === "list" || type === "cancel") return { sessionId, sessionKey, key, device, action: { type, orbitId: Number(action.orbitId) } };
   if (type === "topup") return { sessionId, sessionKey, key, device, action: { type, amount: Number(action.amount) } };
@@ -269,6 +275,7 @@ function run(world: World, action: OrbitAction): Step {
   if (action.type === "start") return startCreation(world);
   if (action.type === "issue") return issueCode(world);
   if (action.type === "accept") return acceptCode(world, action.code);
+  if (action.type === "confirm") return confirmLaunch(world, action.cr);
   if (action.type === "list") return listOrbit(world, action.orbitId);
   if (action.type === "cancel") return cancelListing(world, action.orbitId);
   if (action.type === "buy") return buyOldest(world);
@@ -446,6 +453,15 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         // Два акаунти, що бували на одному пристрої, не підтверджують запуски одне одного. Рушій не чіпаємо: перевірка тут.
         const code = data.action.code.replace(/\D/g, "").slice(0, 6);
         const target = clocked.creations.find((item) => item.status === "collecting" && item.code === code && clocked.now < item.codeExpires);
+        if (target && target.userId !== self && sharedDevice(seen, self, target.userId)) {
+          await persist();
+          return { world: base, error: SAME_DEVICE, self: own(bag.people, self) };
+        }
+      }
+      if (data.action.type === "confirm" && self) {
+        // Зі стрічки — та сама перевірка пристрою, що й для коду.
+        const cr = data.action.cr;
+        const target = clocked.creations.find((item) => item.id === cr && item.status === "collecting");
         if (target && target.userId !== self && sharedDevice(seen, self, target.userId)) {
           await persist();
           return { world: base, error: SAME_DEVICE, self: own(bag.people, self) };

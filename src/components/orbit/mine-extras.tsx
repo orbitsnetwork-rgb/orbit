@@ -2,7 +2,8 @@ import { orbitNo } from "@/lib/orbit/traits";
 /** «Заявка» v8: етапи запуску, показники, хто запускає зараз, хто онлайн, мої минулі запуски. */
 import type { ReactNode } from "react";
 import { BatteryCharging, CheckCircle2, CircleDashed, Gauge, KeyRound, Rocket, ShieldCheck, Sparkles, XCircle, Zap } from "lucide-react";
-import { CHARGE_MS, CODES_PER_DAY, CONFIRM_NEED, DAY_MS, STABILITY_CONFIRM, WITNESS_OD, chanceOf, utcDay, type Account, type Creation, type World } from "@/lib/orbit/engine";
+import { CHARGE_MS, CODES_PER_DAY, CONFIRM_NEED, DAY_MS, STABILITY_CONFIRM, WITNESS_OD, chanceOf, crewNeed, utcDay, type Account, type Creation, type World } from "@/lib/orbit/engine";
+import { useOrbits } from "@/lib/orbit/store";
 import { Avatar, Empty, Progress, SectionHead, Stat } from "@/components/orbit/ui/kit";
 
 const fmt = new Intl.NumberFormat("uk-UA");
@@ -14,12 +15,12 @@ function date(ms: number) {
 }
 
 /** Три етапи: підтвердження → заряд → орбіта. */
-export function LaunchSteps({ creation, now }: { creation: Creation | null; now: number }) {
+export function LaunchSteps({ creation, now, need = CONFIRM_NEED }: { creation: Creation | null; now: number; need?: number }) {
   const k = creation?.confirms.length ?? 0;
   const stage = !creation ? -1 : creation.status === "collecting" ? 0 : creation.status === "charging" ? 1 : 2;
   const charged = creation?.chargeStartedAt ? Math.min(1, Math.max(0, (now - creation.chargeStartedAt) / CHARGE_MS)) : 0;
   const steps: { title: string; sub: string; icon: ReactNode }[] = [
-    { title: "Підтвердження", sub: stage > 0 ? `${CONFIRM_NEED} з ${CONFIRM_NEED}` : `${k} з ${CONFIRM_NEED}`, icon: <ShieldCheck size={16} strokeWidth={2} /> },
+    { title: "Підтвердження", sub: stage > 0 ? `${k} з ${k}` : `${k} з ${need}`, icon: <ShieldCheck size={16} strokeWidth={2} /> },
     { title: "Заряд", sub: stage === 1 ? `${Math.round(charged * 100)}%` : stage > 1 ? "готово" : "24 год", icon: <BatteryCharging size={16} strokeWidth={2} /> },
     { title: "Орбіта", sub: "твоя назавжди", icon: <Sparkles size={16} strokeWidth={2} /> },
   ];
@@ -57,6 +58,7 @@ export function LaunchStats({ world, user, creation }: { world: World; user: Acc
 
 /** Хто з учасників зараз збирає підтвердження чи заряджається. Коди інших сюди не приходять. */
 export function LiveLaunches({ world, user }: { world: World; user: Account }) {
+  const need = crewNeed(world);
   const rows = world.creations
     .filter((row) => row.userId !== user.id && (row.status === "collecting" || row.status === "charging"))
     .map((row) => ({ row, who: world.accounts.find((account) => account.id === row.userId) }))
@@ -65,9 +67,9 @@ export function LiveLaunches({ world, user }: { world: World; user: Account }) {
     .slice(0, 6);
   return (
     <section className="orbit-block mn-live" aria-labelledby="mn-live-title">
-      <SectionHead id="mn-live-title" title="Зараз запускають" />
+      <SectionHead id="mn-live-title" title="Стрічка екіпажу" />
       {rows.length === 0 ? (
-        <Empty icon={<Rocket size={20} strokeWidth={1.6} />} title="Поки ніхто" text="Коли учасники почнуть запуск, вони з’являться тут. Код для підтвердження дає сама людина." />
+        <Empty icon={<Rocket size={20} strokeWidth={1.6} />} title="Поки ніхто не запускає" text={`Зараз треба ${need} підтверджень. Коли хтось почне запуск, ти зможеш підтвердити його тут.`} />
       ) : (
         <>
           <ul className="mn-list">
@@ -81,16 +83,21 @@ export function LiveLaunches({ world, user }: { world: World; user: Account }) {
                   <div className="mn-list-mid">
                     <div className="mn-list-top">
                       <b>{who.name}</b>
-                      <span className="mn-tag" data-tone={charging ? "ion" : "sun"}>{charging ? `заряд ${Math.round(pct * 100)}%` : `${row.confirms.length} з ${CONFIRM_NEED}`}</span>
+                      <span className="mn-tag" data-tone={charging ? "ion" : "sun"}>{charging ? `заряд ${Math.round(pct * 100)}%` : `${row.confirms.length} з ${need}`}</span>
                     </div>
-                    <Progress value={charging ? Math.round(pct * 100) : row.confirms.length} max={charging ? 100 : CONFIRM_NEED} label={`${who.name}: ${charging ? "заряд" : "підтвердження"}`} tone={charging ? "ion" : "sun"} />
+                    <Progress value={charging ? Math.round(pct * 100) : row.confirms.length} max={charging ? 100 : need} label={`${who.name}: ${charging ? "заряд" : "підтвердження"}`} tone={charging ? "ion" : "sun"} />
                     {helped ? <small className="mn-helped"><CheckCircle2 size={12} strokeWidth={2.4} aria-hidden /> є твоє підтвердження</small> : null}
+                    {!charging && !helped ? (
+                      <button type="button" className="orbit-go k-go" onClick={() => void useOrbits.getState().confirmLaunch(row.id)}>
+                        Підтвердити
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               );
             })}
           </ul>
-          <p className="ex-hint">Щоб підтвердити — попроси в людини 6-значний код або посилання.</p>
+          <WitnessRules need={need} />
         </>
       )}
     </section>
@@ -150,10 +157,36 @@ export function PastLaunches({ world, user }: { world: World; user: Account }) {
   );
 }
 
-/** Ідея запуску на порожньому екрані: 3 кроки з іконками. */
+/** Задачі екіпажу: відкривають довіру, не дають безкоштовних іскор. */
+export function CrewTasks({ world, user }: { world: World; user: Account }) {
+  const confirmed = world.creations.some((item) => item.confirms.some((row) => row.witnessId === user.id));
+  const launched = world.creations.some((item) => item.userId === user.id);
+  const held = world.orbits.some((orbit) => orbit.ownerId === user.id);
+  const tasks = [
+    { done: confirmed, title: "Підтверди один запуск", text: "Зі стрічки або кодом." },
+    { done: launched, title: "Почни свій запуск", text: "Екіпаж збереться тут." },
+    { done: held, title: "Отримай орбіту", text: "Після заряду, якщо шанс пройде." },
+  ];
+  return (
+    <section className="orbit-block" aria-labelledby="crew-tasks-title">
+      <SectionHead id="crew-tasks-title" title="Задачі екіпажу" />
+      <ul className="mn-intro">
+        {tasks.map((task) => (
+          <li key={task.title}>
+            <span className="mn-intro-ico" aria-hidden>{task.done ? <CheckCircle2 size={18} strokeWidth={2} /> : <CircleDashed size={18} strokeWidth={1.9} />}</span>
+            <div>
+              <b>{task.title}</b>
+              <p>{task.text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 export function LaunchIntro({ chance }: { chance: number }) {
   const rows = [
-    { icon: <ShieldCheck size={18} strokeWidth={1.9} />, title: `${CONFIRM_NEED} підтверджень`, text: `Кожен учасник вводить твій 6-значний код. Один код — одне підтвердження, до ${CODES_PER_DAY} кодів на день.` },
+    { icon: <ShieldCheck size={18} strokeWidth={1.9} />, title: `${CONFIRM_NEED} підтвердження`, text: `Від різних людей: кодом або зі стрічки. Кожен підтверджує тебе лише раз за життя. Поки людей 2–3 — потрібно менше.` },
     { icon: <BatteryCharging size={18} strokeWidth={1.9} />, title: "24 години заряду", text: `Шанс успіху зараз — ${chance}%. Чим більше орбіт у світі, тим складніше.` },
     { icon: <CircleDashed size={18} strokeWidth={1.9} />, title: "Нова орбіта", text: "Отримуєш наступний номер. А кожен, хто підтвердив, отримує нагороду в іскрах ✦." },
   ];
@@ -169,5 +202,30 @@ export function LaunchIntro({ chance }: { chance: number }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Правила свідка: коротко і чесно, чому підтвердження можуть не прийняти. */
+export function WitnessRules({ need }: { need: number }) {
+  const rows = [
+    { t: `Зараз потрібно: ${need}`, p: "Поки людей 2–3 — на одне менше, ніж людей. Від 4 людей — завжди 3." },
+    { t: "Одну людину — раз за життя", p: "Кожен може підтвердити тебе лише один раз. Нові запуски — нові люди." },
+    { t: "Не лише своє коло", p: "Максимум двоє в екіпажі — ті, кого ти сам підтверджував. Третій — хтось поза колом." },
+    { t: "Останній — з орбітою", p: "Коли у світі 10+ власників орбіт, хоча б один свідок має вже мати орбіту." },
+    { t: "Новачкам — година", p: "Від 10 людей у світі новий акаунт підтверджує через годину, зі стрічки — через 10 хв." },
+  ];
+  return (
+    <details className="ex-rules" data-testid="witness-rules">
+      <summary>Правила свідка — чому підтвердження можуть не прийняти</summary>
+      <ul className="mn-intro">
+        {rows.map((row) => (
+          <li key={row.t}>
+            <span className="mn-intro-ico" aria-hidden><ShieldCheck size={16} strokeWidth={2} /></span>
+            <div><b>{row.t}</b><p>{row.p}</p></div>
+          </li>
+        ))}
+      </ul>
+      <p className="ex-hint">Ціна, Фонд і 24 години заряду від цих правил не змінюються. Вони лише не дають запускати орбіти між фейковими акаунтами.</p>
+    </details>
   );
 }

@@ -17,7 +17,7 @@ export function badgesOf(world: World, userId: string, mine: Mine | null, origin
     { id: "firstConfirm", title: "Перше підтвердження", hint: "Підтвердь чийсь запуск кодом", got: confirms >= 1, progress: [Math.min(confirms, 1), 1] },
     { id: "firstOrbit", title: "Перша орбіта", hint: "Запусти або купи орбіту", got: everOrbit, progress: [everOrbit ? 1 : 0, 1] },
     { id: "week", title: "7 днів на орбіті", hint: "Заходь і дій у 7 різних днів", got: days >= 7, progress: [Math.min(days, 7), 7] },
-    { id: "crew8", title: "Екіпаж вісімки", hint: "Стань частиною успішного запуску", got: crews >= 1, progress: [Math.min(crews, 1), 1] },
+    { id: "crew8", title: "Свій екіпаж", hint: "Стань частиною успішного запуску", got: crews >= 1, progress: [Math.min(crews, 1), 1] },
     { id: "thanks10", title: "10 подяк", hint: "Отримай 10 «Дякую» від авторів", got: thanks >= 10, progress: [Math.min(thanks, 10), 10] },
   ];
 }

@@ -1,8 +1,8 @@
 /**
- * «Екіпаж»: автор і 8 людей, що підтвердили успішний запуск. Лише читання з даних світу.
+ * «Екіпаж»: автор і люди, що підтвердили успішний запуск. Лише читання з даних світу.
  * Номер екіпажу — порядковий серед успішних запусків. Чату немає (відкладено).
  */
-import { CONFIRM_NEED, type Creation, type World } from "@/lib/orbit/engine";
+import type { Creation, World } from "@/lib/orbit/engine";
 
 export type Crew = { no: number; creation: Creation; author: string; members: string[]; orbitId: number | null; at: number };
 export type CrewStep = { id: string; author: string; status: Creation["status"]; together: number; at: number };
@@ -15,7 +15,7 @@ function opened(id: string) {
 export function crewsOf(world: World, origins: Record<string, string> = {}): Crew[] {
   const done = world.creations
     .map((creation, index) => ({ creation, index }))
-    .filter(({ creation }) => creation.status === "done" && creation.confirms.length >= CONFIRM_NEED)
+    .filter(({ creation }) => creation.status === "done" && creation.confirms.length >= 1)
     .sort((a, b) => (a.creation.chargeStartedAt ?? 0) - (b.creation.chargeStartedAt ?? 0) || a.index - b.index);
   const byCr = new Map(Object.entries(origins).map(([orbit, cr]) => [cr, Number(orbit)]));
   // Без запису origins (старі запуски) номер орбіти відомий, лише якщо кожна орбіта народилась із заряду по черзі.

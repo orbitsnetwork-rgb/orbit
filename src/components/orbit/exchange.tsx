@@ -102,7 +102,7 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
           <span><b>{fmt.format(issued)}</b> / {fmt.format(ORBIT_CAP)}</span>
         </div>
         <Progress value={issued} max={ORBIT_CAP} label="Випущено орбіт з ліміту" />
-        <p className="orbit-note">Випущено {supplyPct < 0.01 ? "<0,01" : supplyPct.toFixed(2).replace(".", ",")}%. Орбіти видобувають люди: 8 підтверджень і 24 год заряду. Ліміт не змінюється.</p>
+        <p className="orbit-note">Випущено {supplyPct < 0.01 ? "<0,01" : supplyPct.toFixed(2).replace(".", ",")}%. Орбіти видобувають люди: 3 підтвердження від різних людей і 24 год заряду. Ліміт не змінюється.</p>
       </section>
 
       <section className="orbit-block ex-panels" aria-label="Черга, угоди, мої">

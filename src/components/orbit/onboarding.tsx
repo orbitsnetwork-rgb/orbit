@@ -14,7 +14,7 @@ function markDone(userId: string) {
   }
 }
 
-// Чесна арифметика першої орбіти з констант рушія: 8 підтверджень, до 3 кодів на день, 24 год заряду.
+// Чесна арифметика першої орбіти з констант рушія: 3 підтвердження, до 3 кодів на день, 24 год заряду.
 const COLLECT_DAYS = Math.ceil(CONFIRM_NEED / CODES_PER_DAY);
 const FIRST_DAYS = COLLECT_DAYS + 1;
 
@@ -42,16 +42,14 @@ function Spark() {
 
 function Days() {
   const plan = [
-    { day: 1, text: `${CODES_PER_DAY} з ${CONFIRM_NEED}`, lit: CODES_PER_DAY },
-    { day: 2, text: `${CODES_PER_DAY * 2} з ${CONFIRM_NEED}`, lit: CODES_PER_DAY * 2 },
-    { day: 3, text: `${CONFIRM_NEED} з ${CONFIRM_NEED}`, lit: CONFIRM_NEED },
-    { day: 4, text: "заряд", lit: CONFIRM_NEED },
+    { day: 1, text: `${CONFIRM_NEED} з ${CONFIRM_NEED}`, lit: CONFIRM_NEED },
+    { day: 2, text: "заряд → орбіта", lit: CONFIRM_NEED },
   ];
   return (
     <div className="ob-art ob-art-days" aria-hidden>
       <div className="ob-sats">
         {Array.from({ length: CONFIRM_NEED }, (_, i) => {
-          const t = ((-90 + i * 45) * Math.PI) / 180;
+          const t = ((-90 + (i * 360) / CONFIRM_NEED) * Math.PI) / 180;
           return <span key={i} style={{ left: `${50 + 42 * Math.cos(t)}%`, top: `${50 + 42 * Math.sin(t)}%`, ["--i" as string]: i }} />;
         })}
         <b>~{FIRST_DAYS} дні</b>
@@ -82,7 +80,7 @@ const SLIDES = [
   {
     art: <Days />,
     title: `Перша орбіта — приблизно за ${FIRST_DAYS} дні`,
-    body: `Для запуску потрібно ${CONFIRM_NEED} підтверджень від інших учасників. Один код — одне підтвердження, кодів до ${CODES_PER_DAY} на день, тож збір триває щонайменше ${COLLECT_DAYS} дні. Далі 24 години заряду. Або купи готову орбіту з черги.`,
+    body: `Для запуску потрібно ${CONFIRM_NEED} підтвердження від різних людей (поки людей 2–3 — менше). Одна людина підтверджує тебе лише раз за життя. Один код — одне підтвердження, кодів до ${CODES_PER_DAY} на день, тож збір триває щонайменше ${COLLECT_DAYS} дні. Далі 24 години заряду. Або купи готову орбіту з черги.`,
   },
 ];
 

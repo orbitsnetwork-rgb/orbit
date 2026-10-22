@@ -25,7 +25,7 @@ export const LESSONS: Lesson[] = [
       `Далі — заряд на ${Math.round(CHARGE_MS / 3_600_000)} год. Він може пройти або зірватися.`,
       "Шанс видно заздалегідь. Що більше орбіт у світі, то він менший.",
     ],
-    quiz: { q: "Скільки підтверджень треба зібрати?", options: [String(CONFIRM_NEED - 3), String(CONFIRM_NEED), String(CONFIRM_NEED + 4)], right: 1, why: `Потрібно ${CONFIRM_NEED} підтверджень від різних людей.` },
+    quiz: { q: "Скільки підтверджень треба зібрати?", options: [String(CONFIRM_NEED - 2), String(CONFIRM_NEED), String(CONFIRM_NEED + 5)], right: 1, why: `Потрібно ${CONFIRM_NEED} підтверджень від різних людей.` },
   },
   {
     id: "market",

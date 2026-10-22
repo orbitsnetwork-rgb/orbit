@@ -2439,3 +2439,13 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .gt-method { min-height: 44px; width: 100%; text-align: center; }
 .gt-google { display: flex; justify-content: center; }
 @media (prefers-reduced-motion: reduce) { .gt-about summary::after { transition: none; } }
+
+.se-confirm { display: grid; gap: .7rem; padding: .9rem; }
+.se-confirm p { margin: 0; line-height: 1.4; }
+.se-edit { padding: .8rem .9rem; }
+.se-danger-zone { border-color: rgb(255 107 107 / .35); }
+.se-ask { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+.pd-page { max-width: 760px; margin: 0 auto; padding: 1.2rem 1rem 3rem; line-height: 1.55; }
+.pd-page h1 { font-size: 1.6rem; margin: .8rem 0 .3rem; }
+.pd-page a { color: #cfc8ff; text-decoration: underline; }
+.pd-back { display: inline-block; min-height: 44px; padding-top: .6rem; text-decoration: none !important; }

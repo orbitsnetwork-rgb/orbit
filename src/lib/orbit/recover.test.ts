@@ -14,3 +14,9 @@ test("recover: match by email (case-insensitive input already lowered) and by ph
   assert.equal(matchPerson(people, { kind: "phone", phone: "+380999999999" }), null);
   assert.equal(matchPerson(people, { kind: "mail", email: "c@x.com" }), null);
 });
+
+test("sms errors: friendly quota message", async () => {
+  const { smsErrorText } = await import("./recover");
+  assert.match(smsErrorText("auth/quota-exceeded"), /Ліміт SMS на сьогодні/);
+  assert.match(smsErrorText("weird"), /SMS не надіслано/);
+});

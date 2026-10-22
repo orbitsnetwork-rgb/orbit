@@ -55,6 +55,50 @@ await step("gate + key screen", async () => {
   await axe(p, "home");
 });
 
+await step("public /privacy and /terms pages", async () => {
+  for (const [path, title] of [["/privacy", "Політика конфіденційності"], ["/terms", "Умови"]]) {
+    const r = await fetch(L.BASE + path);
+    const html = await r.text();
+    check(`${path}: 200 + title`, r.status === 200 && html.includes(title), String(r.status));
+  }
+  const r = await fetch(L.BASE + "/privacy");
+  check("/privacy mentions Turnstile addendum link", (await r.text()).includes("turnstile-privacy-policy"));
+});
+
+await step("account: change phone/email, logout everywhere, delete (soft)", async () => {
+  const p = await person("acct");
+  await L.register(p, "Ася"); await L.passKey(p); await L.skipIntro(p); await p.waitForTimeout(1000);
+  const openSec = async () => {
+    await p.getByRole("button", { name: "Ще", exact: true }).click();
+    await p.getByText("Безпека", { exact: true }).first().click();
+    await p.getByText("Контакти", { exact: true }).first().waitFor({ timeout: 8000 });
+  };
+  await openSec();
+  await p.getByRole("button", { name: "Змінити: Телефон" }).click();
+  await p.locator(".se-edit input").fill("0931112244");
+  const save = p.getByRole("button", { name: "Зберегти" });
+  await save.click();
+  check("account: phone changed with feedback", await hasText(p, "Телефон змінено."));
+  await p.getByRole("button", { name: "Змінити: Пошта" }).click();
+  await p.locator(".se-edit input").fill("bad-email");
+  await p.getByRole("button", { name: "Зберегти" }).click();
+  check("account: bad email rejected with clear copy", await hasText(p, "Пошта виглядає неправильно."));
+  await p.getByRole("button", { name: "Скасувати" }).first().click();
+  await p.getByRole("button", { name: "Вийти на всіх інших пристроях" }).click();
+  await p.getByRole("button", { name: "Так, вийти всюди" }).click();
+  check("account: logout everywhere shows new key screen", await hasText(p, "Твій ключ входу"));
+  await L.passKey(p).catch(() => {}); await p.waitForTimeout(800);
+  await p.reload(); await p.waitForTimeout(1500);
+  check("account: still signed in here with the new key", !(await hasText(p, "Створити акаунт", 1500)));
+  await openSec();
+  await p.getByRole("button", { name: "Видалити акаунт…" }).click();
+  const del = p.getByRole("button", { name: "Видалити назавжди" });
+  check("account: delete disabled until the word is typed", await del.isDisabled());
+  await p.locator(".se-danger-zone input").fill("видалити");
+  await del.click();
+  check("account: deleted → back to gate with notice", await hasText(p, "Створити акаунт") && await hasText(p, "Акаунт видалено"));
+});
+
 await step("money locked: visible, lock sheet, no dates/income; legacy routes 404", async () => {
   const p = await person("locks");
   await L.register(p, "Ліна"); await L.passKey(p); await L.skipIntro(p); await p.waitForTimeout(1200);

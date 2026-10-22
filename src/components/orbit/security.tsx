@@ -1,3 +1,4 @@
+import { AccountControls } from "@/components/orbit/account-controls";
 import { Check, Copy, Eye, EyeOff, KeyRound, LogOut, ShieldCheck, Smartphone, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Page } from "@/components/orbit/more";
@@ -193,6 +194,8 @@ export function Security({ world, user, onBack, onClose }: { world: World; user:
         </div>
         <p className="orbit-note as-small">«Забути» прибирає ключ лише з цього телефону. Без ключа зайти в той акаунт тут уже не вийде.</p>
       </section>
+
+      <AccountControls />
 
       <button type="button" className="se-out" onClick={leave.ask}>
         <LogOut size={17} strokeWidth={1.6} aria-hidden /> Вийти на цьому телефоні

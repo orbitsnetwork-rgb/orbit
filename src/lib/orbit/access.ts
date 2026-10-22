@@ -253,13 +253,13 @@ function clipName(value: unknown) {
   return name.length >= 2 ? name : "";
 }
 
-function clipEmail(value: unknown) {
+export function clipEmail(value: unknown) {
   if (typeof value !== "string") return "";
   const email = value.trim().toLowerCase().slice(0, 80);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
 }
 
-function clipPhone(value: unknown) {
+export function clipPhone(value: unknown) {
   if (typeof value !== "string") return "";
   const phone = value.trim().replace(/[^\d+]/g, "");
   const digits = phone.replace(/\D/g, "");

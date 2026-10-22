@@ -4,7 +4,7 @@
  * Якщо акаунта ще немає — підставляємо підтверджену пошту/телефон у форму реєстрації.
  */
 import { useEffect, useRef, useState } from "react";
-import { authConfig, authRecover } from "@/lib/orbit/recover";
+import { authConfig, authRecover, smsErrorText, smsGate } from "@/lib/orbit/recover";
 import { setPendingProof, useOrbits } from "@/lib/orbit/store";
 import { turnstileToken } from "@/lib/orbit/turnstile-client";
 import type { FirebaseWeb } from "@/lib/orbit/identity";
@@ -168,8 +168,14 @@ function PhoneFlow({ cfg, busy, onToken, onError }: { cfg: FirebaseWeb; busy: bo
   const okPhone = /^\+\d{10,15}$/.test(e164);
   const digits = code.replace(/\D/g, "").slice(0, 6);
   const send = async () => {
+    if (working) return;
     setWorking(true);
     try {
+      const gate = await smsGate({ data: { phone: e164, ts: await turnstileToken() } });
+      if (!gate.ok) {
+        onError(gate.error);
+        return;
+      }
       const { initializeApp, getApps } = await import("firebase/app");
       const { getAuth, RecaptchaVerifier, signInWithPhoneNumber } = await import("firebase/auth");
       const app = getApps()[0] ?? initializeApp(cfg);
@@ -178,8 +184,8 @@ function PhoneFlow({ cfg, busy, onToken, onError }: { cfg: FirebaseWeb; busy: bo
       const verifier = new RecaptchaVerifier(auth, box.current!, { size: "invisible" });
       confirm.current = await signInWithPhoneNumber(auth, e164, verifier);
       setStep("code");
-    } catch {
-      onError("SMS не надіслано. Перевір номер або спробуй пізніше.");
+    } catch (e) {
+      onError(smsErrorText(String((e as { code?: string })?.code ?? "")));
     } finally {
       setWorking(false);
     }
@@ -189,8 +195,8 @@ function PhoneFlow({ cfg, busy, onToken, onError }: { cfg: FirebaseWeb; busy: bo
     try {
       const cred = await confirm.current!.confirm(digits);
       await onToken(await cred.user.getIdToken());
-    } catch {
-      onError("Код не той або згас.");
+    } catch (e) {
+      onError(smsErrorText(String((e as { code?: string })?.code ?? "auth/invalid-verification-code")));
     } finally {
       setWorking(false);
     }

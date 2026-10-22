@@ -49,6 +49,8 @@ type OrbitState = {
   /** Вхід після відновлення (Google / SMS / код з пошти): новий ключ показуємо на екрані ключа. */
   adoptRecovered: (id: string, key: string) => Promise<void>;
   resendMail: () => Promise<void>;
+  /** Пошта / телефон / вийти всюди / видалити акаунт. Повертає текст для показу або помилку. */
+  account: (action: import("@/lib/orbit/account").AccountOp) => Promise<{ ok: boolean; text: string }>;
   confirmMail: (code: string) => Promise<void>;
   leave: () => void;
   start: () => Promise<void>;
@@ -98,6 +100,17 @@ export function deviceKeys(): Record<string, string> {
     return keys;
   } catch {
     return {};
+  }
+}
+
+function forgetKey(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const keys = deviceKeys();
+    delete keys[id];
+    localStorage.setItem(KEYS, JSON.stringify(keys));
+  } catch {
+    /* приватний режим */
   }
 }
 
@@ -171,7 +184,23 @@ export function sinceOwnAction() {
   return Date.now() - lastOwnAction;
 }
 
+/** Захист від подвійного натискання: та сама дія, поки попередня ще в дорозі, не відправляється вдруге. */
+const inflight = new Map<string, Promise<OrbitReply | null>>();
+
 function send(action: OrbitAction, quiet = false, keyOverride?: string): Promise<OrbitReply | null> {
+  if (action.type !== "pull") {
+    const sig = JSON.stringify(action) + (keyOverride ?? "");
+    const same = inflight.get(sig);
+    if (same) return same;
+    const job = sendNow(action, quiet, keyOverride);
+    inflight.set(sig, job);
+    void job.finally(() => inflight.delete(sig));
+    return job;
+  }
+  return sendNow(action, quiet, keyOverride);
+}
+
+function sendNow(action: OrbitAction, quiet = false, keyOverride?: string): Promise<OrbitReply | null> {
   if (action.type !== "pull" && action.type !== "probe") {
     lastOwnAction = Date.now();
     // Відповідь на дію вже несе свіжий світ; далі — швидший ритм, щоб побачити реакцію інших.
@@ -258,6 +287,30 @@ export const useOrbits = create<OrbitState>()(() => ({
     }
   },
   resendMail: () => send({ type: "resendMail" }).then(() => undefined),
+  account: async (action) => {
+    const sessionId = who();
+    const sessionKey = sessionId ? (deviceKeys()[sessionId] ?? null) : null;
+    try {
+      const { accountAct } = await import("@/lib/orbit/account");
+      const r = await accountAct({ data: { sessionId, sessionKey, action } });
+      if (!r.ok) return { ok: false, text: r.error };
+      if (r.deleted && sessionId) {
+        forgetKey(sessionId);
+        useOrbits.getState().leave();
+        useOrbits.setState({ flash: r.notice, bad: false });
+        return { ok: true, text: r.notice };
+      }
+      if (r.key && sessionId) {
+        remember(sessionId, r.key);
+        holdKeyScreen(sessionId);
+        useOrbits.setState({ fresh: { id: sessionId, key: r.key } });
+      }
+      if (r.self) useOrbits.setState({ self: r.self });
+      return { ok: true, text: r.notice };
+    } catch {
+      return { ok: false, text: "Немає зв’язку. Спробуй ще раз." };
+    }
+  },
   confirmMail: (code) => send({ type: "confirmMail", code }).then(() => undefined),
   leave: () => {
     keep(null);

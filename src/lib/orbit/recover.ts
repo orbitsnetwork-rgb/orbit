@@ -149,3 +149,52 @@ async function overLimit(sql: { query: <T>(t: string, p: unknown[]) => Promise<T
   );
   return Number(rows[0]?.n ?? 0) > max;
 }
+
+/**
+ * Перед надсиланням SMS: Turnstile + ліміти (мережа: 5 за 10 хв, номер: 3 за 10 хв).
+ * Firebase має власний захист (reCAPTCHA) і денну квоту; це — наш додатковий бар’єр від зливу квоти.
+ */
+export const smsGate = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => {
+    const v = (raw ?? {}) as Record<string, unknown>;
+    return { phone: typeof v.phone === "string" ? v.phone.replace(/[^\d+]/g, "").slice(0, 16) : "", ts: clipTurnstile(v.ts) };
+  })
+  .handler(async ({ data }): Promise<{ ok: true } | { ok: false; error: string }> => {
+    try {
+      if (!firebaseConfig()) return { ok: false, error: "Вхід за SMS ще не відкрито." };
+      if (!/^\+\d{10,15}$/.test(data.phone)) return { ok: false, error: "Номер у форматі +380…" };
+      const server = await import("@tanstack/react-start/server");
+      const ip = (server.getRequestHeader("cf-connecting-ip") ?? server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown").split(",")[0].trim();
+      const secret = turnstileSecret();
+      if (secret && !(await verifyTurnstile(data.ts ?? null, ip, secret))) return { ok: false, error: "Перевірка браузера не пройшла. Онови сторінку й спробуй ще раз." };
+      const { getSql } = await import("@/lib/db");
+      const sql = await getSql();
+      const { ipTag } = await import("@/lib/orbit/device");
+      if (await overLimit(sql, `sms-ip:${ipTag(ip)}`, 5)) return { ok: false, error: "Забагато SMS з цієї мережі. Спробуй за 10 хвилин або увійди іншим способом." };
+      if (await overLimit(sql, `sms-ph:${data.phone}`, 3)) return { ok: false, error: "На цей номер уже надіслано кілька SMS. Зачекай 10 хвилин." };
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Сервер тимчасово недоступний. Спробуй ще раз." };
+    }
+  });
+
+/** Зрозумілі повідомлення для помилок Firebase Phone Auth. */
+export function smsErrorText(code: string): string {
+  switch (code) {
+    case "auth/quota-exceeded":
+      return "Ліміт SMS на сьогодні вичерпано. Спробуй завтра або увійди через Google чи ключ.";
+    case "auth/too-many-requests":
+      return "Забагато спроб. Зачекай трохи й спробуй ще раз.";
+    case "auth/invalid-phone-number":
+    case "auth/missing-phone-number":
+      return "Номер виглядає неправильно. Формат: +380…";
+    case "auth/invalid-verification-code":
+      return "Код не той. Перевір 6 цифр з SMS.";
+    case "auth/code-expired":
+      return "Код згас. Надішли новий.";
+    case "auth/captcha-check-failed":
+      return "Перевірка не пройшла. Онови сторінку й спробуй ще раз.";
+    default:
+      return "SMS не надіслано. Спробуй пізніше або увійди іншим способом.";
+  }
+}

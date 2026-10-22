@@ -1,5 +1,6 @@
 /** Емблема профілю: аватар-кнопка + аркуш вибору кольору й знака. Закриті знаки показані з умовою відкриття. */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Lock, X } from "lucide-react";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { GLYPHS, HUES, unlockedGlyphs, type Emblem, type GlyphId } from "@/lib/orbit/emblem";
@@ -56,8 +57,9 @@ export function EmblemSheet({ world, user, onClose }: { world: World; user: Acco
     }
   };
   const preview = glyph === "letter" ? user.name.slice(0, 1).toUpperCase() : GLYPHS.find((g) => g.id === glyph)?.ch;
-  return (
-    <div className="em-scrim" onClick={onClose}>
+  // Портал у body: position:fixed не залежить від transform/stacking-контексту картки профілю.
+  return createPortal(
+    <div className="em-scrim" onClick={onClose} data-testid="em-scrim">
       <div className="em-sheet" role="dialog" aria-modal="true" aria-labelledby="em-title" tabIndex={-1} ref={dialog} onClick={(e) => e.stopPropagation()}>
         <div className="em-grab" aria-hidden />
         <div className="em-head">
@@ -72,7 +74,7 @@ export function EmblemSheet({ world, user, onClose }: { world: World; user: Acco
         <fieldset className="em-hues">
           <legend>Колір</legend>
           {HUES.map((h) => (
-            <button key={h} type="button" className="em-hue" style={{ ["--h" as string]: h }} aria-pressed={h === hue} aria-label={`Відтінок ${h}`} onClick={() => setHue(h)}>
+            <button key={h} type="button" className="em-hue" data-testid={`em-hue-${h}`} style={{ ["--h" as string]: h }} aria-pressed={h === hue} aria-label={`Відтінок ${h}`} onClick={() => setHue(h)}>
               {h === hue ? <Check size={14} strokeWidth={3} aria-hidden /> : null}
             </button>
           ))}
@@ -82,7 +84,7 @@ export function EmblemSheet({ world, user, onClose }: { world: World; user: Acco
           {GLYPHS.map((g) => {
             const locked = !open.has(g.id);
             return (
-              <button key={g.id} type="button" className="em-glyph" data-locked={locked ? "1" : undefined} aria-pressed={g.id === glyph} disabled={locked} onClick={() => setGlyph(g.id)} title={locked ? g.need : g.title}>
+              <button key={g.id} type="button" className="em-glyph" data-testid={`em-glyph-${g.id}`} data-locked={locked ? "1" : undefined} aria-pressed={g.id === glyph} disabled={locked} onClick={() => setGlyph(g.id)} title={locked ? g.need : g.title}>
                 <span className="em-glyph-ch" style={{ ["--h" as string]: hue }}>{g.ch || user.name.slice(0, 1).toUpperCase()}</span>
                 <span className="em-glyph-t">{g.title}</span>
                 {locked ? <span className="em-glyph-need"><Lock size={10} aria-hidden /> {g.need}</span> : null}
@@ -91,10 +93,11 @@ export function EmblemSheet({ world, user, onClose }: { world: World; user: Acco
           })}
         </fieldset>
         {err ? <p className="em-err" role="alert">{err}</p> : null}
-        <button type="button" className="orbit-go em-save" onClick={() => void save()} disabled={busy || same}>
+        <button type="button" className="orbit-go em-save" data-testid="em-save" onClick={() => void save()} disabled={busy || same}>
           {busy ? "Зберігаємо…" : same ? "Це твоя емблема" : "Зберегти емблему"}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -807,7 +807,8 @@ await step("next: emblem identity + constellation", async () => {
   check("locked glyph is disabled with a hint", await sheet.locator('.em-glyph[data-locked] .em-glyph-need').first().isVisible() && await sheet.locator('.em-glyph[data-locked]').first().isDisabled());
   const sun = sheet.locator(".em-glyph", { hasText: "Власне світло" });
   check("«Власне світло» unlocked after own launch", !(await sun.isDisabled()));
-  await sheet.locator(".em-hue").nth(4).click();
+  await sheet.getByTestId("em-hue-270").click();
+  check("hue picked (aria-pressed)", (await sheet.getByTestId("em-hue-270").getAttribute("aria-pressed")) === "true");
   await sun.click();
   await host.waitForTimeout(400);
   await snap(host, "02_emblem_sheet");
@@ -815,6 +816,11 @@ await step("next: emblem identity + constellation", async () => {
   await sheet.getByRole("button", { name: "Зберегти емблему" }).click();
   await sheet.waitFor({ state: "detached", timeout: 8000 });
   check("avatar shows chosen glyph", (await host.locator(".em-face .k-ava").innerText()).includes("☀"));
+  await host.getByRole("button", { name: "Змінити емблему" }).click();
+  await sheet.waitFor({ timeout: 5000 });
+  await host.keyboard.press("Escape");
+  await sheet.waitFor({ state: "detached", timeout: 5000 });
+  check("emblem sheet closes with Esc", (await host.getByTestId("em-scrim").count()) === 0);
   await host.reload(); await host.waitForTimeout(2500); await tab(host, "Я");
   check("emblem persisted server-side (after reload)", (await host.locator(".em-face .k-ava").innerText()).includes("☀"));
   const other = crew[0]; await other.reload(); await other.waitForTimeout(2000);

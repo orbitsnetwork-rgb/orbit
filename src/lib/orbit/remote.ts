@@ -710,6 +710,29 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         }
       }
       if ((data.action.type === "accept" || data.action.type === "confirm") && self && !step.error) {
+        // Пара «свідок → автор» — лише раз за життя. Унікальний ключ у базі тримає правило навіть після архівації заявок.
+        const vouched = step.world.creations.find((item) => item.confirms.some((row) => row.witnessId === self) && !base.creations.find((was) => was.id === item.id)?.confirms.some((row) => row.witnessId === self));
+        if (vouched) {
+          // Зустрічне підтвердження (і з архіву): від 10 людей у світі «ти мені — я тобі» не працює.
+          const { GUARD_FROM } = await import("@/lib/orbit/engine");
+          if (step.world.accounts.length >= GUARD_FROM) {
+            const back = await sql.query<{ n: number }>(`select 1 as n from orbit_vouches where witness_id = $1 and author_id = $2`, [vouched.userId, self]);
+            if (back[0]) {
+              await persist();
+              return { world: base, error: "Ця людина вже підтверджувала тебе. Взаємно не можна — попроси когось іншого.", self: own(bag.people, self) };
+            }
+          }
+          const won = await sql.query<{ witness_id: string }>(
+            `insert into orbit_vouches (witness_id, author_id, launch_id, at) values ($1, $2, $3, $4) on conflict (witness_id, author_id) do nothing returning witness_id`,
+            [self, vouched.userId, vouched.id, wall],
+          );
+          if (!won[0]) {
+            await persist();
+            return { world: base, error: "Цю людину ти вже підтверджував. Одну людину — лише раз за життя.", self: own(bag.people, self) };
+          }
+        }
+      }
+      if ((data.action.type === "accept" || data.action.type === "confirm") && self && !step.error) {
         // Замкнене коло в графі підтверджень — лише позначка для перевірки людиною (нічого не блокує).
         const closed = step.world.creations.find((item) => item.status === "charging" && item.confirms.at(-1)?.witnessId === self && base.creations.find((was) => was.id === item.id)?.status === "collecting");
         if (closed) {

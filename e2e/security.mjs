@@ -114,33 +114,49 @@ export async function securityPhase() {
   });
 
   await step("«підтвердив особисто»: only a fresh, genuine QR token marks; no ✦ effect", async () => {
-    const a = await L.apiRegister("Авторка", { ip: "10.9.1.1" });
+    // Одне підтвердження = заряд, тож кожен свідок підтверджує окремого автора.
+    const reg = async (n, ip) => ({ u: await L.apiRegister(n, { ip }), ip });
+    const A = [await reg("Авторка", "10.9.1.1"), await reg("Анна", "10.9.1.5"), await reg("Арсен", "10.9.1.6")];
     const [b, c, d] = [await L.apiRegister("Борис", { ip: "10.9.1.2" }), await L.apiRegister("Ціля", { ip: "10.9.1.3" }), await L.apiRegister("Данило", { ip: "10.9.1.4" })];
     const as = (u, ip) => ({ sessionId: u.id, sessionKey: u.key, cookie: u.cookie, ip });
-    await L.act({ type: "start" }, as(a, "10.9.1.1"));
-    const issue = async () => { const r = await L.act({ type: "issue" }, as(a, "10.9.1.1")); return { code: r.reply?.world?.creations?.find((x) => x.userId === a.id && x.code)?.code, qr: r.reply?.mine?.qr }; };
-    let { code, qr } = await issue();
+    for (const x of A) await L.act({ type: "start" }, as(x.u, x.ip));
+    const issue = async (x) => { const r = await L.act({ type: "issue" }, as(x.u, x.ip)); return { code: r.reply?.world?.creations?.find((y) => y.userId === x.u.id && y.code)?.code, qr: r.reply?.mine?.qr }; };
+    let { code, qr } = await issue(A[0]);
     check("author with a live code gets mine.qr", code && qr?.t && qr.cr, JSON.stringify(qr));
     const pullB = await L.act({ type: "pull" }, as(b, "10.9.1.2"));
     check("non-authors never get a QR token", !pullB.reply?.mine?.qr && !pullB.raw.includes(qr.t));
     const [head] = qr.t.split(".");
+    const forgedCr = qr.cr;
     const rb = await L.act({ type: "accept", code, q: `${head}.${"A".repeat(22)}` }, as(b, "10.9.1.2"));
     check("forged token: confirmation still counts", !rb.reply?.error, rb.reply?.error);
-    ({ code, qr } = await issue());
+    ({ code, qr } = await issue(A[1]));
+    const genuine = qr;
     const rc = await L.act({ type: "accept", code, q: qr.t }, as(c, "10.9.1.3"));
     check("genuine token: confirmation counts", !rc.reply?.error, rc.reply?.error);
+    ({ code, qr } = await issue(A[2]));
+    const old = qr;
     L.advance(3 * 60_000);
     await new Promise((r) => setTimeout(r, 400));
-    ({ code } = await issue());
-    const rd = await L.act({ type: "accept", code, q: qr.t }, as(d, "10.9.1.4"));
+    ({ code } = await issue(A[2]).catch(() => ({ code })));
+    const rd = await L.act({ type: "accept", code: code || "", q: old?.t }, as(d, "10.9.1.4"));
     check("expired token (3 min later): confirmation still counts", !rd.reply?.error, rd.reply?.error);
-    const pa = await L.act({ type: "pull" }, as(a, "10.9.1.1"));
-    const marks = pa.reply?.mine?.inPerson?.[qr.cr] || [];
-    check("only the genuine, fresh scan is marked «особисто»", marks.length === 1 && marks[0] === c.id, JSON.stringify(marks));
+    const mk = async (x, cr) => (await L.act({ type: "pull" }, as(x.u, x.ip))).reply?.mine?.inPerson?.[cr] || [];
+    const m0 = await mk(A[0], forgedCr), m1 = await mk(A[1], genuine.cr), m2 = await mk(A[2], old?.cr);
+    check("only the genuine, fresh scan is marked «особисто»", m0.length === 0 && m2.length === 0 && m1.length === 1 && m1[0] === c.id, JSON.stringify([m0, m1, m2]));
     const balB = (await balanceOf(b))?.balance, balC = (await balanceOf(c))?.balance;
     check("mark has no ✦ effect (marked and unmarked witness balances equal)", balB === balC, `${balB} vs ${balC}`);
-    const conf = pa.reply?.world?.creations?.find((x) => x.id === qr.cr)?.confirms?.length;
-    check("all three confirmations recorded by the engine", conf === 3, String(conf));
+    const pa = await L.act({ type: "pull" }, as(A[1].u, A[1].ip));
+    const st = pa.reply?.world?.creations?.find((x) => x.id === genuine.cr);
+    check("one confirmation starts the charge", st?.status === "charging" && st.confirms.length === 1, JSON.stringify(st?.status));
+    // Пара «свідок → автор» — раз за життя (рушій + унікальний ключ orbit_vouches).
+    L.advance(25 * 60 * 60_000);
+    await new Promise((r) => setTimeout(r, 400));
+    await L.act({ type: "pull" }, as(A[0].u, A[0].ip));
+    const st2 = await L.act({ type: "start" }, as(A[0].u, A[0].ip));
+    const is2 = await L.act({ type: "issue" }, as(A[0].u, A[0].ip));
+    code = is2.reply?.world?.creations?.find((y) => y.userId === A[0].u.id && y.code)?.code;
+    const twice = await L.act({ type: "accept", code: code || "" }, as(b, "10.9.1.2"));
+    check("same witness → same author a second time is refused", /раз за життя/.test(twice.reply?.error || ""), [st2.reply?.error, is2.reply?.error, twice.reply?.error].join(" | "));
   });
 
   await step("R7: bogus session keys don't burn scrypt CPU", async () => {

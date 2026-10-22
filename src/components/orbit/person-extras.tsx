@@ -24,7 +24,7 @@ export function ProfileStats({ world, user }: { world: World; user: Account }) {
     <div className="k-grid2 pr-stats">
       <Stat icon={<OrbitIcon size={16} strokeWidth={2} />} value={fmt.format(orbits)} label="орбіт у тебе" />
       <Stat icon={<Zap size={16} strokeWidth={2} />} tone="nebula" value={fmt.format(user.stability)} label="стабільність" />
-      <Stat icon={<ShieldCheck size={16} strokeWidth={2} />} tone="aurora" value={fmt.format(given)} label="твоїх підтверджень" />
+      <Stat icon={<ShieldCheck size={16} strokeWidth={2} />} tone="aurora" value={fmt.format(given)} label="ти підтвердив людей" />
       <Stat icon={<CalendarDays size={16} strokeWidth={2} />} tone="ion" value={fmt.format(daysWith(user, world.now))} label="днів в Орбітах" />
       <Stat icon={<Heart size={16} strokeWidth={2} />} tone="sun" value={fmt.format(thanks)} label="подяки" />
       <Stat icon={<Flame size={16} strokeWidth={2} />} tone="sun" value={fmt.format(active)} label="днів на орбіті" />

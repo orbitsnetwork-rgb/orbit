@@ -14,7 +14,7 @@ SERVER_PID=""
 restore() {
   local code=$?
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
-  pkill -f "orbit-e2e-server" 2>/dev/null
+  pkill -f "$ROOT/.output/server/index.mjs orbit-e2e-server" 2>/dev/null
   if [ "$MOVED" = 1 ] && [ -f "$BAK" ]; then
     if [ -e "$ROOT/.env.local" ]; then echo "WARN: .env.local reappeared; keeping it, backup stays at $BAK"; else mv "$BAK" "$ROOT/.env.local" && echo "restored .env.local"; fi
   fi

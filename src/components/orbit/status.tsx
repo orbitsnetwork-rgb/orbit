@@ -5,7 +5,7 @@ import { chanceOf, DAY_MS, FUND_PERIOD_MS, type World } from "@/lib/orbit/engine
 import { OFFLINE, useOrbits } from "@/lib/orbit/store";
 
 type State = "ok" | "slow" | "down" | "test" | "off";
-const WORD: Record<State, string> = { ok: "Працює", slow: "Повільно", down: "Немає зв’язку", test: "Тестовий режим", off: "Вимкнено" };
+const WORD: Record<State, string> = { ok: "Працює", slow: "Повільно", down: "Немає зв’язку", test: "Без оплати", off: "Вимкнено" };
 
 function span(ms: number) {
   if (ms <= 0) return "зараз";

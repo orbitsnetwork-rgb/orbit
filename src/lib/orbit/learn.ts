@@ -22,11 +22,11 @@ export const LESSONS: Lesson[] = [
     title: "Заявка і заряд",
     sub: "Як народжується орбіта",
     steps: [
-      `Подай заявку і збери ${CONFIRM_NEED} ${confirmsWord(CONFIRM_NEED)} від різних людей. Кожен вводить твій код.`,
+      `Подай заявку і збери ${CONFIRM_NEED} ${confirmsWord(CONFIRM_NEED)} від іншої людини — вона вводить твій код.`,
       `Далі — заряд на ${Math.round(CHARGE_MS / 3_600_000)} год. Він може пройти або зірватися.`,
       "Шанс видно заздалегідь. Що більше орбіт у світі, то він менший.",
     ],
-    quiz: { q: "Скільки підтверджень треба зібрати?", options: [String(CONFIRM_NEED - 2), String(CONFIRM_NEED), String(CONFIRM_NEED + 5)], right: 1, why: `Потрібно ${CONFIRM_NEED} підтверджень від різних людей.` },
+    quiz: { q: "Скільки підтверджень треба зібрати?", options: [String(CONFIRM_NEED), String(CONFIRM_NEED + 2), String(CONFIRM_NEED + 7)], right: 0, why: "Досить одного підтвердження від іншої людини. Одна людина підтверджує тебе лише раз за життя." },
   },
   {
     id: "market",

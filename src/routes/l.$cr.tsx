@@ -18,7 +18,7 @@ export const Route = createFileRoute("/l/$cr")({
   head: ({ loaderData }) => {
     const d = loaderData;
     const title = d?.found && d.who ? `Запуск ${d.who} · ${d.n} з ${d.need}` : "Орбіти — запускаємо разом";
-    const description = d?.found ? "Живий запуск орбіти: потрібно 3 підтвердження від різних людей і 24 години заряду. Відкрий — і підтверди." : "Вісім мільйонів рівних орбіт. Запускаємо разом.";
+    const description = d?.found ? "Живий запуск орбіти: потрібне одне підтвердження від іншої людини і 24 години заряду. Відкрий — і підтверди." : "Вісім мільйонів рівних орбіт. Запускаємо разом.";
     return {
       meta: [
         { title: `${title} — Орбіти` },
@@ -167,7 +167,7 @@ function LaunchPage() {
           </button>
         </div>
         {qr ? <img className="lp-qr" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr)}`} alt="QR-код сторінки запуску" width={200} height={200} /> : null}
-        <p className="lp-foot">Без встановлення. <Link to="/">Що таке Орбіти?</Link> Іскри ✦ — внутрішні тестові одиниці, не гроші.</p>
+        <p className="lp-foot">Без встановлення. <Link to="/">Що таке Орбіти?</Link> Іскри ✦ — внутрішні одиниці, не гроші.</p>
       </div>
     </main>
   );

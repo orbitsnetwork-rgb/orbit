@@ -9,7 +9,8 @@ export const CHARGE_MS = 24 * 60 * 60 * 1000;
 export const CODE_MS = 10 * 60 * 1000;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const FUND_PERIOD_MS = 3 * DAY_MS;
-export const CONFIRM_NEED = 3;
+/** Одне підтвердження від однієї людини запускає заряд. Пара «свідок → автор» — лише раз за життя. */
+export const CONFIRM_NEED = 1;
 /** Постійний екіпаж. Поки людей менше чотирьох — стільки свідків, скільки є, щоб старт був з двох. */
 export const CREW_EASY_UNTIL = 4;
 /** Зі стрічки можна підтвердити лише після 10 хвилин життя акаунта. Код від людини — одразу. */
@@ -140,8 +141,8 @@ export function me(world: World) {
 }
 
 export function crewNeed(world: World) {
-  if (world.accounts.length >= CREW_EASY_UNTIL) return CONFIRM_NEED;
-  return Math.max(1, world.accounts.length - 1);
+  void world;
+  return CONFIRM_NEED;
 }
 
 export function activeCreation(world: World, userId: string) {
@@ -454,15 +455,15 @@ export function isMutual(world: World, authorId: string, witnessId: string) {
 
 /** Чому цей свідок зараз не може підтвердити цей запуск (або null). */
 export function witnessBlock(world: World, creation: Creation, witness: Account): string | null {
-  if (world.accounts.length < GUARD_FROM || crewNeed(world) < CONFIRM_NEED) return null;
+  if (world.accounts.length < GUARD_FROM) return null;
   if (world.now - witness.createdAt < WITNESS_MIN_AGE_MS) return "Новий акаунт може підтверджувати через годину після реєстрації.";
-  if (isMutual(world, creation.userId, witness.id) && creation.confirms.filter((row) => isMutual(world, creation.userId, row.witnessId)).length >= MUTUAL_MAX) {
-    return "У цьому екіпажі вже двоє людей, яких автор сам підтверджував. Третім має бути хтось поза вашим колом.";
+  // Одне підтвердження = одна людина. Від 10 людей «ти мені — я тобі» не працює: зустрічне підтвердження має дати хтось інший.
+  if (isMutual(world, creation.userId, witness.id)) {
+    return "Ця людина вже підтверджувала тебе. Взаємно не можна — попроси когось іншого.";
   }
-  const anchor = (id: string) => world.orbits.some((orbit) => orbit.ownerId === id);
   const anchors = new Set(world.orbits.map((orbit) => orbit.ownerId)).size;
-  if (anchors >= ANCHOR_FROM && !anchor(witness.id) && creation.confirms.filter((row) => !anchor(row.witnessId)).length >= CONFIRM_NEED - 1) {
-    return "Останнім у екіпажі має бути хтось, у кого вже є орбіта. Так нові акаунти не запускають орбіти лише між собою.";
+  if (anchors >= ANCHOR_FROM && !world.orbits.some((orbit) => orbit.ownerId === witness.id)) {
+    return "Підтверджувати може той, у кого вже є орбіта. Так нові акаунти не запускають орбіти лише між собою.";
   }
   return null;
 }

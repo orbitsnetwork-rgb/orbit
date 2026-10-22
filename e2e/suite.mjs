@@ -204,18 +204,15 @@ await step("guest invite link banner names the inviter", async () => {
   await guest.waitForTimeout(900);
   const errs = guest.bodies.map((b) => L.decode(b)?.result?.error).filter(Boolean);
   const young = errs.some((e) => /через годину/.test(e));
-  check("crew3: brand-new witness refused with a clear reason (or world < 10)", young || (await hasText(guest, "1 з 3")), errs.join(" | "));
+  check("crew3: brand-new witness refused with a clear reason (or world < 10)", young || (await hasText(guest, "Заряд пішов")), errs.join(" | "));
   await shot(guest, "07b_witness_refused");
   L.advance(2 * H);
   await host.reload(); await host.waitForTimeout(1500);
   await tab(host, "Заявка");
-  await host.getByRole("button", { name: "Створити код підтвердження" }).click({ timeout: 8000 });
-  await host.waitForTimeout(600);
   await guest.reload(); await guest.waitForTimeout(1500);
-  await tab(guest, "Заявка");
-  await guest.locator(".cs-confirm input").first().fill(ownCode());
-  await guest.locator(".cs-confirm button[type=submit], .cs-confirm button.orbit-go").last().click();
-  check("guest confirm accepted (1 з 3)", await hasText(guest, "1 з 3"));
+  await confirmByQr(guest);
+  const gErr = guest.bodies.map((b) => L.decode(b)?.result?.error).filter(Boolean).at(-1);
+  check("one confirmation starts the charge", (await hasText(guest, "Заряд пішов")) || !gErr, gErr || "");
   crew.push(guest);
 });
 async function confirmBy(p) {
@@ -228,7 +225,7 @@ async function confirmBy(p) {
   await p.locator(".cs-confirm button.orbit-go").last().click();
   await p.waitForTimeout(900);
 }
-const mineOf = (p) => { for (let i = p.bodies.length - 1; i >= 0; i--) { const m = L.decode(p.bodies[i])?.result?.mine; if (m) return m; } return null; };
+function mineOf(p) { for (let i = p.bodies.length - 1; i >= 0; i--) { const m = L.decode(p.bodies[i])?.result?.mine; if (m) return m; } return null; }
 /** «Підтвердив особисто»: учасник відкриває посилання з QR на екрані автора (з коротким токеном q) і підтверджує. */
 async function confirmByQr(p) {
   await tab(host, "Заявка");
@@ -251,20 +248,12 @@ async function confirmByQr(p) {
   await p.locator(".cs-confirm button.orbit-go").last().click();
   await p.waitForTimeout(900);
 }
-await step("collect 3 confirms (crew3)", async () => {
-  for (let i = 1; i < 8; i++) {
-    const p = pre[i - 1];
-    if (i === 1) await confirmBy(p);
-    if (i === 2) { await host.reload(); await host.waitForTimeout(1500); await tab(host, "Заявка"); await shot(host, "08_collecting_2of3"); L.advance(24 * H); await confirmByQr(p); }
-    crew.push(p);
-  }
+await step("one confirm is enough + lifetime pair rule", async () => {
+  for (const p of pre) crew.push(p);
   await host.reload(); await host.waitForTimeout(1500); await tab(host, "Заявка");
-  check("launch charging after 3 confirms", await hasText(host, "Усі 3 супутники") || await hasText(host, "Залишилось"));
+  check("launch charging after 1 confirm", await hasText(host, "Залишилось") || await hasText(host, "Заряд"));
   const marks = host.locator(".ch-who li[data-inperson='1']");
-  check("exactly one «особисто» mark (QR scan), typed codes get none", (await marks.count()) === 1 && (await marks.first().innerText()).includes(names[2].split(" ")[0]), String(await marks.count()));
-  const bal = lastWorld(crew[2])?.world?.accounts?.find((a) => a.id === lastWorld(crew[2])?.world?.sessionId)?.balance;
-  const bal5 = lastWorld(crew[1])?.world?.accounts?.find((a) => a.id === lastWorld(crew[1])?.world?.sessionId)?.balance;
-  check("in-person mark changes no ✦ (QR witness balance = typed witness balance)", bal === bal5, `${bal} vs ${bal5}`);
+  check("exactly one «особисто» mark (QR scan), typed codes get none", (await marks.count()) === 1 && (await marks.first().innerText()).includes(names[0].split(" ")[0]), String(await marks.count()));
   await host.locator(".ch-who").first().scrollIntoViewIfNeeded();
   await shot(host, "09_charging");
 });
@@ -280,7 +269,7 @@ await step("v20: rooms + live chat + room access control", async () => {
   check("v20: online dot shown", await hasText(host, "онлайн"));
   await mine.click();
   await host.waitForTimeout(800);
-  check("v20: launch room is private copy", await hasText(host, "Бачать лише автор запуску"));
+  check("v20: launch room is private copy", await hasText(host, "Бачать лише автор і ті, хто підтвердив"));
   await host.locator("#chat-input").fill("<script>alert(1)</script> Екіпаже, тримаймось!");
   await host.getByRole("button", { name: "Надіслати" }).click();
   check("v20: room message shown as plain text", await hasText(host, "<script>alert(1)</script> Екіпаже, тримаймось!"));
@@ -434,7 +423,7 @@ await step("v22: bell chat notes (grouped) + moderation (mask, mute, owner page)
   // v23: дотик до сповіщення кімнати відкриває саме цю кімнату.
   await g.getByText(/Запуск, який я підтримав»: 2 нові повідомлення/).first().click();
   await g.waitForTimeout(1500);
-  check("v23: tapping a room note opens that room", (await hasText(g, "Бачать лише автор запуску")) && (await g.locator("#chat-input").count()) === 1);
+  check("v23: tapping a room note opens that room", (await hasText(g, "Бачать лише автор і ті, хто підтвердив")) && (await g.locator("#chat-input").count()) === 1);
   await shot(g, "40b_bell_opens_room");
   await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
   // 2) М'який фільтр: грубе слово маскується, повідомлення надсилається.
@@ -528,13 +517,13 @@ await step("share link /l/:slug", async () => {
   check("old link in another person's browser: 404 page, no redirect", viewerOld.status() === 404 && new URL(p.url()).pathname === `/l/${crId()}` && (await hasText(p, "Запуск не знайдено")), p.url());
   p.allowErrors = false;
   await p.goto(`${L.BASE}/l/${slug}`);
-  check("/l page shows status + 3 з 3", (await hasText(p, "Заряджається")) && (await hasText(p, "3")));
+  check("/l page shows status + 1 з 1", (await hasText(p, "Заряджається")) && (await hasText(p, "1")));
   check("/l page has no code", !/\b\d{6}\b/.test(await text(p)));
   await shot(p, "10_live_link");
   await axe(p, "/l live launch");
   const html = await (await fetch(`${L.BASE}/l/${slug}`)).text();
   const og = html.match(/<meta[^>]+og:title[^>]*>/)?.[0] || "";
-  check("/l og:title shows «3 з 3»", og.includes("Ганна Ш.") && og.includes("3 з 3"), og);
+  check("/l og:title shows «1 з 1»", og.includes("Ганна Ш.") && og.includes("1 з 1"), og);
 });
 await step("charge result + numbered orbit", async () => {
   L.advance(25 * H);
@@ -602,7 +591,7 @@ await step("profile: badges, streak, crew, thanks", async () => {
   await L.closePages(g);
 });
 await step("wallet: no top-ups → no split, lock line", async () => {
-  const c = crew[2]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
+  const c = crew[0]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
   let b = await text(c);
   check("confirmer got starter+reward (>0 ✦)", /\n(2\d\d|1\d\d) ✦/.test(b) || /22\d ✦/.test(b), b.match(/\d+ ✦/g)?.join(","));
   await more(c, "Активи"); b = await text(c);
@@ -625,7 +614,7 @@ await step("exchange sell with confirmation sheet + trust stats", async () => {
   check("listing in queue (Зняти / Місце в черзі)", (await hasText(host, "у черзі: 1")) || (await hasText(host, "перша твоя")), (await text(host)).slice(0, 900));
 });
 await step("exchange buy + trust stats", async () => {
-  const b = crew[2]; await b.reload(); await b.waitForTimeout(1500);
+  const b = crew[0]; await b.reload(); await b.waitForTimeout(1500);
   await tab(b, "Обмін");
   check("trust stats on seller card", (await hasText(b, "Новий продавець")) || (await hasText(b, "угод")));
   await shot(b, "16_exchange_buyer");
@@ -647,15 +636,15 @@ await step("exchange buy + trust stats", async () => {
 await step("fund + payout history", async () => {
   // crew3: увесь збір іде в перший день, тож власники мають побути онлайн перед поділом (правило «активні за 3 доби» не змінювалось).
   L.advance(3 * 24 * H - 2 * H);
-  for (const p of [host, crew[2]]) { await p.reload(); await p.waitForTimeout(1500); }
+  for (const p of [host, crew[0]]) { await p.reload(); await p.waitForTimeout(1500); }
   L.advance(3 * H);
-  for (const p of [host, crew[2]]) { await p.reload(); await p.waitForTimeout(1500); }
-  await tab(crew[2], "Фонд"); await crew[2].waitForTimeout(1500);
-  const b = await text(crew[2]);
+  for (const p of [host, crew[0]]) { await p.reload(); await p.waitForTimeout(1500); }
+  await tab(crew[0], "Фонд"); await crew[0].waitForTimeout(1500);
+  const b = await text(crew[0]);
   check("fund screen", b.includes("Фонд світу"));
   check("payout happened (history not empty)", !b.includes("Поділів ще не було"), b.slice(0, 300));
-  await shot(crew[2], "18_fund");
-  await axe(crew[2], "fund");
+  await shot(crew[0], "18_fund");
+  await axe(crew[0], "fund");
 });
 await step("transparency + CSV", async () => {
   await more(host, "Прозорість");

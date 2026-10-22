@@ -70,7 +70,6 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
             <h2 id="ex-pair">Орбіта <span>/ ✦</span></h2>
             <p>Ціна дня · одна для всіх · {dayLabel(utcDay(world.now))}</p>
           </div>
-          <span className="hm-test">Тест</span>
         </div>
         <PriceChart trades={world.trades} price={world.price} now={world.now} />
         {pendingMail ? (
@@ -102,7 +101,7 @@ export function Exchange({ world, user }: { world: World; user: Account }) {
           <span><b>{fmt.format(issued)}</b> / {fmt.format(ORBIT_CAP)}</span>
         </div>
         <Progress value={issued} max={ORBIT_CAP} label="Випущено орбіт з ліміту" />
-        <p className="orbit-note">Випущено {supplyPct < 0.01 ? "<0,01" : supplyPct.toFixed(2).replace(".", ",")}%. Орбіти видобувають люди: 3 підтвердження від різних людей і 24 год заряду. Ліміт не змінюється.</p>
+        <p className="orbit-note">Випущено {supplyPct < 0.01 ? "<0,01" : supplyPct.toFixed(2).replace(".", ",")}%. Орбіти видобувають люди: одне підтвердження від іншої людини і 24 год заряду. Ліміт не змінюється.</p>
       </section>
 
       <section className="orbit-block ex-panels" aria-label="Черга, угоди, мої">
@@ -254,7 +253,7 @@ export function ConfirmSheet({
             <div><span>Баланс після</span><b data-bad={short ? "1" : "0"}>{short ? `бракує ${spk(-after)}` : spk(after)}</b></div>
             <div><span>Стабільність</span><b>+1</b></div>
           </div>
-          <p className="orbit-note">Ціна одна для всіх і міняється опівночі за UTC (03:00 за Києвом). Тестовий режим.</p>
+          <p className="orbit-note">Ціна одна для всіх і міняється опівночі за UTC (03:00 за Києвом). Оплата поки вимкнена.</p>
           <button type="button" className="orbit-go k-go" disabled={busy || short || !oldest} onClick={() => onBuy(price)}>
             {busy ? <><span className="k-spin" aria-hidden /> Купуємо…</> : `Купити за ${spk(price)}`}
           </button>

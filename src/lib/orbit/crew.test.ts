@@ -7,16 +7,12 @@ function as(world: ReturnType<typeof emptyWorld>, id: string) {
   return { ...world, sessionId: id };
 }
 
-test("crew need starts from two people and locks at three", () => {
-  const world = emptyWorld(1_700_000_000_000);
-  const one = register(world, "Аня").world;
-  assert.equal(crewNeed(one), 1);
-  const two = register(as(one, ""), "Богдан").world;
-  assert.equal(crewNeed(two), 1);
-  const three = register(as(two, ""), "Віра").world;
-  assert.equal(crewNeed(three), 2);
-  const four = register(as(three, ""), "Гриць").world;
-  assert.equal(crewNeed(four), 3);
+test("one confirmation is always enough, at any world size", () => {
+  let world = emptyWorld(1_700_000_000_000);
+  for (const name of ["Аня", "Богдан", "Віра", "Гриць", "Дана"]) {
+    world = register(as(world, ""), name).world;
+    assert.equal(crewNeed(world), 1);
+  }
 });
 
 test("feed confirm is blocked for a brand new account", () => {
@@ -50,7 +46,7 @@ test("one witness confirms the same person only once in a lifetime", async () =>
   assert.equal(again.error, "Цю людину ти вже підтверджував. Одну людину — лише раз за життя.");
 });
 
-test("guards: mutual cap, anchor rule, witness age (only in a world of 10+)", async () => {
+test("guards: no reciprocal, anchor rule, witness age (only in a world of 10+)", async () => {
   const E = await import("./engine.ts");
   const now = 1_700_000_000_000;
   let world: World = emptyWorld(now);
@@ -61,23 +57,23 @@ test("guards: mutual cap, anchor rule, witness age (only in a world of 10+)", as
   let n = 0;
   const cr = (author: string, witnesses: string[], status = "done") =>
     ({ id: `c-t${n++}`, userId: author, status, confirms: witnesses.map((w) => ({ witnessId: w, at: now })), code: null, codeExpires: 0, codeDay: "", codesToday: 0, chargeStartedAt: null }) as unknown as Creation;
-  // A (ids[0]) раніше сам підтвердив B, C, D.
-  world = { ...world, creations: [cr(ids[1], [ids[0]]), cr(ids[2], [ids[0]]), cr(ids[3], [ids[0]])] };
-  const mine = cr(ids[0], [ids[1], ids[2]], "collecting");
-  assert.match(E.witnessBlock(world, mine, acc(ids[3])) ?? "", /поза вашим колом/);
-  assert.equal(E.witnessBlock(world, mine, acc(ids[4])), null);
+  // B (ids[1]) раніше підтвердив A (ids[0]). Зустрічно A підтвердити B не може; інший — може.
+  world = { ...world, creations: [cr(ids[0], [ids[1]])] };
+  const back = cr(ids[1], [], "collecting");
+  assert.match(E.witnessBlock(world, back, acc(ids[0])) ?? "", /Взаємно не можна/);
+  assert.equal(E.witnessBlock(world, back, acc(ids[4])), null);
   // 10 власників орбіт (ids[2..11]); у ids[0], ids[1] орбіт немає.
   world = { ...world, orbits: ids.slice(2, 12).map((o, i) => ({ id: i + 1, ownerId: o, createdAt: now })) as unknown as World["orbits"] };
-  const other = cr(ids[5], [ids[6], ids[7]], "collecting");
-  assert.equal(E.witnessBlock(world, other, acc(ids[0])), null);
-  assert.equal(E.witnessBlock(world, cr(ids[5], [ids[0]], "collecting"), acc(ids[1])), null);
+  const other = cr(ids[5], [], "collecting");
+  assert.match(E.witnessBlock(world, other, acc(ids[0])) ?? "", /вже є орбіта/);
+  assert.equal(E.witnessBlock(world, other, acc(ids[6])), null);
   // Новий акаунт — лише через годину.
   world = E.register(as(world, ""), "Новий").world;
   const fresh = world.accounts.at(-1)!;
   assert.match(E.witnessBlock(world, other, fresh) ?? "", /через годину/);
 });
 
-test("guards: third non-holder is refused once 10+ people hold orbits", async () => {
+test("guards: non-holder witness is refused once 10+ people hold orbits", async () => {
   const E = await import("./engine.ts");
   const now = 1_700_000_000_000;
   let world: World = emptyWorld(now);
@@ -85,7 +81,7 @@ test("guards: third non-holder is refused once 10+ people hold orbits", async ()
   for (let i = 0; i < 14; i++) { world = E.register(as(world, ""), "Ліга" + i).world; ids.push(world.sessionId!); }
   world = E.skip(world, 2 * E.DAY_MS);
   world = { ...world, orbits: ids.slice(4, 14).map((o, i) => ({ id: i + 1, ownerId: o, createdAt: now })) as unknown as World["orbits"] };
-  const open = { id: "c-x", userId: ids[0], status: "collecting", confirms: [{ witnessId: ids[1], at: now }, { witnessId: ids[2], at: now }], code: null, codeExpires: 0, codeDay: "", codesToday: 0, chargeStartedAt: null } as unknown as Creation;
+  const open = { id: "c-x", userId: ids[0], status: "collecting", confirms: [], code: null, codeExpires: 0, codeDay: "", codesToday: 0, chargeStartedAt: null } as unknown as Creation;
   const acc = (id: string) => world.accounts.find((a) => a.id === id)!;
   assert.match(E.witnessBlock(world, open, acc(ids[3])) ?? "", /вже є орбіта/);
   assert.equal(E.witnessBlock(world, open, acc(ids[5])), null);

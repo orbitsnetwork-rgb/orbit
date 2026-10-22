@@ -389,18 +389,30 @@ function Gate({
     <div className="orbit-app">
       <Starfield />
       <main className="orbit-shell orbit-gate">
-        <p className="orbit-kicker">{t(lang, "brand")}</p>
-        <h1>{t(lang, "sub")}</h1>
-        <p className="orbit-note">Акаунт за хвилину: пошта, телефон, ім’я. Пароля немає — входиш ключем, який покажемо після реєстрації.</p>
+        <section className="gt-hero" aria-labelledby="gt-title">
+          <div className="gt-emblem" aria-hidden>
+            <span className="gt-ring gt-ring-a" />
+            <span className="gt-ring gt-ring-b" />
+            <span className="gt-planet" />
+            <span className="gt-moon" />
+          </div>
+          <p className="orbit-kicker">{t(lang, "brand")}</p>
+          <h1 id="gt-title">{t(lang, "sub")}</h1>
+          <ol className="gt-steps" aria-label="Як це працює">
+            <li><b>1</b><span>Акаунт за хвилину — без пароля</span></li>
+            <li><b>2</b><span>Друг підтверджує твій запуск</span></li>
+            <li><b>3</b><span>24 години заряду — і орбіта твоя</span></li>
+          </ol>
+        </section>
         <GuestStats />
         {invited ? (
           <p className="cs-invite" role="status">
             {host?.who ? `${host.who} запрошує тебе підтвердити запуск орбіти · підтверджень уже: ${host.n}.` : "Тебе запросили підтвердити запуск орбіти."} Увійди або створи акаунт — код уже чекатиме у вкладці «Заявка».
           </p>
         ) : null}
-        <LangRow lang={lang} />
         <form
-          className="orbit-block"
+          className="orbit-block gt-form"
+          aria-labelledby="gt-form-title"
           onSubmit={(event) => {
             event.preventDefault();
             if (!ready) return;
@@ -408,6 +420,7 @@ function Gate({
             else onCreate({ name: given.trim(), family: family.trim(), birth, email: email.trim(), phone: phone.trim() });
           }}
         >
+          <h2 id="gt-form-title" className="gt-form-title">{haveKey ? "Увійти ключем" : "Створити акаунт"}</h2>
           <Field label={t(lang, "email")} value={email} autoComplete="email" inputMode="email" onChange={setEmail} />
           {haveKey ? (
             <>
@@ -417,8 +430,10 @@ function Gate({
           ) : (
             <>
               <Field label={t(lang, "phone")} value={phone} autoComplete="tel" inputMode="tel" onChange={setPhone} />
-              <Field label={t(lang, "given")} value={given} autoComplete="given-name" onChange={setGiven} />
-              <Field label={t(lang, "family")} value={family} autoComplete="family-name" onChange={setFamily} />
+              <div className="gt-pair">
+                <Field label={t(lang, "given")} value={given} autoComplete="given-name" onChange={setGiven} />
+                <Field label={t(lang, "family")} value={family} autoComplete="family-name" onChange={setFamily} />
+              </div>
               <label className="grid gap-1.5">
                 <span className="orbit-kicker">{t(lang, "birth")}</span>
                 <input className="orbit-field" type="date" value={birth} onChange={(event) => setBirth(event.target.value)} />
@@ -434,6 +449,7 @@ function Gate({
             {haveKey ? "Нова людина" : "Вже є ключ"}
           </button>
         </form>
+        <LangRow lang={lang} />
         <DocsRow onOpen={nav.open} />
         <Pages stack={nav.stack} onPush={nav.push} onPop={nav.pop} onReplace={nav.replace} onClose={nav.close} />
       </main>
@@ -634,10 +650,10 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
   return (
     <div className="orbit-stack hm">
       {isNewcomer(world, user) && !pendingMail ? <FirstStep onTab={onTab} /> : null}
-      {!pendingMail ? <PioneerCard world={world} user={user} /> : null}
-      <DailyCharge world={world} user={user} />
       <WalletCard world={world} user={user} onTab={onTab} onLocked={() => setLock("buy")} />
       {!pendingMail ? <Checklist world={world} user={user} onTab={onTab} /> : null}
+      <DailyCharge world={world} user={user} />
+      {!pendingMail ? <PioneerCard world={world} user={user} /> : null}
       <section className="orbit-block hm-price" aria-labelledby="hm-price-title">
         <div className="hm-hero">
           <OrbitRings />

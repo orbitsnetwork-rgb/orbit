@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { CHAT_MAX, CHAT_PER_MIN, CHAT_READ, HIDE_AFTER_REPORTS, WHY_MAX, WHY_MIN, canUseRoom, cleanText, normRoom, roomsFor, shortName, type RoomInfo } from "@/lib/orbit/live-rules";
+import { CHAT_MAX, CHAT_READ, HIDE_AFTER_REPORTS, REACT_PER_MIN, WHY_MAX, WHY_MIN, canUseRoom, cleanText, normReaction, normRoom, overChatCap, roomsFor, shortName, type RoomInfo } from "@/lib/orbit/live-rules";
 import type { World } from "@/lib/orbit/engine";
 
 /**
@@ -8,15 +8,18 @@ import type { World } from "@/lib/orbit/engine";
  * Хто пише — визначає сервер за ключем сесії (як orbitAct), а не за id з клієнта.
  */
 export type ChatLine = { id: number; name: string; text: string; at: number; mine: boolean };
+/** Реакції на повідомлення: kind → [скільки, чи є серед них моя]. Лише прикраса, без ✦. */
+export type ChatReacts = Record<number, Record<string, [number, boolean]>>;
 type Creds = { sessionId: string | null; sessionKey: string | null };
 type Sql = import("@/lib/db").Sql;
 
-const g = globalThis as { __orbitLiveReady__?: Promise<void> };
+const g = globalThis as { __orbitLiveReady__?: Promise<void>; __orbitWorldCache__?: ReturnType<typeof import("@/lib/orbit/world-cache").makeWorldCache<import("@/lib/orbit/access").Bag>> };
 async function ready(sql: Sql) {
   g.__orbitLiveReady__ ??= (async () => {
     const a = (await import("../../../migrations/0038_orbit_live.sql?raw")).default;
     const b = (await import("../../../migrations/0039_chat_rooms.sql?raw")).default;
-    for (const stmt of `${a};\n${b}`.replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
+    const c = (await import("../../../migrations/0040_chat_reactions.sql?raw")).default;
+    for (const stmt of `${a};\n${b};\n${c}`.replace(/--.*$/gm, "").split(";").map((s) => s.trim()).filter(Boolean)) await sql.query(stmt, []);
   })().catch((error) => {
     g.__orbitLiveReady__ = undefined;
     throw error;
@@ -31,17 +34,21 @@ function creds(raw: unknown): Creds {
   return { sessionId: id, sessionKey: key };
 }
 
-/** Перевірка ключа тим самим шляхом, що й orbitAct (лише читання світу, без блокування). */
+/**
+ * Перевірка ключа тим самим шляхом, що й orbitAct (лише читання світу, без блокування).
+ * Світ береться з легкого кешу (world-cache): щоразу читаємо лише updated_at, а doc — тільки після зміни світу.
+ */
 async function whoIs(sql: Sql, c: Creds): Promise<{ id: string; name: string; world: World } | null> {
   if (!c.sessionId || !c.sessionKey) return null;
   const server = await import("@tanstack/react-start/server");
   const dev = await import("@/lib/orbit/device");
   const { unpackDoc } = await import("@/lib/orbit/access");
+  const { makeWorldCache } = await import("@/lib/orbit/world-cache");
   const K = await import("@/lib/orbit/key-hash");
   const rawIp = server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
-  const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
-  if (!rows[0]) return null;
-  const bag = unpackDoc(rows[0].doc);
+  g.__orbitWorldCache__ ??= makeWorldCache(unpackDoc);
+  const bag = await g.__orbitWorldCache__.get((text, params) => sql.query(text, params));
+  if (!bag) return null;
   if (!K.verifyKey(bag.keys, c.sessionId, c.sessionKey, `v:${dev.ipTag(rawIp.split(",")[0].trim())}`)) return null;
   const account = bag.world.accounts.find((item) => item.id === c.sessionId);
   return account ? { id: account.id, name: shortName(account.name), world: bag.world } : null;
@@ -68,22 +75,58 @@ async function onlineIn(sql: Sql, room: string, now: number) {
   return rows[0]?.n ?? 0;
 }
 
+/** Непрочитане по кімнатах одним запитом (чужі, не сховані, після мого last_id), до 99 на кімнату. */
+async function unreadFor(sql: Sql, meId: string, rooms: string[]): Promise<Record<string, number>> {
+  if (!rooms.length) return {};
+  const rows = await sql.query<{ room: string; n: number }>(
+    `select c.room, least(count(*), 99)::int as n from orbit_chat c
+       left join orbit_chat_seen s on s.user_id = $1 and s.room = c.room
+     where c.room = any($2::text[]) and not c.hidden and c.user_id <> $1 and c.id > coalesce(s.last_id, 0)
+     group by c.room`,
+    [meId, rooms],
+  );
+  return Object.fromEntries(rows.map((r) => [r.room, r.n]));
+}
+
+/** Реакції для повідомлень з id ≥ from у кімнаті + курсор змін (seq). */
+async function reactsFor(sql: Sql, meId: string, room: string, from: number): Promise<{ reacts: ChatReacts; rx: number }> {
+  const rows = await sql.query<{ msg_id: string; kind: string; n: number; mine: boolean }>(
+    `select msg_id, kind, count(*)::int as n, bool_or(user_id = $3) as mine from orbit_chat_reacts
+     where room = $1 and msg_id >= $2 and is_on group by msg_id, kind`,
+    [room, from, meId],
+  );
+  const top = await sql.query<{ s: string | null }>(`select max(seq)::text as s from orbit_chat_reacts where room = $1`, [room]);
+  const reacts: ChatReacts = {};
+  for (const r of rows) (reacts[Number(r.msg_id)] ??= {})[r.kind] = [r.n, r.mine];
+  return { reacts, rx: Number(top[0]?.s ?? 0) };
+}
+
+export type ChatReadOut = {
+  lines: ChatLine[]; hidden: number[]; online: number; signedIn: boolean; allowed: boolean;
+  reacts: ChatReacts; rx: number; unread: Record<string, number>;
+};
+const EMPTY = { lines: [], hidden: [], online: 0, reacts: {}, rx: 0, unread: {} };
+
 /**
- * Читання кімнати. after = останній id, який уже є в клієнта; wait = довге опитування:
- * сервер до 8 с раз на секунду дешево перевіряє, чи з'явилося нове (лише індекс room,id), і відповідає одразу, як з'явилося.
+ * Читання кімнати. after = останній id, який уже є в клієнта; from = найстаріший id у клієнта (для схованих і реакцій);
+ * rx = курсор реакцій. wait = довге опитування: сервер до 8 с раз на секунду дешево перевіряє (лише індекси),
+ * чи з'явилося нове повідомлення, реакція або сховане скаргою, і відповідає одразу.
  * Доступ до кімнати перевіряється на кожен запит за даними світу (автор + підтверджувачі запуску).
+ * Разом з відповіддю йде непрочитане в інших моїх кімнатах — окреме опитування списку кімнат не потрібне.
  */
 export const chatRead = createServerFn({ method: "POST" })
   .inputValidator((raw: unknown) => {
-    const body = (raw ?? {}) as { after?: unknown; room?: unknown; wait?: unknown };
-    return { ...creds(raw), room: normRoom(body.room), after: Math.max(0, Math.floor(Number(body.after) || 0)), wait: body.wait === true };
+    const body = (raw ?? {}) as { after?: unknown; from?: unknown; rx?: unknown; room?: unknown; wait?: unknown };
+    const int = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
+    return { ...creds(raw), room: normRoom(body.room), after: int(body.after), from: int(body.from), rx: int(body.rx), wait: body.wait === true };
   })
-  .handler(async ({ data }): Promise<{ lines: ChatLine[]; hidden: number[]; online: number; signedIn: boolean; allowed: boolean }> => {
+  .handler(async ({ data }): Promise<ChatReadOut> => {
     const sql = await db();
     const me = await whoIs(sql, data);
-    if (!me) return { lines: [], hidden: [], online: 0, signedIn: false, allowed: false };
-    if (!data.room || !canUseRoom(me.world, me.id, data.room)) return { lines: [], hidden: [], online: 0, signedIn: true, allowed: false };
+    if (!me) return { ...EMPTY, signedIn: false, allowed: false };
+    if (!data.room || !canUseRoom(me.world, me.id, data.room)) return { ...EMPTY, signedIn: true, allowed: false };
     const room = data.room;
+    const from = data.from > 0 ? data.from : Math.max(0, data.after - 500);
     const mark = async () => {
       const now = Date.now();
       await sql.query(
@@ -95,19 +138,31 @@ export const chatRead = createServerFn({ method: "POST" })
     };
     if (data.after > 0 && data.wait) {
       await mark();
+      const hiddenNow = await sql.query<{ n: number }>(`select count(*)::int as n from orbit_chat where room = $1 and hidden and id >= $2`, [room, from]);
       const until = Date.now() + WAIT_MS;
       while (Date.now() < until) {
-        const fresh = await sql.query<{ id: string }>(`select id from orbit_chat where room = $1 and id > $2 limit 1`, [room, data.after]);
-        if (fresh.length) break;
+        const fresh = await sql.query<{ m: boolean; r: boolean; h: number }>(
+          `select exists(select 1 from orbit_chat where room = $1 and id > $2) as m,
+                  exists(select 1 from orbit_chat_reacts where room = $1 and seq > $3) as r,
+                  (select count(*)::int from orbit_chat where room = $1 and hidden and id >= $4) as h`,
+          [room, data.after, data.rx, from],
+        );
+        if (fresh[0] && (fresh[0].m || fresh[0].r || fresh[0].h !== (hiddenNow[0]?.n ?? 0))) break;
         await new Promise((r) => setTimeout(r, TICK_MS));
       }
     }
     const rows = data.after > 0
       ? await sql.query<Row>(`select id, user_id, name, text, at from orbit_chat where room = $1 and id > $2 and not hidden order by id asc limit ${CHAT_READ}`, [room, data.after])
       : (await sql.query<Row>(`select id, user_id, name, text, at from orbit_chat where room = $1 and not hidden order by id desc limit ${CHAT_READ}`, [room])).reverse();
-    const hid = await sql.query<{ id: string }>(`select id from orbit_chat where room = $1 and hidden and id > $2 order by id desc limit 50`, [room, Math.max(0, data.after - 500)]);
+    const lowest = data.after > 0 ? from : Number(rows[0]?.id ?? 0);
+    const hid = await sql.query<{ id: string }>(`select id from orbit_chat where room = $1 and hidden and id >= $2 order by id desc limit 100`, [room, lowest]);
     const now = await mark();
-    return { signedIn: true, allowed: true, lines: rows.map(toLine(me.id)), hidden: hid.map((r) => Number(r.id)), online: await onlineIn(sql, room, now) };
+    const { reacts, rx } = await reactsFor(sql, me.id, room, lowest);
+    const others = roomsFor(me.world, me.id).map((r) => r.id).filter((id) => id !== room);
+    return {
+      signedIn: true, allowed: true, lines: rows.map(toLine(me.id)), hidden: hid.map((r) => Number(r.id)),
+      online: await onlineIn(sql, room, now), reacts, rx, unread: await unreadFor(sql, me.id, others),
+    };
   });
 
 /** Мої кімнати з кількістю непрочитаного (чужі повідомлення після останнього перегляду, до 99). */
@@ -118,16 +173,8 @@ export const chatRooms = createServerFn({ method: "POST" })
     const me = await whoIs(sql, data);
     if (!me) return { rooms: [], online: 0, signedIn: false };
     const list = roomsFor(me.world, me.id);
-    const rooms = [];
-    for (const room of list) {
-      const n = await sql.query<{ n: number }>(
-        `select count(*)::int as n from (select 1 from orbit_chat c where c.room = $1 and not c.hidden and c.user_id <> $2
-           and c.id > coalesce((select last_id from orbit_chat_seen s where s.user_id = $2 and s.room = $1), 0) limit 99) t`,
-        [room.id, me.id],
-      );
-      rooms.push({ ...room, unread: n[0]?.n ?? 0 });
-    }
-    return { rooms, online: await onlineIn(sql, "world", Date.now()), signedIn: true };
+    const unread = await unreadFor(sql, me.id, list.map((r) => r.id));
+    return { rooms: list.map((room) => ({ ...room, unread: unread[room.id] ?? 0 })), online: await onlineIn(sql, "world", Date.now()), signedIn: true };
   });
 
 export const chatSend = createServerFn({ method: "POST" })
@@ -139,14 +186,66 @@ export const chatSend = createServerFn({ method: "POST" })
     if (!me) return { ok: false, error: "Увійди, щоб писати." };
     if (!data.room || !canUseRoom(me.world, me.id, data.room)) return { ok: false, error: "Ця кімната лише для учасників запуску." };
     const now = Date.now();
-    // Ліміт рахується в кожній кімнаті окремо; спільний запобіжник — удвічі більший на всі кімнати разом.
+    // Ліміт рахується в кожній кімнаті окремо (8/хв); спільний запобіжник — 16/хв на всі кімнати разом.
     const recent = await sql.query<{ n: number; all: number }>(
       `select count(*) filter (where room = $3)::int as n, count(*)::int as all from orbit_chat where user_id = $1 and at > $2`, [me.id, now - 60_000, data.room]);
-    if ((recent[0]?.n ?? 0) >= CHAT_PER_MIN || (recent[0]?.all ?? 0) >= CHAT_PER_MIN * 2) return { ok: false, error: "Забагато повідомлень. Зачекай хвилину." };
+    if (overChatCap(recent[0]?.n ?? 0, recent[0]?.all ?? 0)) return { ok: false, error: "Забагато повідомлень. Зачекай хвилину." };
     const same = await sql.query<{ n: number }>(`select count(*)::int as n from orbit_chat where user_id = $1 and room = $2 and text = $3 and at > $4`, [me.id, data.room, data.text, now - 10 * 60_000]);
     if ((same[0]?.n ?? 0) > 0) return { ok: false, error: "Це вже було щойно." };
     await sql.query(`insert into orbit_chat (room, user_id, name, text, at) values ($1, $2, $3, $4, $5)`, [data.room, me.id, me.name, data.text, now]);
     return { ok: true };
+  });
+
+/**
+ * Реакція: вмикає/вимикає одну реакцію даного виду від мене на повідомлення (по одній кожного виду).
+ * Лише прикраса: жодних ✦, жодного впливу на орбіти чи економіку. Доступ — як до кімнати повідомлення.
+ */
+export const chatReact = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => ({ ...creds(raw), id: Math.floor(Number((raw as { id?: unknown })?.id) || 0), kind: normReaction((raw as { kind?: unknown })?.kind) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; on?: boolean; error?: string }> => {
+    if (data.id <= 0 || !data.kind) return { ok: false, error: "Невідома реакція." };
+    const sql = await db();
+    const me = await whoIs(sql, data);
+    if (!me) return { ok: false, error: "Увійди, щоб реагувати." };
+    const msg = await sql.query<{ room: string }>(`select room from orbit_chat where id = $1 and not hidden`, [data.id]);
+    if (!msg[0] || !canUseRoom(me.world, me.id, msg[0].room)) return { ok: false, error: "Немає доступу до цього повідомлення." };
+    const now = Date.now();
+    // Два запобіжники: у пам'яті процесу (рахує й перемикання того самого рядка) і в базі (між процесами).
+    const taps = (TAPS.get(me.id) ?? []).filter((t) => t > now - 60_000);
+    if (taps.length >= REACT_PER_MIN) return { ok: false, error: "Забагато реакцій. Зачекай хвилину." };
+    if (TAPS.size > 5000) TAPS.clear();
+    TAPS.set(me.id, [...taps, now]);
+    const recent = await sql.query<{ n: number }>(`select count(*)::int as n from orbit_chat_reacts where user_id = $1 and at > $2`, [me.id, now - 60_000]);
+    if ((recent[0]?.n ?? 0) >= REACT_PER_MIN) return { ok: false, error: "Забагато реакцій. Зачекай хвилину." };
+    const out = await sql.query<{ is_on: boolean }>(
+      `insert into orbit_chat_reacts (msg_id, user_id, kind, room, is_on, at) values ($1, $2, $3, $4, true, $5)
+       on conflict (msg_id, user_id, kind) do update set is_on = not orbit_chat_reacts.is_on, at = excluded.at, seq = nextval('orbit_chat_react_seq')
+       returning is_on`,
+      [data.id, me.id, data.kind, msg[0].room, now],
+    );
+    return { ok: true, on: out[0]?.is_on ?? true };
+  });
+
+const TAPS = new Map<string, number[]>();
+
+/** Хто відреагував: «Ім'я П.» за видами (до 30 на вид). Той самий доступ, що й до кімнати. */
+export const chatWho = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => ({ ...creds(raw), id: Math.floor(Number((raw as { id?: unknown })?.id) || 0) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; who: Record<string, string[]> }> => {
+    if (data.id <= 0) return { ok: false, who: {} };
+    const sql = await db();
+    const me = await whoIs(sql, data);
+    if (!me) return { ok: false, who: {} };
+    const msg = await sql.query<{ room: string }>(`select room from orbit_chat where id = $1 and not hidden`, [data.id]);
+    if (!msg[0] || !canUseRoom(me.world, me.id, msg[0].room)) return { ok: false, who: {} };
+    const rows = await sql.query<{ user_id: string; kind: string }>(`select user_id, kind from orbit_chat_reacts where msg_id = $1 and is_on order by at asc limit 300`, [data.id]);
+    const names = new Map(me.world.accounts.map((a) => [a.id, shortName(a.name)]));
+    const who: Record<string, string[]> = {};
+    for (const r of rows) {
+      const list = (who[r.kind] ??= []);
+      if (list.length < 30) list.push(r.user_id === me.id ? "Я" : (names.get(r.user_id) ?? "Учасник"));
+    }
+    return { ok: true, who };
   });
 
 /** Скарга: одна від людини на повідомлення; після 3 різних скарг повідомлення ховається до перевірки. */

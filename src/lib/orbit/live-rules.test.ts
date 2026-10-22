@@ -49,3 +49,23 @@ test("rooms: list shows world + only my launches, crew title after success", () 
   assert.equal(done[1].title, "Екіпаж №1");
   assert.equal(done[1].members, 2);
 });
+
+import { CHAT_PER_MIN, CHAT_PER_MIN_ALL, REACTIONS, normReaction, overChatCap } from "./live-rules.ts";
+test("caps: per-room 8/min", () => {
+  assert.equal(CHAT_PER_MIN, 8);
+  assert.equal(overChatCap(7, 7), false);
+  assert.equal(overChatCap(8, 8), true);
+});
+test("caps: global 16/min across rooms even if each room is under 8", () => {
+  assert.equal(CHAT_PER_MIN_ALL, 16);
+  assert.equal(overChatCap(3, 15), false);
+  assert.equal(overChatCap(3, 16), true);
+});
+test("reactions: fixed set, unique ids and names, unknown refused", () => {
+  assert.ok(REACTIONS.length >= 8 && REACTIONS.length <= 12);
+  assert.equal(new Set(REACTIONS.map((r) => r.id)).size, REACTIONS.length);
+  assert.equal(new Set(REACTIONS.map((r) => r.name)).size, REACTIONS.length);
+  assert.equal(normReaction("spark"), "spark");
+  assert.equal(normReaction("<b>"), null);
+  assert.equal(normReaction(undefined), null);
+});

@@ -73,3 +73,35 @@ export function roomsFor(world: World, userId: string): RoomInfo[] {
   }
   return out.slice(0, 21);
 }
+
+/* ---------- Ліміти ---------- */
+
+/** Спільний запобіжник на всі кімнати разом — удвічі більший за ліміт однієї кімнати. */
+export const CHAT_PER_MIN_ALL = CHAT_PER_MIN * 2;
+/** true, якщо нове повідомлення перевищить ліміт (n — у цій кімнаті за хвилину, all — у всіх кімнатах). */
+export function overChatCap(nRoom: number, nAll: number): boolean {
+  return nRoom >= CHAT_PER_MIN || nAll >= CHAT_PER_MIN_ALL;
+}
+
+/* ---------- Реакції (лише прикраса: жодних ✦, жодного впливу на економіку) ---------- */
+
+export const REACTIONS = [
+  { id: "spark", name: "✦ Підтримую" },
+  { id: "launch", name: "До запуску" },
+  { id: "galaxy", name: "Вау, галактика" },
+  { id: "thanks", name: "Дякую" },
+  { id: "hold", name: "Тримаймось разом" },
+  { id: "star", name: "Зірка дня" },
+  { id: "funny", name: "Смішно" },
+  { id: "sad", name: "Сумно" },
+  { id: "see", name: "Бачу тебе" },
+  { id: "planet", name: "Новий світ" },
+] as const;
+export type ReactionId = (typeof REACTIONS)[number]["id"];
+export const REACT_PER_MIN = 30;
+export function normReaction(raw: unknown): ReactionId | null {
+  return REACTIONS.some((r) => r.id === raw) ? (raw as ReactionId) : null;
+}
+export function reactionName(id: string): string {
+  return REACTIONS.find((r) => r.id === id)?.name ?? id;
+}

@@ -1,0 +1,24 @@
+import { PGlite } from "@electric-sql/pglite";
+import { unpackDoc, packDoc } from "../src/lib/orbit/access.ts";
+import { emptyWorld } from "../src/lib/orbit/engine.ts";
+import { makeWorldCache } from "../src/lib/orbit/world-cache.ts";
+const N = Number(process.argv[2] || 2000);
+const w: any = emptyWorld();
+for (let i = 0; i < N; i++) w.accounts.push({ id: `u-${i}`, name: `Людина ${i} П`, sparks: 1000, createdAt: 1 } as any);
+for (let i = 0; i < N * 1.5; i++) w.creations.push({ id: `c-${i}`, userId: `u-${i % N}`, status: i % 3 ? "done" : "collecting", confirms: Array.from({ length: 8 }, (_, k) => ({ witnessId: `u-${(i + k + 1) % N}`, at: 1 })) } as any);
+const keys: Record<string, string> = {}; for (let i = 0; i < N; i++) keys[`u-${i}`] = "s1$" + "x".repeat(90);
+const doc = (packDoc as any)(w, keys, {}, {}, {}, {}, {}, undefined);
+const db = new PGlite();
+await db.query(`create table orbit_world (id text primary key, doc jsonb not null, updated_at timestamptz not null default now())`);
+await db.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb)`, [JSON.stringify(doc)]);
+const q = async (t: string, p: unknown[]) => (await db.query(t, p as any[])).rows as any[];
+const size = (await q(`select length(doc::text) n from orbit_world`, []))[0].n;
+const R = 50;
+let t = performance.now();
+for (let i = 0; i < R; i++) { const r = await q(`select doc from orbit_world where id='world'`, []); unpackDoc(r[0].doc); }
+const old = (performance.now() - t) / R;
+const c = makeWorldCache(unpackDoc); await c.get(q as any);
+t = performance.now();
+for (let i = 0; i < R; i++) await c.get(q as any);
+const neu = (performance.now() - t) / R;
+console.log(JSON.stringify({ accounts: N, docKB: Math.round(size / 1024), oldMsPerRequest: +old.toFixed(2), cachedMsPerRequest: +neu.toFixed(3), speedup: +(old / neu).toFixed(0), stats: c.stats }));

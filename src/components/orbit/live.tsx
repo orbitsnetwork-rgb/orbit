@@ -306,13 +306,13 @@ export function ChatRoom({ room = "world", title = "Чат світу", onUnread
           })}
         </div>
         {fresh > 0 ? (
-          <button type="button" className="orbit-chat-pill" onClick={toEnd}><ArrowDown size={14} aria-hidden /> {fresh} {fresh === 1 ? "нове" : "нових"}</button>
+          <button type="button" className="orbit-chat-pill" aria-label={`Перейти до нових повідомлень: ${fresh}`} onClick={toEnd}><ArrowDown size={14} aria-hidden /> {fresh} {fresh % 10 === 1 && fresh % 100 !== 11 ? "нове" : fresh % 10 >= 2 && fresh % 10 <= 4 && (fresh % 100 < 12 || fresh % 100 > 14) ? "нові" : "нових"}</button>
         ) : null}
       </div>
       {muted > Date.now() ? <p className="orbit-chat-mute" role="status">{muteText(muted)}</p> : null}
       <form className="grid gap-2" onSubmit={(event) => { event.preventDefault(); void send(); }}>
         <label className="sr-only" htmlFor="chat-input">Повідомлення</label>
-        <input id="chat-input" className="orbit-field" disabled={muted > Date.now()} value={text} maxLength={CHAT_MAX} placeholder="Коротко і по-людськи" onChange={(event) => setText(event.target.value)} />
+        <input id="chat-input" className="orbit-field" enterKeyHint="send" autoComplete="off" autoCorrect="on" spellCheck disabled={muted > Date.now()} value={text} maxLength={CHAT_MAX} placeholder="Коротко і по-людськи" onChange={(event) => setText(event.target.value)} />
         <div className="orbit-chat-foot">
           <span className="orbit-note" aria-live="off">{text.length > CHAT_MAX - 40 ? `${CHAT_MAX - text.length} знаків лишилось` : ""}</span>
           <button type="submit" className="orbit-go" disabled={busy || muted > Date.now() || text.trim().length < 1}>Надіслати</button>

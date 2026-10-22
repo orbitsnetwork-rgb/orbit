@@ -188,3 +188,13 @@ export function sparkText(text: string) {
     })
     .replace(/(?<!\p{L})ОД(?!\p{L})/gu, "іскор");
 }
+
+/** «N підтвердження/підтверджень» за українськими правилами множини. */
+export function confirmsWord(n: number) {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return "підтверджень";
+  if (b === 1) return "підтвердження";
+  if (b >= 2 && b <= 4) return "підтвердження";
+  return "підтверджень";
+}

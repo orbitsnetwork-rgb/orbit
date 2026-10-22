@@ -1,3 +1,4 @@
+import { confirmsWord } from "@/lib/orbit/copy";
 import { CHARGE_MS, CONFIRM_NEED, FUND_PERIOD_MS, FUND_SHARE, MIN_PRICE, SELLER_SHARE, STABILITY_GATE } from "@/lib/orbit/engine";
 
 export type Lesson = { id: string; title: string; sub: string; steps: string[]; quiz: { q: string; options: string[]; right: number; why: string } };
@@ -21,7 +22,7 @@ export const LESSONS: Lesson[] = [
     title: "Заявка і заряд",
     sub: "Як народжується орбіта",
     steps: [
-      `Подай заявку і збери ${CONFIRM_NEED} підтверджень від різних людей. Кожен вводить твій код.`,
+      `Подай заявку і збери ${CONFIRM_NEED} ${confirmsWord(CONFIRM_NEED)} від різних людей. Кожен вводить твій код.`,
       `Далі — заряд на ${Math.round(CHARGE_MS / 3_600_000)} год. Він може пройти або зірватися.`,
       "Шанс видно заздалегідь. Що більше орбіт у світі, то він менший.",
     ],

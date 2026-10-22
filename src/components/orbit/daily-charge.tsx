@@ -33,6 +33,13 @@ function save(id: string, r: Ritual, set: (r: Ritual) => void) {
   }
 }
 
+function dayWord(n: number) {
+  const a = n % 100;
+  const b = n % 10;
+  if (a > 10 && a < 20) return "днів";
+  return b === 1 ? "день" : b >= 2 && b <= 4 ? "дні" : "днів";
+}
+
 export function DailyCharge({ world, user }: { world: World; user: Account }) {
   const today = utcDay(world.now);
   const yesterday = utcDay(world.now - 86_400_000);
@@ -79,7 +86,7 @@ export function DailyCharge({ world, user }: { world: World; user: Account }) {
           <p className="orbit-kicker">Щоденний заряд</p>
           <h2 id="dc-title">{done ? "Заряджено на сьогодні" : "Торкнись, щоб зарядитися"}</h2>
           <p className="dc-sub">
-            <Flame size={13} strokeWidth={2} aria-hidden /> Серія: {streak} {streak === 1 ? "день" : streak >= 2 && streak <= 4 ? "дні" : "днів"}
+            <Flame size={13} strokeWidth={2} aria-hidden /> Серія: {streak} {dayWord(streak)}
             {r.best > streak ? ` · рекорд ${r.best}` : ""}
           </p>
         </div>
@@ -92,7 +99,7 @@ export function DailyCharge({ world, user }: { world: World; user: Account }) {
           </li>
         ))}
       </ol>
-      <p className="dc-fine">{next ? `Ще ${next.at - streak} — і відкриється «${next.title}» для профілю.` : "Усі прикраси відкрито."} Лише краса: ✦ за заряд не нараховуються.</p>
+      <p className="dc-fine">{next ? `Ще ${next.at - streak} ${dayWord(next.at - streak)} — і відкриється «${next.title}» для профілю.` : "Усі прикраси відкрито."} Лише краса: ✦ за заряд не нараховуються.</p>
     </section>
   );
 }

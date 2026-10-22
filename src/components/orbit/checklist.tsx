@@ -1,3 +1,4 @@
+import { confirmsWord } from "@/lib/orbit/copy";
 /** 17: «Перші кроки» на головній і пояснення «Чому 8?». Лише показ — рахуємо зі стану світу, формули не чіпаємо. */
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -31,7 +32,7 @@ export function stepsOf(world: World, user: Account, why: boolean) {
     { id: "why", title: "Дізнайся, чому саме 8", hint: "Хвилина читання", done: why, tab: null },
     { id: "confirm", title: "Підтвердь когось", hint: "Код з 6 цифр від друга", done: world.creations.some((item) => item.confirms.some((row) => row.witnessId === user.id)), tab: null },
     { id: "start", title: "Почни свій запуск", hint: "Заявка у вкладці «Заявка»", done: own.length > 0, tab: "mine" as HomeTab },
-    { id: "crew", title: `Збери ${CONFIRM_NEED} підтверджень`, hint: "Поділися кодом або посиланням", done: own.some((item) => item.status !== "collecting" || item.confirms.length >= CONFIRM_NEED), tab: "mine" as HomeTab },
+    { id: "crew", title: `Збери ${CONFIRM_NEED} ${confirmsWord(CONFIRM_NEED)}`, hint: "Поділися кодом або посиланням", done: own.some((item) => item.status !== "collecting" || item.confirms.length >= CONFIRM_NEED), tab: "mine" as HomeTab },
     { id: "orbit", title: "Твоя перша орбіта", hint: "Після 24 годин заряду", done: world.orbits.some((orbit) => orbit.ownerId === user.id), tab: "mine" as HomeTab },
   ];
 }

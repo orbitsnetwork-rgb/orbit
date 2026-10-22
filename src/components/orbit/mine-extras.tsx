@@ -1,3 +1,4 @@
+import { confirmsWord } from "@/lib/orbit/copy";
 import { orbitNo } from "@/lib/orbit/traits";
 /** «Заявка» v8: етапи запуску, показники, хто запускає зараз, хто онлайн, мої минулі запуски. */
 import type { ReactNode } from "react";
@@ -69,7 +70,7 @@ export function LiveLaunches({ world, user }: { world: World; user: Account }) {
     <section className="orbit-block mn-live" aria-labelledby="mn-live-title">
       <SectionHead id="mn-live-title" title="Стрічка екіпажу" />
       {rows.length === 0 ? (
-        <Empty icon={<Rocket size={20} strokeWidth={1.6} />} title="Поки ніхто не запускає" text={`Зараз треба ${need} підтверджень. Коли хтось почне запуск, ти зможеш підтвердити його тут.`} />
+        <Empty icon={<Rocket size={20} strokeWidth={1.6} />} title="Поки ніхто не запускає" text={`Зараз треба ${need} ${confirmsWord(need)}. Коли хтось почне запуск, ти зможеш підтвердити його тут.`} />
       ) : (
         <>
           <ul className="mn-list">

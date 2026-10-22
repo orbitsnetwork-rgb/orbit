@@ -23,6 +23,7 @@ import { phraseIndex } from "@/lib/orbit/pulse";
 import { codeMail, mailReady, sendMail } from "@/lib/orbit/mail";
 import { verifyProof } from "@/lib/orbit/identity";
 import { clipTurnstile, turnstileSecret, turnstileSiteKey, TURNSTILE_ACTIONS, TURNSTILE_FAIL, verifyTurnstile } from "@/lib/orbit/turnstile";
+import { pickClientIp } from "@/lib/orbit/client-ip";
 import { diffEvents, markDay, type Ev, type Extra, type Mine } from "@/lib/orbit/social";
 
 export type OrbitAction =
@@ -370,10 +371,15 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
  * Пристрій береться з підписаної cookie (сервер), а не з localStorage: очищення сховища більше не скидає ліміти.
  * Якщо cookie ще немає, приймаємо id з клієнта (для старих пристроїв) або створюємо новий — і підписуємо.
  */
-/** Справжня IP клієнта: Cloudflare (cf-connecting-ip), Netlify (x-nf-client-connection-ip), інакше X-Forwarded-For. */
+/** Справжня IP клієнта — лише заголовок самого хостингу (див. client-ip.ts, аудит H1). */
 function clientIp(server: typeof import("@tanstack/react-start/server")): string {
-  const raw = server.getRequestHeader("cf-connecting-ip") ?? server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
-  return raw.split(",")[0].trim() || "unknown";
+  let socket: string | undefined;
+  try {
+    socket = server.getRequestIP() ?? undefined;
+  } catch {
+    socket = undefined;
+  }
+  return pickClientIp((n) => server.getRequestHeader(n), undefined, socket);
 }
 
 async function stamp(data: Call): Promise<Call> {

@@ -54,7 +54,7 @@ async function whoIs(sql: Sql, c: Creds): Promise<{ id: string; name: string; wo
   const { unpackDoc } = await import("@/lib/orbit/access");
   const { makeWorldCache } = await import("@/lib/orbit/world-cache");
   const K = await import("@/lib/orbit/key-hash");
-  const rawIp = server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
+  const rawIp = await (await import("@/lib/orbit/client-ip")).requestIp();
   g.__orbitWorldCache__ ??= makeWorldCache(unpackDoc);
   const bag = await g.__orbitWorldCache__.get((text, params) => sql.query(text, params));
   if (!bag) return null;

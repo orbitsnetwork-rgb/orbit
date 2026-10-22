@@ -43,7 +43,7 @@ export const launchLive = createServerFn({ method: "GET" })
     const origin = site.startsWith("https://") ? site.replace(/\/$/, "") : new URL(server.getRequestUrl()).origin;
     const now = Date.now();
     const empty: LaunchLive = { found: false, who: null, n: 0, need: 8, status: null, names: [], codeLive: false, chargeEndsAt: null, orbit: null, origin, now };
-    const ip = server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
+    const ip = await (await import("@/lib/orbit/client-ip")).requestIp();
     // L1: лише випадковий slug з orbit_links; старі /l/<id заявки> більше нічого не показують (404, автору — перенаправлення).
     if (!/^[A-Za-z0-9_-]{16}$/.test(data.cr) || !allow(`l:${ip}`, now, 150)) return empty;
     const checkCode = data.c.length === 6 && allow(`lc:${ip}`, now, 20);

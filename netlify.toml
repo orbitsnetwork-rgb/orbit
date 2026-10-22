@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  ORBIT_HOST = "netlify"
 
 # Заголовки безпеки (статичні файли; для SSR — server/middleware/security-headers.ts,
 # значення в scripts/security-headers.mjs, мають збігатися). 'unsafe-inline' для script-src потрібен, бо SSR вставляє

@@ -169,7 +169,11 @@ export function namesLeft(devices: Record<string, DeviceSlot>, deviceId: string,
 
 export function markDevice(devices: Record<string, DeviceSlot>, deviceId: string, day: string) {
   const count = devices[deviceId]?.day === day ? devices[deviceId].count : 0;
-  return { ...devices, [deviceId]: { day, count: count + 1 } };
+  // Аудит P2: лічильник важливий лише сьогодні — вчорашні рядки прибираємо, щоб документ світу не ріс вічно.
+  const next: Record<string, DeviceSlot> = {};
+  for (const [id, slot] of Object.entries(devices)) if (slot?.day === day) next[id] = slot;
+  next[deviceId] = { day, count: count + 1 };
+  return next;
 }
 
 /** Лише для текстових ключів; сервер перевіряє через key-hash.ts (scrypt). */

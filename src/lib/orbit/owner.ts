@@ -10,8 +10,7 @@ type Sql = import("@/lib/db").Sql;
 const FAILS = new Map<string, number[]>();
 
 async function gate(token: unknown): Promise<{ ok: true; sql: Sql } | { ok: false; error: string }> {
-  const server = await import("@tanstack/react-start/server");
-  const ip = (server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown").split(",")[0].trim();
+  const ip = await (await import("@/lib/orbit/client-ip")).requestIp();
   const now = Date.now();
   const fails = (FAILS.get(ip) ?? []).filter((t) => t > now - 10 * 60_000);
   if (fails.length >= 8) return { ok: false, error: "Забагато спроб. Зачекай 10 хвилин." };

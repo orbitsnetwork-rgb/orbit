@@ -46,7 +46,7 @@ export const authRecover = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<RecoverReply> => {
     try {
       const server = await import("@tanstack/react-start/server");
-      const ip = (server.getRequestHeader("cf-connecting-ip") ?? server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown").split(",")[0].trim();
+      const ip = await (await import("@/lib/orbit/client-ip")).requestIp();
       const secret = turnstileSecret();
       // Turnstile — на кроки, що щось надсилають або видають ключ (не на введення коду, щоб не просити двічі).
       if (secret && !(data.kind === "mail" && data.code) && !(await verifyTurnstile(data.ts ?? null, ip, secret))) {
@@ -164,7 +164,7 @@ export const smsGate = createServerFn({ method: "POST" })
       if (!firebaseConfig()) return { ok: false, error: "Вхід за SMS ще не відкрито." };
       if (!/^\+\d{10,15}$/.test(data.phone)) return { ok: false, error: "Номер у форматі +380…" };
       const server = await import("@tanstack/react-start/server");
-      const ip = (server.getRequestHeader("cf-connecting-ip") ?? server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown").split(",")[0].trim();
+      const ip = await (await import("@/lib/orbit/client-ip")).requestIp();
       const secret = turnstileSecret();
       if (secret && !(await verifyTurnstile(data.ts ?? null, ip, secret))) return { ok: false, error: "Перевірка браузера не пройшла. Онови сторінку й спробуй ще раз." };
       const { getSql } = await import("@/lib/db");

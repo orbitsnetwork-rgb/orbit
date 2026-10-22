@@ -33,7 +33,7 @@ export const launchPreview = createServerFn({ method: "GET" })
     const site = process.env.URL?.trim() ?? "";
     const origin = site.startsWith("https://") ? site.replace(/\/$/, "") : new URL(server.getRequestUrl()).origin;
     if (data.c.length !== 6) return { who: null, n: 0, origin };
-    const ip = server.getRequestHeader("x-nf-client-connection-ip") ?? server.getRequestIP({ xForwardedFor: true }) ?? "unknown";
+    const ip = await (await import("@/lib/orbit/client-ip")).requestIp();
     if (!allow(ip, Date.now())) return { who: null, n: 0, origin };
     try {
       const [{ getSql }, { unpackDoc, shortName }] = await Promise.all([import("@/lib/db"), import("@/lib/orbit/access")]);

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as OwnerRouteImport } from './routes/owner'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiReconcileRouteImport } from './routes/api/reconcile'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
 import { Route as LCrRouteImport } from './routes/l.$cr'
@@ -37,6 +38,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReconcileRoute = ApiReconcileRouteImport.update({
   id: '/api/reconcile',
   path: '/api/reconcile',
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/owner': typeof OwnerRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
   '/l/$cr': typeof LCrRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/owner': typeof OwnerRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
   '/l/$cr': typeof LCrRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/owner': typeof OwnerRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
   '/l/$cr': typeof LCrRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/owner'
     | '/privacy'
     | '/terms'
+    | '/api/health'
     | '/api/reconcile'
     | '/api/stripe'
     | '/l/$cr'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/owner'
     | '/privacy'
     | '/terms'
+    | '/api/health'
     | '/api/reconcile'
     | '/api/stripe'
     | '/l/$cr'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/owner'
     | '/privacy'
     | '/terms'
+    | '/api/health'
     | '/api/reconcile'
     | '/api/stripe'
     | '/l/$cr'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   OwnerRoute: typeof OwnerRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiReconcileRoute: typeof ApiReconcileRoute
   ApiStripeRoute: typeof ApiStripeRoute
   LCrRoute: typeof LCrRoute
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reconcile': {
       id: '/api/reconcile'
       path: '/api/reconcile'
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   OwnerRoute: OwnerRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiReconcileRoute: ApiReconcileRoute,
   ApiStripeRoute: ApiStripeRoute,
   LCrRoute: LCrRoute,

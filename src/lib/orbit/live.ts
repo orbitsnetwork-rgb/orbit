@@ -397,3 +397,27 @@ export const chatNotes = createServerFn({ method: "POST" })
     }
     return { notes };
   });
+
+/** Щоденний «Заряд» на сервері: прочитати серію або торкнутися (раз на добу UTC). Лише вигляд, ✦ не змінює. */
+export const ritualSync = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => ({ ...creds(raw), tap: Boolean((raw as { tap?: unknown } | null)?.tap) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; last: string; streak: number; best: number }> => {
+    const { nextRitual } = await import("@/lib/orbit/ritual");
+    const { utcDay } = await import("@/lib/orbit/engine");
+    const sql = await db();
+    const me = await whoIs(sql, data);
+    if (!me) return { ok: false, last: "", streak: 0, best: 0 };
+    const rows = await sql.query<{ last_day: string; streak: number; best: number }>(`select last_day, streak, best from orbit_ritual where user_id = $1`, [me.id]);
+    const prev = rows[0] ? { last: rows[0].last_day, streak: Number(rows[0].streak), best: Number(rows[0].best) } : { last: "", streak: 0, best: 0 };
+    if (!data.tap) return { ok: true, ...prev };
+    const now = Date.now();
+    const next = nextRitual(prev, utcDay(now), utcDay(now - 86_400_000));
+    if (next !== prev) {
+      await sql.query(
+        `insert into orbit_ritual (user_id, last_day, streak, best, updated_at) values ($1, $2, $3, $4, $5)
+         on conflict (user_id) do update set last_day = excluded.last_day, streak = excluded.streak, best = excluded.best, updated_at = excluded.updated_at`,
+        [me.id, next.last, next.streak, next.best, now],
+      );
+    }
+    return { ok: true, ...next };
+  });

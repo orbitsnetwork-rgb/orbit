@@ -22,25 +22,46 @@ export function readRitual(id: string): Ritual {
   return { last: "", streak: 0, best: 0 };
 }
 
+/** Сервер — джерело правди; локальна копія лише для миттєвого показу і рамки профілю. */
+function save(id: string, r: Ritual, set: (r: Ritual) => void) {
+  const clean = { last: r.last, streak: r.streak, best: r.best };
+  set(clean);
+  try {
+    localStorage.setItem(KEY(id), JSON.stringify(clean));
+  } catch {
+    /* без сховища — лише в пам'яті */
+  }
+}
+
 export function DailyCharge({ world, user }: { world: World; user: Account }) {
   const today = utcDay(world.now);
   const yesterday = utcDay(world.now - 86_400_000);
   const [r, setR] = useState<Ritual>({ last: "", streak: 0, best: 0 });
   const [pop, setPop] = useState(false);
-  useEffect(() => setR(readRitual(user.id)), [user.id]);
+  useEffect(() => {
+    setR(readRitual(user.id));
+    let alive = true;
+    void (async () => {
+      const [{ ritualSync }, { sessionCreds }] = await Promise.all([import("@/lib/orbit/live"), import("@/lib/orbit/store")]);
+      const out = await ritualSync({ data: sessionCreds() }).catch(() => null);
+      if (alive && out?.ok) save(user.id, out, setR);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user.id]);
   const done = r.last === today;
   const alive = done || r.last === yesterday;
   const streak = alive ? r.streak : 0;
   const next = STAGES.find((s) => s.at > streak);
   const charge = () => {
     if (done) return;
-    const n = nextRitual(r, today, yesterday);
-    setR(n);
-    try {
-      localStorage.setItem(KEY(user.id), JSON.stringify(n));
-    } catch {
-      /* без сховища серія живе до перезавантаження */
-    }
+    save(user.id, nextRitual(r, today, yesterday), setR);
+    void (async () => {
+      const [{ ritualSync }, { sessionCreds }] = await Promise.all([import("@/lib/orbit/live"), import("@/lib/orbit/store")]);
+      const out = await ritualSync({ data: { ...sessionCreds(), tap: true } }).catch(() => null);
+      if (out?.ok) save(user.id, out, setR);
+    })();
     buzz([15, 60, 25]);
     chime([659, 880]);
     if (!reducedMotion()) {

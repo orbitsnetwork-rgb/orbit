@@ -120,6 +120,10 @@ await step("mail confirm + checklist", async () => {
     check("v23: daily charge tapped → streak 1, no ✦", (await hasText(host, "Заряджено на сьогодні")) && /Серія: 1 день/.test(await dc.innerText()));
     await dc.scrollIntoViewIfNeeded();
     await shot(host, "05c_daily_charge");
+    await host.waitForTimeout(800);
+    await host.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("orbits-ritual-")).forEach((k) => localStorage.removeItem(k)));
+    await host.reload(); await host.waitForTimeout(2500);
+    check("v23: streak lives on the server (survives cleared storage)", /Серія: 1 день/.test(await host.getByTestId("daily-charge").innerText()));
   }
 });
 await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {

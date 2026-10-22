@@ -2255,3 +2255,24 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .sd-list dt { color: var(--text-3); }
 .sd-list dd { margin: 0; color: var(--text-1); text-align: right; overflow-wrap: anywhere; }
 .sd-toggle { justify-self: start; background: none; border: 0; padding: 6px 0; color: var(--text-2); font: 600 13px/1.2 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* v18: «Перші 100» — холодний старт */
+.pn { display: grid; gap: 10px; background: radial-gradient(120% 120% at 100% 0%, rgb(255 196 84 / .14), transparent 55%), linear-gradient(180deg, #171a2c, var(--space-850)); }
+.pn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pn-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgb(255 196 84 / .16); color: #ffd27a; font: 800 13px/18px var(--font-sans); border: 1px solid rgb(255 196 84 / .35); }
+.pn h2 { margin: 0; font: 800 20px/26px var(--font-sans); color: var(--text-1); }
+.pn-bar { height: 8px; border-radius: 999px; background: rgb(255 255 255 / .08); overflow: hidden; }
+.pn-bar i { display: block; height: 100%; min-width: 4px; border-radius: inherit; background: linear-gradient(90deg, #ffc454, #8b7bff); }
+.pn-sub, .pn-fine { margin: 0; display: flex; align-items: center; gap: 6px; color: var(--text-2); font: 500 13px/18px var(--font-sans); }
+.pn-fine { font-size: 12px; color: var(--text-3, var(--text-2)); }
+.pn-need { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgb(255 255 255 / .04); border: 1px solid var(--line-strong); color: var(--text-1); font: 500 14px/20px var(--font-sans); }
+.pn-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pn-tg { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 14px; background: linear-gradient(135deg, #8b7bff, #5b8cff); color: #fff; font: 700 14px/1 var(--font-sans); text-decoration: none; }
+.pn-why-toggle { justify-self: start; background: none; border: 0; padding: 0; color: #b9afff; font: 700 14px/20px var(--font-sans); text-decoration: underline; cursor: pointer; }
+.pn-why { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--text-2); font: 500 14px/20px var(--font-sans); }
+.pn-why b { color: var(--text-1); }
+.pn-board ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.pn-board li { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; padding: 6px 8px; border-radius: 10px; font: 500 14px/20px var(--font-sans); color: var(--text-2); }
+.pn-board li.is-me { background: rgb(139 123 255 / .14); color: var(--text-1); }
+.pn-no { color: #ffd27a; font-weight: 800; }
+.pn-board-title { margin: 0; font: 800 16px/22px var(--font-sans); color: var(--text-1); }

@@ -1,6 +1,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import { humanize } from "@/components/orbit/ui/feed";
 import { AppSkeleton } from "@/components/orbit/ui/skeleton";
+import { PioneerBoard, PioneerCard } from "@/components/orbit/pioneer";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, ListOrdered, Rocket, ShoppingCart, Tag } from "lucide-react";
 import { ArrowLeftRight, Bell, CircleHelp, GraduationCap, Telescope, Trophy, Hexagon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
@@ -617,6 +618,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
   return (
     <div className="orbit-stack hm">
       {isNewcomer(world, user) && !pendingMail ? <FirstStep onTab={onTab} /> : null}
+      {!pendingMail ? <PioneerCard world={world} user={user} /> : null}
       <WalletCard world={world} user={user} onTab={onTab} onLocked={() => setLock("buy")} />
       {!pendingMail ? <Checklist world={world} user={user} onTab={onTab} /> : null}
       <section className="orbit-block hm-price" aria-labelledby="hm-price-title">
@@ -654,6 +656,7 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
       <Banners world={world} user={user} onTab={onTab} onOpen={onOpen} onLocked={() => setLock("deposit")} />
       <MarketsCard world={world} onTab={onTab} />
       <Activity world={world} user={user} onOpen={onOpen} />
+      <PioneerBoard world={world} user={user} />
       <nav className="hm-quick orbit-block" aria-label="Швидкий доступ">
         {QUICK.map((item) => (
           <button key={item.route} type="button" onClick={() => onOpen(item.route)}>

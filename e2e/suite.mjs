@@ -102,6 +102,15 @@ await step("mail confirm + checklist", async () => {
   check("mail confirmed via UI", await L.confirmMail(host));
   check("home first-step checklist shown", await hasText(host, "Перші кроки"));
   await shot(host, "05_home_checklist");
+  {
+    const pn = host.locator('[data-testid="pioneer"]');
+    check("v18: pioneer card on home", (await pn.count()) === 1 && /Піонер №\d+/.test(await pn.innerText()));
+    check("v18: honest cold-start need shown", (await host.locator('[data-testid="pioneer-need"]').count()) <= 1);
+    await pn.getByRole("button", { name: "Навіщо мені орбіта?" }).click();
+    check("v18: why-orbit list opens", (await host.locator('[data-testid="pioneer-why"]').count()) === 1);
+    await pn.scrollIntoViewIfNeeded();
+    await shot(host, "05b_pioneer");
+  }
 });
 const crew = [];
 const names = ["Богдан", "Віра", "Галина", "Дмитро", "Євген", "Жанна", "Зоряна", "Ігор"];

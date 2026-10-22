@@ -44,7 +44,7 @@ export function Wallet({ world, user, onTab, onLocked }: { world: World; user: A
         <span> ✦</span>
       </p>
       <p className="hm-bal-sub">
-        {hidden ? "Баланс приховано на цьому телефоні" : <>Тестові іскри · орбіт у тебе: {fmt.format(mine)} · стабільність {fmt.format(user.stability)}{(user.starterPending ?? 0) > 0 ? <> · <span className="hm-pending">+{fmt.format(user.starterPending ?? 0)} ✦ чекають першого заряду</span></> : null}</>}
+        {hidden ? "Баланс приховано на цьому телефоні" : <>Тестові іскри · орбіт у тебе: {fmt.format(mine)} · стабільність {fmt.format(user.stability)}{(user.starterPending ?? 0) > 0 ? <> · <span className="hm-pending">+{fmt.format(user.starterPending ?? 0)} ✦ чекають першої успішної орбіти</span></> : null}</>}
       </p>
       <ActionRow
         label="Швидкі дії"

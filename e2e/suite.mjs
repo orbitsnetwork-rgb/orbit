@@ -1008,6 +1008,53 @@ await step("wallet: no top-ups → no split, lock line", async () => {
   await shot(c, "14_wallet");
   await L.closePages(c);
 });
+await step("spark store: try-on, buy style/theme with ✦, boost label, packs «Скоро»", async () => {
+  const snapSh = (p, name) => p.screenshot({ path: join(L.SCREENS, `shop_${name}.png`) });
+  const c = crew[0]; await c.reload(); await c.waitForTimeout(1500);
+  await more(c, "Крамниця ✦"); await c.getByTestId("sh-balance").waitFor({ timeout: 8000 });
+  const bal = async () => Number(((await c.getByTestId("sh-balance").innerText()).match(/\d+/) || ["0"])[0]);
+  const b0 = await bal();
+  check("shop: balance shown", b0 > 0, String(b0));
+  await snapSh(c, "01_top");
+  await c.getByTestId("sh-try-style-gold").click();
+  check("shop: try-on preview applies style for free", (await c.locator(".sh-try .k-ava.em-style-gold").count()) === 1 && (await bal()) === b0);
+  await snapSh(c, "02_tryon");
+  await axe(c, "spark store");
+  await c.getByTestId("sh-buy-style-neon").click(); await c.waitForTimeout(1500);
+  check("shop: buying neon spends 80 ✦", (await bal()) === b0 - 80, `${b0} -> ${await bal()}`);
+  check("shop: neon now worn", (await c.getByTestId("sh-off-style-neon").count()) === 1);
+  await c.getByTestId("sh-try-theme-nebula").click();
+  check("shop: theme try-on on constellation", (await c.locator(".sh-sky .cs-theme-nebula").count()) === 1);
+  const packs = c.locator(".sh-pack");
+  check("shop: 4 packs with fixed prices", (await packs.count()) === 4 && (await c.getByTestId("sh-pack-p550").innerText()).includes("$4.99"));
+  check("shop: real-money buttons disabled «Скоро»", (await c.locator(".sh-soon").count()) === 6 && (await c.locator(".sh-soon:not([disabled])").count()) === 0);
+  check("shop: first purchase double shown", (await c.getByTestId("sh-pack-p100").innerText()).includes("+100"));
+  check("shop: no income promises", !/дохід|заробиш|прибут/i.test(await c.locator(".mo-page").innerText()));
+  await c.locator(".sh-packs").scrollIntoViewIfNeeded(); await snapSh(c, "03_packs");
+  await L.closePages(c);
+  // Інші бачать вдягнутий стиль
+  await host.reload(); await host.waitForTimeout(2000);
+  check("shop: others see worn style (world field)", (lastWorld(host)?.world?.accounts || []).some((a) => a.wearStyle === "neon"));
+  check("shop: others don't see what I own", !(lastWorld(host)?.world?.accounts || []).some((a) => a.id !== lastWorld(host)?.world?.sessionId && a.owned));
+  // Просування: host купує буст, crew[0] бачить «Просувається» на картці host
+  await more(host, "Крамниця ✦"); await host.getByTestId("sh-balance").waitFor({ timeout: 8000 });
+  const hb = Number(((await host.getByTestId("sh-balance").innerText()).match(/\d+/) || ["0"])[0]);
+  if (hb >= 50) {
+    await host.getByTestId("sh-buy-boost").click(); await host.waitForTimeout(1500);
+    check("shop: boost active", (await host.getByTestId("sh-boost-on").count()) === 1);
+    await L.closePages(host);
+    await c.reload(); await c.waitForTimeout(1500);
+    await more(c, "Шукаю орбіту"); await c.locator("#sk-text").waitFor({ timeout: 8000 }); await c.waitForTimeout(1000);
+    const card = c.locator(".sk-card", { hasText: "Шукаю людей для нового запуску" });
+    check("shop: boosted card shows honest «Просувається» label", (await card.getByTestId("sk-boost").count()) === 1);
+    check("shop: boosted card is first", ((await c.locator(".sk-card").first().innerText()) || "").includes("Просувається"));
+    await card.scrollIntoViewIfNeeded(); await snapSh(c, "04_boost_label");
+    await L.closePages(c);
+  } else {
+    check("shop: boost button needs ✦ when balance low", (await host.getByTestId("sh-buy-boost").isDisabled()));
+    await L.closePages(host);
+  }
+});
 await step("exchange sell with confirmation sheet + trust stats", async () => {
   await host.reload(); await host.waitForTimeout(1500);
   await tab(host, "Обмін");

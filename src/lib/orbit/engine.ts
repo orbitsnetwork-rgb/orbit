@@ -51,6 +51,13 @@ export type Account = {
   toppedUp?: number;
   impulseUntil: number;
   lastActiveAt: number;
+  /** Крамниця ✦ (лише вигляд): куплені предмети «style:…»/«theme:…». Приватне — іншим не показується. */
+  owned?: string[];
+  /** Вдягнутий стиль емблеми і тема сузір'я — публічні. */
+  wearStyle?: string;
+  wearTheme?: string;
+  /** Просування картки «Шукаю орбіту» до цього часу (чесна позначка «Просувається»). */
+  boostUntil?: number;
 };
 
 export type Orbit = { id: number; ownerId: string; createdAt: number };

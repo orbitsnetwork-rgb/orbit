@@ -4,12 +4,12 @@ import { HUB_LOCKS } from "@/lib/orbit/locked";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { InstallButton } from "@/components/orbit/install";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
-import { Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle, ShieldCheck, UserSearch } from "lucide-react";
+import { Sparkles, Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle, ShieldCheck, UserSearch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
 /** Маршрут повноекранної сторінки. Стек: назад = зняти верхню. */
-export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | "transparency" | "live" | "seek" | "moderator" | "constellation" | `doc:${DocId}`;
+export type Route = "more" | "docs" | "history" | "assets" | "inbox" | "fees" | "security" | "explorer" | "help" | "status" | "leaders" | "learn" | "transparency" | "live" | "seek" | "moderator" | "constellation" | "shop" | `doc:${DocId}`;
 
 export function isDoc(route: Route): route is `doc:${DocId}` {
   return route.startsWith("doc:");
@@ -123,6 +123,7 @@ type Entry = { route: Route | "mail"; title: string; sub: string; icon: ReactNod
 function entries(docs: number, unread: number): Entry[] {
   return [
     { route: "assets", title: "Активи", sub: "Баланс, мої орбіти, статуси", icon: <Wallet size={18} strokeWidth={1.7} />, tone: "sun", group: "mine", auth: true },
+    { route: "shop", title: "Крамниця ✦", sub: "Стилі емблеми, теми сузір'я, просування", icon: <Sparkles size={18} strokeWidth={1.7} />, tone: "sun", group: "mine", auth: true },
     { route: "history", title: "Історія", sub: "Купівлі, продажі, заряди, фонд", icon: <HistoryIcon size={18} strokeWidth={1.7} />, tone: "ion", group: "mine", auth: true },
     { route: "inbox", title: "Сповіщення", sub: "Події світу і про мене", icon: <Bell size={18} strokeWidth={1.7} />, tone: "nebula", group: "mine", auth: true, badge: unread ? String(unread > 99 ? "99+" : unread) : undefined },
     { route: "security", title: "Безпека", sub: "Ключ, пристрій, вихід", icon: <Shield size={18} strokeWidth={1.7} />, tone: "aurora", group: "mine", auth: true },

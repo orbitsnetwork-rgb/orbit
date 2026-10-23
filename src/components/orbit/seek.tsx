@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { startDm } from "@/components/orbit/live";
+import { boosted } from "@/lib/orbit/shop";
 import { SEEK_DAYS, SEEK_MAX, chatSend, seekHide, seekList, seekReport, seekSet, type SeekCard } from "@/lib/orbit/live";
 import { sessionCreds } from "@/lib/orbit/store";
 import { DegreeChip } from "@/components/orbit/trust-path";
@@ -105,11 +106,11 @@ export function SeekPage({ onBack, onClose, onRoom, world, user }: { onBack: () 
           {st?.cards.length ? <p className="orbit-note sk-trust-hint">1°–3° — як ви пов'язані підтвердженнями. Перш ніж довіряти, глянь, хто поручився.</p> : null}
           {st && !st.cards.length ? <p className="orbit-note">Поки нікого. Опублікуй свою картку — і тебе знайдуть першим.</p> : null}
           <ul className="sk-list">
-            {st?.cards.map((c) => (
+            {st?.cards.slice().sort((a, b) => Number(boosted(world.accounts.find((x) => x.id === b.uid), world.now)) - Number(boosted(world.accounts.find((x) => x.id === a.uid), world.now))).map((c) => (
               <li key={c.uid} className="sk-card">
                 <div className="sk-top">
                   <Avatar id={c.uid} name={c.name} size={40} />
-                  <div className="sk-who"><b>{c.name}</b><small>{day(c.at)} · {left(c.expires)}</small></div>
+                  <div className="sk-who"><b>{c.name}</b>{boosted(world.accounts.find((x) => x.id === c.uid), world.now) ? <span className="sk-boost" data-testid="sk-boost">Просувається</span> : null}<small>{day(c.at)} · {left(c.expires)}</small></div>
                   <button type="button" className="mo-icon" aria-expanded={open === c.uid} aria-label={`Профіль: ${c.name}`} onClick={() => setOpen(open === c.uid ? null : c.uid)}><UserRound size={18} aria-hidden /></button>
                 </div>
                 <p className="sk-text">{c.text}</p>

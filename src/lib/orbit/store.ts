@@ -67,6 +67,8 @@ type OrbitState = {
   thank: (cr: string, to: string, p?: number) => Promise<void>;
   /** 19: «Нагадати» тим, хто ще не підтвердив. */
   nudge: (cr: string) => Promise<void>;
+  shop: (item: string) => Promise<OrbitReply | null>;
+  wear: (slot: "style" | "theme", ref: string) => Promise<OrbitReply | null>;
 };
 
 function who(): string | null {
@@ -339,6 +341,8 @@ export const useOrbits = create<OrbitState>()(() => ({
   confirmTopup: (sessionId) => send({ type: "confirmTopup", sessionId }).then(() => undefined),
   thank: (cr, to, p) => send({ type: "thank", cr, to, ...(p === undefined ? {} : { p }) }).then(() => undefined),
   nudge: (cr) => send({ type: "nudge", cr }).then(() => undefined),
+  shop: (item) => send({ type: "shop", item }),
+  wear: (slot, ref) => send({ type: "wear", slot, ref }),
 }));
 
 export function bootOrbits() {

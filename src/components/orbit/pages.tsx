@@ -1,5 +1,6 @@
 import { ModeratorPage } from "@/components/orbit/moderator";
 import { SeekPage } from "@/components/orbit/seek";
+import { ShopPage } from "@/components/orbit/shop";
 import { Assets } from "@/components/orbit/assets";
 import { Explorer } from "@/components/orbit/explorer";
 import { Fees } from "@/components/orbit/fees";
@@ -46,6 +47,7 @@ export function Pages({
   const closer = stack.length > 1 ? onClose : undefined;
   if (top === "more") return <MoreHub onOpen={onPush} onBack={onPop} signedIn={Boolean(user)} unread={unread} profile={user && world ? { id: user.id, name: user.name, line: `Стабільність ${user.stability} · орбіт ${world.orbits.filter((orbit) => orbit.ownerId === user.id).length}` } : undefined} />;
   if (top === "constellation" && world && user) return <ConstellationPage world={world} user={user} onBack={onPop} onClose={closer} />;
+  if (top === "shop" && world && user) return <ShopPage world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "leaders" && world && user) return <Leaders world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
   if (top === "transparency") return <Transparency onBack={onPop} onClose={closer} />;

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { cleanItem, cleanStyle, cleanTheme, shopBuy, shopWear } from "@/lib/orbit/shop";
 import { reclaim, samePhone, forgive, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, docObject, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
@@ -45,7 +46,9 @@ export type OrbitAction =
   | { type: "topup"; amount: number }
   | { type: "confirmTopup"; sessionId: string }
   | { type: "thank"; cr: string; to: string; p?: number }
-  | { type: "nudge"; cr: string };
+  | { type: "nudge"; cr: string }
+  | { type: "shop"; item: string }
+  | { type: "wear"; slot: "style" | "theme"; ref: string };
 
 type Call = { v?: string | null; ts?: string | null; proof?: { kind: string; token: string } | null; verifiedEmail?: string | null; verifiedPhone?: string | null; sessionId: string | null; sessionKey: string | null; key: string | null; device: string | null; ip?: string; action: OrbitAction };
 /** Загальні цифри для гостя: без імен, часу активності й того, хто кого підтвердив. */
@@ -85,7 +88,7 @@ function clean(input: unknown): Call {
     sessionKey?: unknown;
     key?: unknown;
     device?: unknown;
-    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown; cr?: unknown; to?: unknown; p?: unknown; q?: unknown };
+    action?: { type?: string; name?: unknown; family?: unknown; birth?: unknown; email?: unknown; phone?: unknown; id?: unknown; code?: unknown; orbitId?: unknown; amount?: unknown; sessionId?: unknown; price?: unknown; cr?: unknown; to?: unknown; p?: unknown; q?: unknown; item?: unknown; slot?: unknown; ref?: unknown };
   };
   const sessionId = typeof raw.sessionId === "string" && raw.sessionId.startsWith("u-") ? raw.sessionId : null;
   const sessionKey = clipKey(raw.sessionKey);
@@ -132,6 +135,12 @@ function clean(input: unknown): Call {
   if (type === "topup") return { sessionId, sessionKey, key, device, action: { type, amount: Number(action.amount) } };
   if (type === "confirmTopup") {
     return { sessionId, sessionKey, key, device, action: { type, sessionId: String(action.sessionId ?? "").slice(0, 80) } };
+  }
+  if (type === "shop") return { sessionId, sessionKey, key, device, action: { type, item: cleanItem(action.item) } };
+  if (type === "wear") {
+    const slot = action.slot === "theme" ? "theme" : "style";
+    const ref = action.ref === "" ? "" : ((slot === "style" ? cleanStyle(action.ref) : cleanTheme(action.ref)) ?? "");
+    return { sessionId, sessionKey, key, device, action: { type, slot, ref } };
   }
   if (type === "nudge") return { sessionId, sessionKey, key, device, action: { type, cr: String(action.cr ?? "").slice(0, 40) } };
   if (type === "thank") {
@@ -265,7 +274,7 @@ export function project(world: World, selfId: string | null, people: Identity[] 
     accounts: world.accounts.map((account) =>
       account.id === selfId
         ? account
-        : { ...account, name: shown.get(account.id) ?? account.name, balance: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0, stabilityDay: "", starterPending: 0, toppedUp: 0 },
+        : { ...account, name: shown.get(account.id) ?? account.name, balance: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0, stabilityDay: "", starterPending: 0, toppedUp: 0, owned: undefined },
     ),
     creations: world.creations.map((item) =>
       item.userId === selfId ? item : { ...item, code: null, codeExpires: 0, codeDay: "", codesToday: 0 },
@@ -303,6 +312,8 @@ function run(world: World, action: OrbitAction): Step {
   if (action.type === "list") return listOrbit(world, action.orbitId);
   if (action.type === "cancel") return cancelListing(world, action.orbitId);
   if (action.type === "buy") return buyOldest(world);
+  if (action.type === "shop") return shopBuy(world, action.item);
+  if (action.type === "wear") return shopWear(world, action.slot, action.ref);
   return { world };
 }
 

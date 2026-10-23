@@ -13,7 +13,8 @@ import { useWords, WordComposer, WordsReceived } from "@/components/orbit/vouch-
 
 const W = 340;
 
-export function ConstellationMap({ c, user, size = W }: { c: Constellation; user: Account; size?: number }) {
+export function ConstellationMap({ c, user, size = W, theme }: { c: Constellation; user: Account; size?: number; theme?: string }) {
+  const sky = theme ?? user.wearTheme;
   const rings = [layout(c.in, 1, 0.3), layout(c.out.filter((s) => !c.in.some((x) => x.id === s.id)), 2, 0.9), layout(c.wave.slice(0, 24), 3, 0.1)];
   const both = new Set(c.in.filter((s) => c.out.some((x) => x.id === s.id)).map((s) => s.id));
   const node = (p: { star: Star; x: number; y: number }, ring: number, i: number) => (
@@ -22,7 +23,7 @@ export function ConstellationMap({ c, user, size = W }: { c: Constellation; user
     </g>
   );
   return (
-    <div className="cs-map" style={{ width: size, height: size }}>
+    <div className={sky ? `cs-map cs-theme-${sky}` : "cs-map"} data-theme={sky || undefined} style={{ width: size, height: size }}>
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden>
         {[0.24, 0.36, 0.46].map((r) => <circle key={r} cx={size / 2} cy={size / 2} r={r * size} className="cs-orbit" />)}
         {rings.map((ring, k) => ring.map((p, i) => node(p, k + 1, i)))}

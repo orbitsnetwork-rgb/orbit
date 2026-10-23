@@ -19,7 +19,7 @@ export type Identity = {
   mailTries?: number;
 };
 
-export type Topup = { id: string; userId: string; amount: number; status: "open" | "paid"; at: number };
+export type Topup = { id: string; userId: string; amount: number; status: "open" | "paid"; at: number; /** Крамниця ✦: продукт і ціна в центах (Xsolla). */ product?: string; usdCents?: number; provider?: string };
 
 export type Bag = {
   world: World;

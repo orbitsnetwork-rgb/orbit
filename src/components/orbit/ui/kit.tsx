@@ -1,5 +1,6 @@
 import { useEmblem } from "@/lib/orbit/emblem-store";
 import { glyphChar } from "@/lib/orbit/emblem";
+import { useOrbits } from "@/lib/orbit/store";
 /** Спільні елементи інтерфейсу v8: спарклайни, чипи змін, сегменти, аватари, ряд дій, банери, стрічка, скелетони. */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, ChevronRight, Lock, Minus } from "lucide-react";
@@ -78,12 +79,15 @@ function hue(seed: string) {
 }
 
 /** Аватар-літера з кольором від id: однаковий для людини всюди. */
-export function Avatar({ id, name, size = 36, badge, me = false, frame }: { id: string; name: string; size?: number; badge?: ReactNode; me?: boolean; frame?: string }) {
+export function Avatar({ id, name, size = 36, badge, me = false, frame, look }: { id: string; name: string; size?: number; badge?: ReactNode; me?: boolean; frame?: string; look?: string }) {
   const emblem = useEmblem(id);
+  // Стиль емблеми з крамниці ✦ (публічний). look — примірка без покупки.
+  const worn = useOrbits((s) => s.world.accounts.find((a) => a.id === id)?.wearStyle);
+  const style = look ?? worn;
   const h = emblem ? emblem.hue : hue(id || name);
   const mark = emblem ? glyphChar(emblem.glyph) : "";
   return (
-    <span className={frame && frame !== "none" ? `k-ava avatar-frame-${frame}` : "k-ava"} data-me={me ? "1" : "0"} style={{ width: size, height: size, fontSize: Math.round(size * 0.42), ["--h" as string]: h }} aria-hidden>
+    <span className={`${frame && frame !== "none" ? `k-ava avatar-frame-${frame}` : "k-ava"}${style ? ` em-style-${style}` : ""}`} data-me={me ? "1" : "0"} style={{ width: size, height: size, fontSize: Math.round(size * 0.42), ["--h" as string]: h }} aria-hidden>
       {mark || (name || "?").slice(0, 1).toUpperCase()}
       {badge ? <i className="k-ava-badge">{badge}</i> : null}
     </span>

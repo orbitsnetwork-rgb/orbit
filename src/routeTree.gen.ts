@@ -16,6 +16,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiReconcileRouteImport } from './routes/api/reconcile'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
+import { Route as ApiXsollaRouteImport } from './routes/api/xsolla'
 import { Route as LCrRouteImport } from './routes/l.$cr'
 
 const IndexRoute = IndexRouteImport.update({
@@ -53,6 +54,11 @@ const ApiStripeRoute = ApiStripeRouteImport.update({
   path: '/api/stripe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiXsollaRoute = ApiXsollaRouteImport.update({
+  id: '/api/xsolla',
+  path: '/api/xsolla',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LCrRoute = LCrRouteImport.update({
   id: '/l/$cr',
   path: '/l/$cr',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
+  '/api/xsolla': typeof ApiXsollaRoute
   '/l/$cr': typeof LCrRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
+  '/api/xsolla': typeof ApiXsollaRoute
   '/l/$cr': typeof LCrRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/api/reconcile': typeof ApiReconcileRoute
   '/api/stripe': typeof ApiStripeRoute
+  '/api/xsolla': typeof ApiXsollaRoute
   '/l/$cr': typeof LCrRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/reconcile'
     | '/api/stripe'
+    | '/api/xsolla'
     | '/l/$cr'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/reconcile'
     | '/api/stripe'
+    | '/api/xsolla'
     | '/l/$cr'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/reconcile'
     | '/api/stripe'
+    | '/api/xsolla'
     | '/l/$cr'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   ApiReconcileRoute: typeof ApiReconcileRoute
   ApiStripeRoute: typeof ApiStripeRoute
+  ApiXsollaRoute: typeof ApiXsollaRoute
   LCrRoute: typeof LCrRoute
 }
 
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/xsolla': {
+      id: '/api/xsolla'
+      path: '/api/xsolla'
+      fullPath: '/api/xsolla'
+      preLoaderRoute: typeof ApiXsollaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/l/$cr': {
       id: '/l/$cr'
       path: '/l/$cr'
@@ -203,6 +223,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   ApiReconcileRoute: ApiReconcileRoute,
   ApiStripeRoute: ApiStripeRoute,
+  ApiXsollaRoute: ApiXsollaRoute,
   LCrRoute: LCrRoute,
 }
 export const routeTree = rootRouteImport

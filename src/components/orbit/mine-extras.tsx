@@ -52,7 +52,7 @@ export function LaunchStats({ world, user, creation }: { world: World; user: Acc
       <Stat icon={<Gauge size={16} strokeWidth={2} />} value={`${chance}%`} label="шанс заряду зараз" tone="aurora" foot={<Progress value={chance} max={100} label="Шанс заряду" tone="aurora" />} />
       <Stat icon={<KeyRound size={16} strokeWidth={2} />} value={`${used} з ${CODES_PER_DAY}`} label="кодів випущено сьогодні" tone="ion" foot={<Progress value={used} max={CODES_PER_DAY} label="Кодів сьогодні" tone="ion" />} />
       <Stat icon={<Zap size={16} strokeWidth={2} />} value={fmt.format(user.stability)} label="твоя стабільність" tone="nebula" />
-      <Stat icon={<Sparkles size={16} strokeWidth={2} />} value={`+${WITNESS_OD} ✦`} label={`за підтвердження · +${STABILITY_CONFIRM} стаб.`} />
+      <Stat icon={<Sparkles size={16} strokeWidth={2} />} value={`до +${WITNESS_OD} ✦`} label={`за підтвердження · +${STABILITY_CONFIRM} стаб.`} />
     </div>
   );
 }

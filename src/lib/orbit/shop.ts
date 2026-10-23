@@ -3,6 +3,7 @@
  * Витрачені ✦ ідуть у спільний фонд (замкнене коло: цінність лишається в ORBIT, назад у гроші ✦ не обмінюються).
  * Без лутбоксів, випадковостей і таймерів «встигни». Ціни фіксовані.
  */
+import { noteBurn, sparkForUsd } from "./supply";
 import { DAY_MS, settle, type Account, type Step, type World } from "./engine";
 
 export type StyleId = "neon" | "aurora" | "gold" | "pulse";
@@ -29,20 +30,30 @@ export const ITEMS: ShopItem[] = [
   { id: "boost", kind: "boost", ref: "boost", title: "Просування на 24 год", sub: "Твоя картка «Шукаю орбіту» вгорі списку з позначкою «Просувається»", price: BOOST_PRICE },
 ];
 
-/** Пакети ✦ за справжні гроші. Фіксований курс: 100 ✦ ≈ $0.99. Оплата вимкнена, доки немає юриста і провайдера. */
-export type Pack = { id: string; usd: number; spark: number; title: string; extra?: string };
+/**
+ * Пакети ✦ за справжні гроші. Ціна жива (див. supply.ts): кількість ✦ рахується з ціни дня інтегралом кривої,
+ * extraPct — бонус більшого пакета. Ціну фіксуємо на 10 хв при відкритті замовлення.
+ */
+export type Pack = { id: string; usd: number; extraPct: number; title: string };
 export const PACKS: Pack[] = [
-  { id: "p100", usd: 0.99, spark: 100, title: "Жменя іскор" },
-  { id: "p550", usd: 4.99, spark: 550, title: "Сузір'я", extra: "+10%" },
-  { id: "p1200", usd: 9.99, spark: 1200, title: "Галактика", extra: "+20%" },
-  { id: "p2600", usd: 19.99, spark: 2600, title: "Всесвіт", extra: "+30%" },
+  { id: "p100", usd: 0.99, extraPct: 0, title: "Жменя іскор" },
+  { id: "p550", usd: 4.99, extraPct: 10, title: "Сузір'я" },
+  { id: "p1200", usd: 9.99, extraPct: 20, title: "Галактика" },
+  { id: "p2600", usd: 19.99, extraPct: 30, title: "Всесвіт" },
 ];
-export const STARTER = { id: "starter", usd: 2.99, spark: 500, style: "neon" as StyleId, theme: "nebula" as ThemeId };
+export const STARTER = { id: "starter", usd: 2.99, extraPct: 65, style: "neon" as StyleId, theme: "nebula" as ThemeId };
 export const PLUS = { id: "plus", usdMonth: 3.99, sparkMonth: 200 };
 
-/** Скільки ✦ дасть пакет: перша покупка будь-якого пакета — подвійна. Без таймерів: бонус діє, поки не використаний. */
-export function packGrant(pack: Pack, firstDone: boolean): { spark: number; bonus: number } {
-  return { spark: pack.spark, bonus: firstDone ? 0 : pack.spark };
+/** ✦ за суму при живій ціні (micro — мікродолари за 1 ✦) і залишку кошика продажу. */
+export function quoteSpark(usd: number, extraPct: number, micro: number, saleLeft: number) {
+  const base = sparkForUsd(usd, micro, saleLeft);
+  return Math.min(saleLeft, Math.floor(base * (1 + extraPct / 100)));
+}
+
+/** Скільки ✦ дасть пакет: перша покупка будь-якого пакета — подвійна (бонус — з кошика стартових). */
+export function packGrant(pack: Pack, firstDone: boolean, micro: number, saleLeft: number): { spark: number; bonus: number } {
+  const spark = quoteSpark(pack.usd, pack.extraPct, micro, saleLeft);
+  return { spark, bonus: firstDone ? 0 : spark };
 }
 
 export const cleanStyle = (v: unknown): StyleId | null => (STYLES.some((s) => s.id === v) ? (v as StyleId) : null);
@@ -70,7 +81,7 @@ export function shopBuy(world: World, itemId: string): Step {
   if (item.kind !== "boost" && owns(user, item.id)) return { world: base, error: "Це вже твоє." };
   if (item.kind === "boost" && boosted(user, base.now)) return { world: base, error: "Просування вже діє. Продовжити можна, коли закінчиться." };
   if (user.balance < item.price) return { world: base, error: `Не вистачає ✦. Потрібно ${item.price}, у тебе ${user.balance}.` };
-  let next: World = { ...base, fund: base.fund + item.price };
+  let next: World = noteBurn({ ...base, fund: base.fund + item.price }, item.price);
   next = patch(next, user.id, (a) => {
     const paid = { ...a, balance: a.balance - item.price, toppedUp: Math.max(0, (a.toppedUp ?? 0) - item.price), lastActiveAt: base.now };
     if (item.kind === "boost") return { ...paid, boostUntil: base.now + BOOST_MS };

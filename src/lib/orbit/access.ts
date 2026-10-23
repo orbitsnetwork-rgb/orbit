@@ -19,7 +19,7 @@ export type Identity = {
   mailTries?: number;
 };
 
-export type Topup = { id: string; userId: string; amount: number; status: "open" | "paid"; at: number; /** Крамниця ✦: продукт і ціна в центах (Xsolla). */ product?: string; usdCents?: number; provider?: string };
+export type Topup = { id: string; userId: string; amount: number; status: "open" | "paid"; at: number; /** Крамниця ✦: продукт і ціна в центах (Xsolla). */ product?: string; usdCents?: number; provider?: string; /** Бонус першої покупки (з кошика стартових). */ bonus?: number };
 
 export type Bag = {
   world: World;
@@ -243,10 +243,17 @@ function asTopups(raw: unknown): Topup[] {
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const row = item as Topup;
-    if (!row.id?.startsWith("cs_") || !row.userId?.startsWith("u-")) continue;
-    if (row.amount !== 100 && row.amount !== 500 && row.amount !== 1000) continue;
+    if (!row.userId?.startsWith("u-")) continue;
     if (row.status !== "open" && row.status !== "paid") continue;
-    rows.push({ id: row.id, userId: row.userId, amount: row.amount, status: row.status, at: Number(row.at) || 0 });
+    if (row.id?.startsWith("cs_")) {
+      if (row.amount !== 100 && row.amount !== 500 && row.amount !== 1000) continue;
+      rows.push({ id: row.id, userId: row.userId, amount: row.amount, status: row.status, at: Number(row.at) || 0 });
+    } else if (row.id?.startsWith("xs-") && row.provider) {
+      // Замовлення крамниці (Xsolla): раніше відкидались при читанні документа — тепер зберігаємо разом із сумою і бонусом.
+      const amount = Math.floor(Number(row.amount));
+      if (!(amount > 0 && amount <= 3_000_000)) continue;
+      rows.push({ id: row.id, userId: row.userId, amount, status: row.status, at: Number(row.at) || 0, product: String(row.product ?? "").slice(0, 16), usdCents: Math.floor(Number(row.usdCents) || 0), provider: String(row.provider).slice(0, 16), bonus: Math.max(0, Math.floor(Number(row.bonus) || 0)) });
+    }
   }
   return trimTopups(rows);
 }

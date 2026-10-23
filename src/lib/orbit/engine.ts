@@ -1,3 +1,5 @@
+import { drawFund, ensureSupply, rollSpark, type SparkPrice, type Supply } from "./supply";
+
 export const ORBIT_CAP = 8_000_000;
 export const MIN_PRICE = 100;
 export const PRICE_FACTOR = 15;
@@ -97,6 +99,10 @@ export type World = {
   priceDay: string;
   lastDistributionAt: number;
   log: { at: number; text: string }[];
+  /** spark-economy: залишок кошика продажу скарбниці (разом з обігом — 8 000 000 ✦). */
+  supply?: Supply;
+  /** spark-economy: жива ціна ✦ і добові лічильники видано/спалено. */
+  spark?: SparkPrice;
 };
 
 export type Step = { world: World; error?: string; notice?: string };
@@ -187,7 +193,7 @@ function promoteReady(world: World): World {
 }
 
 export function settle(world: World): World {
-  let next = resolveCharges(promoteReady(world));
+  let next = resolveCharges(promoteReady(rollSpark(ensureSupply(world))));
   next = rollPrice(next);
   next = distribute(next);
   return next;
@@ -248,6 +254,12 @@ function grantWitnesses(world: World, confirms: Confirm[], delta: number): World
   let next = world;
   const day = utcDay(world.now);
   for (const confirm of confirms) {
+    let reward = 0;
+    if (delta > 0) {
+      const d = drawFund(next, WITNESS_OD);
+      next = d.world;
+      reward = d.amount;
+    }
     next = patchAccount(next, confirm.witnessId, (account) => {
       // Б4: лічильник кодів (confirmDay/confirmsToday) тут не чіпаємо — інакше вчорашній confirmsToday блокував новачка.
       const sameDay = (account.stabilityDay ?? account.confirmDay) === day;
@@ -260,7 +272,7 @@ function grantWitnesses(world: World, confirms: Confirm[], delta: number): World
         stability: Math.max(0, account.stability + add),
         stabilityDay: day,
         stabilityFromConfirmToday: delta > 0 ? used + add : used,
-        balance: paid.balance + (delta > 0 ? WITNESS_OD : 0),
+        balance: paid.balance + reward,
       };
     });
   }
@@ -381,12 +393,13 @@ export function register(world: World, rawName: string): Step {
   if (base.accounts.some((account) => account.name.toLowerCase() === name.toLowerCase())) {
     return { world, error: "Таке ім’я вже є." };
   }
+  const starter = drawFund(base, STARTER_OD);
   const account: Account = {
     id: `u-${base.now.toString(36)}-${base.accounts.length}`,
     name,
     stability: 0,
     balance: 0,
-    starterPending: STARTER_OD,
+    starterPending: starter.amount,
     createdAt: base.now,
     confirmDay: "",
     confirmsToday: 0,
@@ -396,10 +409,10 @@ export function register(world: World, rawName: string): Step {
     lastActiveAt: base.now,
   };
   const next = note(
-    { ...base, accounts: [...base.accounts, account], sessionId: account.id },
-    `${name} у системі. Стабільність 0. Стартові ${STARTER_OD} ✦ — після першого внеску.`,
+    { ...starter.world, accounts: [...base.accounts, account], sessionId: account.id },
+    `${name} у системі. Стабільність 0. Стартові ${starter.amount} ✦ з фонду — після першого внеску.`,
   );
-  return { world: next, notice: `Можна підтверджувати одразу. До стабільності 20 — один код на добу. Стартові ${STARTER_OD} ✦ — після першого успішного підтвердження або власної орбіти.` };
+  return { world: next, notice: `Можна підтверджувати одразу. До стабільності 20 — один код на добу. ${starter.amount > 0 ? `Стартові ${starter.amount} ✦ з фонду — після першого успішного підтвердження або власної орбіти.` : "Фонд переробки поки порожній — стартових ✦ зараз немає."}` };
 }
 
 export function enter(world: World, id: string): Step {

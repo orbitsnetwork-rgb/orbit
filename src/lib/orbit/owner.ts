@@ -222,3 +222,9 @@ export const ownerAct = createServerFn({ method: "POST" })
         return { ok: true };
     }
   });
+
+/** spark-economy: учасники будь-якого видимого «кільця ботів» — їм купівля ✦ закрита. Помилка → порожньо (не блокуємо всіх). */
+export async function ringMemberIds(sql: Sql, world: OwnWorld | null): Promise<Set<string>> {
+  const r = await rings(sql, world);
+  return new Set(r.list.flatMap((ring) => ring.members.map((m) => m.userId)));
+}

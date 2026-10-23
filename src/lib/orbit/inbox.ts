@@ -53,7 +53,7 @@ export function eventText(ev: Ev, world: World): { text: string; topic: Topic } 
   const who = (id?: string) => world.accounts.find((account) => account.id === id)?.name ?? "учасник";
   const sp = (n?: number) => `${Math.abs(n ?? 0)} ✦`;
   switch (ev.t) {
-    case "join": return { text: ev.amt ? `Ти в Орбітах. Стартові ${sp(ev.amt)} на рахунку.` : `Ти в Орбітах. Стартові ${STARTER_OD} ✦ — після першого внеску.`, topic: "me" };
+    case "join": return { text: ev.amt ? `Ти в Орбітах. Стартові ${sp(ev.amt)} на рахунку.` : `Ти в Орбітах. Стартові ✦ з фонду — після першого внеску.`, topic: "me" };
     case "starter": return { text: `Стартові ${sp(ev.amt)} зараховано — перший заряд пройшов.`, topic: "me" };
     case "launch": return { text: "Твою заявку на орбіту відкрито.", topic: "charge" };
     case "confirmGiven": return { text: `Ти підтвердив запуск ${who(ev.other)} · підтверджень: ${ev.n}.`, topic: "charge" };

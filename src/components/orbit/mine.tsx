@@ -233,7 +233,7 @@ function ConfirmCard({ userId, ownCode }: { userId: string; ownCode: string | nu
         </p>
       ) : null}
       <p className="orbit-note cs-note" id="cs-confirm-note" hidden={Boolean(said?.text && !said.bad)}>
-        Якщо запуск пройде, ти отримаєш {WITNESS_OD} ✦ і +{STABILITY_CONFIRM} до стабільності. Якщо ні — −{STABILITY_FAIL} стабільності.
+        Якщо запуск пройде, ти отримаєш до {WITNESS_OD} ✦ з фонду і +{STABILITY_CONFIRM} до стабільності. Якщо ні — −{STABILITY_FAIL} стабільності.
       </p>
     </section>
   );

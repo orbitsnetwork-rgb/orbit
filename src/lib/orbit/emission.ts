@@ -1,7 +1,7 @@
 /**
  * Облік випуску ✦ (аудит а7): на кожен запис світу — рядок «що змінилось у масі й чим це пояснюється».
- * Маса = Σ(баланс + відкладені стартові) + фонд + резерв. Пояснення: стартові нових акаунтів,
- * нагороди підтверджень (події witnessOk) і сплачені поповнення. Нічого не повертається (вивід — «Скоро»),
+ * Маса = Σ(баланс + відкладені стартові) + фонд + резерв. spark-economy: маса росте лише від сплачених поповнень
+ * (з кошика продажу); стартові й нагороди свідкам — перекази з фонду, масу не змінюють (поля лишаються для довідки). Нічого не повертається (вивід — «Скоро»),
  * тож returned поки завжди 0. unexplained має бути 0 — інакше звірка показує розбіжність.
  * Чиста функція; формули рушія не змінює і не дублює — лише рахує суми зі стану.
  */
@@ -22,7 +22,7 @@ export function emissionOf(prev: World, next: World, prevTopups: Topup[], nextTo
   const was = new Set(prevTopups.filter((row) => row.status === "paid").map((row) => row.id));
   const topup = nextTopups.filter((row) => row.status === "paid" && !was.has(row.id)).reduce((sum, row) => sum + row.amount, 0);
   const delta = massOf(next) - massOf(prev);
-  return { at: next.now, mass: massOf(next), fund: next.fund, starter, witness, topup, returned: 0, delta, unexplained: delta - starter - witness - topup };
+  return { at: next.now, mass: massOf(next), fund: next.fund, starter, witness, topup, returned: 0, delta, unexplained: delta - topup };
 }
 
 export type DaySnap = { day: string; mass: number; fund: number; minted: number; returned: number; starter: number; witness: number; topup: number; unexplained: number };

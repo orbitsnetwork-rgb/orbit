@@ -1,3 +1,4 @@
+import { massOfWorld } from "./supply";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { adoptClock, CHARGE_MS, CODE_MS, DAY_MS, FUND_PERIOD_MS, utcDay, type Creation, type World } from "./engine.ts";
@@ -26,7 +27,7 @@ function randomWorld(r: () => number): World {
       chargeStartedAt: status === "charging" ? base - Math.floor(r() * CHARGE_MS * 1.2) : c.chargeStartedAt,
     };
   });
-  return {
+  const out: World = {
     ...w,
     creations,
     fund: r() < 0.5 ? 0 : Math.floor(r() * 1000),
@@ -34,6 +35,8 @@ function randomWorld(r: () => number): World {
     priceDay: utcDay(base - (r() < 0.2 ? DAY_MS : 0)),
     now: base,
   };
+  const sd = utcDay(base - (r() < 0.1 ? DAY_MS : 0));
+  return { ...out, supply: { sale: 8_000_000 - massOfWorld(out) }, spark: { micro: 9_900, day: sd, hist: [], days: [] } };
 }
 
 const strip = (w: World) => JSON.stringify({ ...w, now: 0 });

@@ -47,8 +47,16 @@ export const checkoutStart = createServerFn({ method: "POST" })
       const { randomUUID } = await import("node:crypto");
       const id = `xs-${randomUUID()}`;
       type Opened = { error: string } | { order: import("@/lib/orbit/checkout").Order };
-      const opened = await withWorld<Opened>((world, topups) => {
-        const o = openOrder(world, topups, me.id, data.product, id, Date.now());
+      const sql = await getSql();
+      const { ringMemberIds } = await import("@/lib/orbit/owner");
+      const { unpackDoc } = await import("@/lib/orbit/access");
+      const pre = unpackDoc((await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []))[0]?.doc);
+      const ring = (await ringMemberIds(sql, pre.world as never)).has(me.id);
+      const { vouchersOf } = await import("@/lib/orbit/seek-trust");
+      const opened = await withWorld<Opened>((world, topups, people) => {
+        const who = (people as import("@/lib/orbit/access").Identity[]).find((p) => p.userId === me.id);
+        const gate = { verified: Boolean(who?.phoneVerified || who?.emailVerified), vouchers: vouchersOf(world, me.id), ring };
+        const o = openOrder(world, topups, me.id, data.product, id, Date.now(), gate);
         return "error" in o ? { change: null, out: o } : { change: { world, topups: o.topups }, out: { order: o.order } };
       });
       if ("error" in opened) return { ok: false, error: opened.error };

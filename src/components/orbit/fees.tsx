@@ -113,8 +113,8 @@ export function Fees({ world, user, onBack, onClose }: { world: World; user: Acc
           <section className="mo-group" aria-label="Нарахування">
             <p className="mo-group-title">Нарахування</p>
             <div className="fe-table" role="table">
-              <Tr name="Старт" value={`+${STARTER_OD} ✦`} note="Один раз, після першого внеску" />
-              <Tr name="Свідок заряду" value={`+${WITNESS_OD} ✦`} note="Коли заряд пройшов" />
+              <Tr name="Старт" value={`до +${STARTER_OD} ✦`} note="Один раз, після першого внеску, з фонду переробки" />
+              <Tr name="Свідок заряду" value={`до +${WITNESS_OD} ✦`} note="Коли заряд пройшов, з фонду переробки" />
               <Tr name="Частка фонду" value="70% / 30%" note={`Раз на ${Math.round(FUND_PERIOD_MS / 86_400_000)} доби, лише власникам орбіт: порівну / за стабільністю`} />
             </div>
           </section>

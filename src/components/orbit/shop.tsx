@@ -9,6 +9,8 @@ import { constellationOf } from "@/lib/orbit/constellation";
 import { useOrbits } from "@/lib/orbit/store";
 import { BOOST_PRICE, PACKS, PLUS, STARTER, STYLES, THEMES, boosted, owns, packGrant } from "@/lib/orbit/shop";
 import { CHECKOUT_SOON } from "@/lib/orbit/checkout";
+import { BASKETS, HOLD_CAP, P0_MICRO, QUOTE_MS, RELEASE_PER_DAY, SUPPLY_CAP, quoteMicro, usdPer100 } from "@/lib/orbit/supply";
+import { quoteSpark } from "@/lib/orbit/shop";
 import type { Account, World } from "@/lib/orbit/engine";
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -29,6 +31,8 @@ export function ShopPage({ world, user, onBack, onClose }: { world: World; user:
     return () => { live = false; };
   }, []);
   const firstDone = !pay.first;
+  const saleLeft = world.supply?.sale ?? BASKETS.sale;
+  const micro = quoteMicro(world.spark?.micro ?? P0_MICRO, saleLeft);
   const checkout = (product: string) => go(product, async () => {
     const { checkoutStart } = await import("@/lib/orbit/checkout-server");
     const out = await checkoutStart({ data: { ...sessionCreds(), product } }).catch(() => null);
@@ -121,16 +125,18 @@ export function ShopPage({ world, user, onBack, onClose }: { world: World; user:
         )}
       </section>
 
+      <SparkEconomy world={world} />
+
       <section className="orbit-block" aria-labelledby="sh-packs-h">
         <h2 className="orbit-h" id="sh-packs-h">Поповнити ✦</h2>
-        <p className="orbit-note">Фіксований курс: 100 ✦ ≈ $0.99. Перша покупка будь-якого пакета — подвійна, без строків.</p>
+        <p className="orbit-note">Курс живий: зараз 100 ✦ ≈ {usd(usdPer100(micro))}. Ціну фіксуємо на {QUOTE_MS / 60_000} хв, коли відкриваєш оплату. Бонус першої покупки — з фонду переробки, поки в ньому є ✦.</p>
         <ul className="sh-packs">
           {PACKS.map((p) => {
-            const g = packGrant(p, firstDone);
+            const g = packGrant(p, firstDone, micro, saleLeft);
             return (
               <li key={p.id} className="sh-pack" data-testid={`sh-pack-${p.id}`}>
-                <b>{p.spark} ✦{p.extra ? <em> {p.extra}</em> : null}</b>
-                {g.bonus ? <span className="sh-bonus"><Gift size={12} aria-hidden /> +{g.bonus} на першу</span> : null}
+                <b>{g.spark} ✦{p.extraPct ? <em> +{p.extraPct}%</em> : null}</b>
+                {g.bonus ? <span className="sh-bonus"><Gift size={12} aria-hidden /> до +{g.bonus} на першу</span> : null}
                 <small>{p.title}</small>
                 {payBtn(p.id, usd(p.usd), `sh-pay-${p.id}`)}
               </li>
@@ -139,7 +145,7 @@ export function ShopPage({ world, user, onBack, onClose }: { world: World; user:
         </ul>
         <div className="sh-offer" data-testid="sh-starter">
           <Sparkles size={20} aria-hidden />
-          <div><b>Стартовий набір · {usd(STARTER.usd)}</b><small>{STARTER.spark} ✦ + стиль «Неон» + тема «Туманність». Один раз на людину.</small></div>
+          <div><b>Стартовий набір · {usd(STARTER.usd)}</b><small>{quoteSpark(STARTER.usd, STARTER.extraPct, micro, saleLeft)} ✦ + стиль «Неон» + тема «Туманність». Один раз на людину.</small></div>
           {pay.starter ? <span className="sh-own"><Check size={12} aria-hidden /> Твоє</span> : payBtn("starter", usd(STARTER.usd))}
         </div>
         <div className="sh-offer sh-plus" data-testid="sh-plus">
@@ -150,5 +156,57 @@ export function ShopPage({ world, user, onBack, onClose }: { world: World; user:
         <p className="orbit-note">{pay.enabled ? "Оплата на захищеній сторінці Xsolla." : CHECKOUT_SOON} Дані картки ORBIT ніколи не бачить і не зберігає.</p>
       </section>
     </Page>
+  );
+}
+
+const fmt = (n: number) => Math.round(n).toLocaleString("uk-UA");
+
+/** Прозорість економіки ✦: жива ціна з графіком і залишки трьох кошиків із 8 000 000. */
+export function SparkEconomy({ world }: { world: World }) {
+  const micro = quoteMicro(world.spark?.micro ?? P0_MICRO, world.supply?.sale ?? BASKETS.sale);
+  const hist = world.spark?.hist?.length ? world.spark.hist : [{ day: "", micro }];
+  const prev = hist.length > 1 ? hist[hist.length - 2].micro : micro;
+  const ch = prev ? ((micro - prev) / prev) * 100 : 0;
+  const sale = world.supply?.sale ?? BASKETS.sale;
+  const sold = SUPPLY_CAP - sale;
+  const W = 300, H = 70;
+  const vals = hist.map((h) => h.micro);
+  const lo = Math.min(...vals, P0_MICRO), hi = Math.max(...vals, P0_MICRO * 1.2);
+  const pts = vals.map((v, i) => `${vals.length === 1 ? W : (i / (vals.length - 1)) * W},${H - ((v - lo) / (hi - lo || 1)) * (H - 8) - 4}`).join(" ");
+  return (
+    <section className="orbit-block sh-econ" aria-labelledby="sh-econ-h" data-testid="sh-econ">
+      <h2 className="orbit-h" id="sh-econ-h">Ціна ✦ сьогодні</h2>
+      <div className="sh-rate">
+        <b data-testid="sh-rate">100 ✦ = ${usdPer100(micro).toFixed(2)}</b>
+        <span className={ch > 0 ? "sh-up" : ch < 0 ? "sh-down" : "sh-flat"}>{ch > 0 ? "▲" : ch < 0 ? "▼" : "•"} {Math.abs(ch).toFixed(1)}% за добу</span>
+      </div>
+      <svg className="sh-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Графік ціни ✦ за останні дні" preserveAspectRatio="none">
+        <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <p className="orbit-note">Ціна рахується з того, яка частка ✦ уже продана скарбницею, і з того, як активно ✦ витрачають у застосунку. Щоденна поправка — не більше 3%, нижче $0.99 за 100 ✦ ціна не опускається. ✦ — лише для застосунку: це не вкладення, і назад у гроші вони не обмінюються.</p>
+      <h3 className="orbit-h sh-h3">Усього існує {fmt(SUPPLY_CAP)} ✦ — нових не створюється</h3>
+      <ul className="sh-baskets">
+        <li data-testid="sh-basket-sale">
+          <div className="sh-bk-top"><b>У скарбниці, ще не продано</b><span>{fmt(sale)} з {fmt(SUPPLY_CAP)}</span></div>
+          <div className="sh-bar"><i style={{ width: `${Math.max(0, Math.min(100, (sale / SUPPLY_CAP) * 100))}%` }} /></div>
+          <small>Усі ✦ потрапляють у застосунок лише звідси — через покупку.</small>
+        </li>
+        <li data-testid="sh-basket-fund">
+          <div className="sh-bk-top"><b>Фонд переробки</b><span>{fmt(world.fund)} ✦</span></div>
+          <small>Сюди йдуть ✦, витрачені в крамниці й на комісії. З нього — нагороди свідкам і стартові бонуси, поки в ньому є ✦.</small>
+        </li>
+      </ul>
+      <h3 className="orbit-h sh-h3">Чесні правила купівлі</h3>
+      <ul className="sh-rules" data-testid="sh-rules">
+        <li>Ціна в ту саму мить однакова для всіх.</li>
+        <li>Велика покупка рахується по кривій: кожна наступна ✦ у ній трохи дорожча за попередню.</li>
+        <li>Не більше $100 на добу і $300 за 30 днів на людину.</li>
+        <li>Скарбниця випускає до {fmt(RELEASE_PER_DAY)} ✦ на добу. Непродане переходить на наступні дні.</li>
+        <li>Купувати можна після підтвердження телефону або входу через Google і коли в тебе є хоча б один поручитель.</li>
+        <li>В одних руках — не більше {fmt(HOLD_CAP)} ✦ (1% усіх).</li>
+        <li>Якщо система бачить ознаки групи пов'язаних акаунтів, купівлю для них призупиняємо.</li>
+      </ul>
+      <p className="orbit-note" data-testid="sh-inuse">Поза скарбницею зараз {fmt(sold)} ✦ (у людей і у фонді). Разом завжди рівно {fmt(SUPPLY_CAP)}.</p>
+    </section>
   );
 }

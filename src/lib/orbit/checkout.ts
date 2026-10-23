@@ -6,10 +6,10 @@
  * а до нас приходить лише підписане повідомлення «замовлення X оплачене».
  */
 import { xsollaConf, xsollaProvider } from "./xsolla";
-import { PACKS, PLUS, STARTER, packGrant, type Pack } from "./shop";
+import { PACKS, PLUS, STARTER, packGrant, quoteSpark, type Pack } from "./shop";
 
 export type ProductId = Pack["id"] | typeof STARTER.id | typeof PLUS.id;
-export type Order = { id: string; userId: string; product: ProductId; usdCents: number; spark: number; bonus: number; status: "open" | "paid" | "refunded"; provider: string; providerRef: string; at: number };
+export type Order = { id: string; userId: string; product: ProductId; usdCents: number; spark: number; bonus: number; status: "open" | "paid" | "refunded"; provider: string; providerRef: string; at: number; /** Ціна зафіксована до цього часу (10 хв). */ quoteUntil: number };
 
 export interface CheckoutProvider {
   readonly id: string;
@@ -38,11 +38,10 @@ export function checkoutEnabled() {
 
 export const SELLABLE: ProductId[] = [...PACKS.map((p) => p.id), STARTER.id];
 
-/** Що отримає людина за продукт (для показу і майбутнього зарахування). */
-export function productGrant(product: ProductId, firstDone: boolean): { usd: number; spark: number; bonus: number } | null {
+/** Що отримає людина за продукт за живою ціною (micro — мікродолари за 1 ✦, saleLeft — залишок кошика продажу). */
+export function productGrant(product: ProductId, firstDone: boolean, micro: number, saleLeft: number): { usd: number; spark: number; bonus: number } | null {
   const pack = PACKS.find((p) => p.id === product);
-  if (pack) return { usd: pack.usd, ...packGrant(pack, firstDone) };
-  if (product === STARTER.id) return { usd: STARTER.usd, spark: STARTER.spark, bonus: 0 };
-  if (product === PLUS.id) return { usd: PLUS.usdMonth, spark: PLUS.sparkMonth, bonus: 0 };
+  if (pack) return { usd: pack.usd, ...packGrant(pack, firstDone, micro, saleLeft) };
+  if (product === STARTER.id) return { usd: STARTER.usd, spark: quoteSpark(STARTER.usd, STARTER.extraPct, micro, saleLeft), bonus: 0 };
   return null;
 }

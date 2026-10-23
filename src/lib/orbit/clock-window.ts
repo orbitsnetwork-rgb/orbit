@@ -21,6 +21,12 @@ export function clockWindow(world: World): ClockWindow {
   if (!Number.isFinite(dayStart)) return { from: 0, until: 0 };
   from = Math.max(from, dayStart);
   let until = dayStart + DAY_MS;
+  // spark-economy: без кошика/ціни ✦ перший settle їх додасть; далі — щодобове оновлення ціни ✦.
+  if (!world.supply || !world.spark) return { from: 0, until: 0 };
+  const sparkStart = Date.parse(`${world.spark.day}T00:00:00.000Z`);
+  if (!Number.isFinite(sparkStart)) return { from: 0, until: 0 };
+  from = Math.max(from, sparkStart);
+  until = Math.min(until, sparkStart + DAY_MS);
   if (world.fund > 0) until = Math.min(until, world.lastDistributionAt + FUND_PERIOD_MS);
   for (const item of world.creations) {
     if (item.status === "collecting" && item.confirms.length >= need) return { from: 0, until: 0 };

@@ -92,7 +92,7 @@ export function FirstStep({ onTab, busy = false }: { onTab: (tab: HomeTab) => vo
         }}
       >
         <b><span className="hm-first-num" aria-hidden>1</span>Підтвердь друга</b>
-        <small>Друг надіслав 6 цифр або посилання? Введи код — його запуск стане ближчим, а тобі +{WITNESS_OD} ✦, коли заряд пройде.</small>
+        <small>Друг надіслав 6 цифр або посилання? Введи код — його запуск стане ближчим, а тобі до +{WITNESS_OD} ✦ з фонду, коли заряд пройде.</small>
         <div className="hm-first-code">
           <input
             className="orbit-field"

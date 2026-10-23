@@ -1,3 +1,4 @@
+import { drawFund, drawSale } from "./supply";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { trimTopups, type Topup } from "@/lib/orbit/access";
 import type { World } from "@/lib/orbit/engine";
@@ -77,22 +78,29 @@ export async function readCheckout(sessionId: string) {
 /** Стільки ж записів, скільки тримає рушій у note(): поповнення не має обрізати спільний журнал. */
 const LOG_KEEP = 40;
 
-export function creditTopup(world: World, topups: Topup[], paid: { id: string; userId: string; amount: number }) {
+export function creditTopup(world: World, topups: Topup[], paid: { id: string; userId: string; amount: number; bonus?: number }) {
   if (topups.some((row) => row.id === paid.id && row.status === "paid")) {
     return { world, topups, notice: "Вже зараховано." };
   }
   if (!world.accounts.some((account) => account.id === paid.userId)) {
     return { world, topups, error: "Імені немає." };
   }
+  // spark-economy: куплені ✦ — з кошика продажу, бонус першої покупки — з фонду переробки (якщо там є). Нових ✦ не створюється.
+  const bonusWant = Math.max(0, Math.min(paid.amount, paid.bonus ?? 0));
+  const sale = drawSale(world, paid.amount - bonusWant);
+  const extra = drawFund(sale.world, bonusWant, { exact: true });
+  const got = sale.amount + extra.amount;
+  world = extra.world;
   const accounts = world.accounts.map((account) =>
-    account.id === paid.userId ? { ...account, balance: account.balance + paid.amount, toppedUp: (account.toppedUp ?? 0) + paid.amount } : account,
+    // toppedUp — лише куплена частина (основа для можливого майбутнього виводу власних поповнень); бонус до неї не входить.
+    account.id === paid.userId ? { ...account, balance: account.balance + got, toppedUp: (account.toppedUp ?? 0) + sale.amount } : account,
   );
   const next = [
     ...topups.filter((row) => row.id !== paid.id),
-    { id: paid.id, userId: paid.userId, amount: paid.amount, status: "paid" as const, at: Date.now() },
+    { id: paid.id, userId: paid.userId, amount: got, status: "paid" as const, at: Date.now() },
   ];
-  const log = [{ at: Date.now(), text: `Поповнення ${paid.amount} ✦.` }, ...world.log].slice(0, LOG_KEEP);
-  return { world: { ...world, accounts, log }, topups: trimTopups(next), notice: `Зараховано ${paid.amount} ✦.` };
+  const log = [{ at: Date.now(), text: `Поповнення ${got} ✦.` }, ...world.log].slice(0, LOG_KEEP);
+  return { world: { ...world, accounts, log }, topups: trimTopups(next), notice: `Зараховано ${got} ✦.` };
 }
 
 export function signedEvent(raw: string, header: string | null) {

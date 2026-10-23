@@ -1049,6 +1049,13 @@ await step("spark store: try-on, buy style/theme with ✦, boost label, packs «
   check("shop: real-money buttons disabled «Скоро»", (await c.locator(".sh-soon").count()) === 6 && (await c.locator(".sh-soon:not([disabled])").count()) === 0);
   check("shop: first purchase double shown", (await c.getByTestId("sh-pack-p100").innerText()).includes("+100"));
   check("shop: no income promises", !/дохід|заробиш|прибут/i.test(await c.locator(".mo-page").innerText()));
+  check("econ: live price shown (≥ $0.99/100)", /100 ✦ = \$\d+\.\d\d/.test(await c.getByTestId("sh-rate").innerText()) && Number(((await c.getByTestId("sh-rate").innerText()).match(/\$(\d+\.\d+)/) || [0, 0])[1]) >= 0.99);
+  check("econ: anti-whale rules listed", /\$100 на добу/.test(await c.getByTestId("sh-rules").innerText()) && /80 000/.test(await c.getByTestId("sh-rules").innerText()));
+  check("econ: price chart rendered", (await c.locator(".sh-chart polyline").count()) === 1);
+  check("econ: sale basket + fund + 8M total shown", (await c.getByTestId("sh-basket-sale").count()) === 1 && (await c.getByTestId("sh-basket-fund").count()) === 1 && (await c.getByTestId("sh-econ").innerText()).includes("8 000 000"));
+  { const w = lastWorld(c)?.world; check("econ: world has supply + spark", typeof w?.supply?.sale === "number" && typeof w?.spark?.micro === "number", JSON.stringify(w?.supply)); }
+  check("econ: no growth/investment promises", !/подорожча|зростатиме|інвестиц|вкладення, що/i.test(await c.locator(".mo-page").innerText()));
+  await c.getByTestId("sh-econ").scrollIntoViewIfNeeded(); await snapSh(c, "04_econ");
   await c.locator(".sh-packs").scrollIntoViewIfNeeded(); await snapSh(c, "03_packs");
   await L.closePages(c);
   // Інші бачать вдягнутий стиль

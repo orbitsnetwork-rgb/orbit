@@ -4,6 +4,7 @@ import { emptyWorld, type Account, type World } from "./engine";
 import { BOOST_MS, PACKS, boosted, packGrant, shopBuy, shopWear } from "./shop";
 import { checkoutEnabled, productGrant } from "./checkout";
 
+const G = { verified: true, vouchers: 1, ring: false };
 const acct = (id: string, balance: number, extra: Partial<Account> = {}): Account => ({ id, name: id, stability: 0, balance, createdAt: 0, confirmDay: "", confirmsToday: 0, stabilityFromConfirmToday: 0, impulseUntil: 0, lastActiveAt: 0, toppedUp: 0, ...extra });
 const world = (a: Account[]): World => ({ ...emptyWorld(1_000_000), sessionId: a[0].id, accounts: a, lastDistributionAt: 1_000_000 });
 
@@ -42,11 +43,12 @@ test("shop: wear only owned, empty ref resets", () => {
   assert.equal(on.world.accounts[0].wearTheme, "deep");
   assert.equal(shopWear(on.world, "theme", "").world.accounts[0].wearTheme, undefined);
 });
-test("packs: fixed rate, first purchase doubles, checkout disabled", () => {
-  assert.deepEqual(PACKS.map((p) => [p.usd, p.spark]), [[0.99, 100], [4.99, 550], [9.99, 1200], [19.99, 2600]]);
-  assert.deepEqual(packGrant(PACKS[1], false), { spark: 550, bonus: 550 });
-  assert.deepEqual(packGrant(PACKS[1], true), { spark: 550, bonus: 0 });
-  assert.equal(productGrant("starter", false)?.spark, 500);
+test("packs: live rate at start ≈ old fixed packs, first purchase doubles, checkout disabled", () => {
+  const S = 8_000_000, M = 9_900;
+  assert.deepEqual(PACKS.map((p) => [p.usd, packGrant(p, true, M, S).spark]), [[0.99, 100], [4.99, 554], [9.99, 1210], [19.99, 2624]]);
+  assert.deepEqual(packGrant(PACKS[1], false, M, S), { spark: 554, bonus: 554 });
+  assert.equal(packGrant(PACKS[1], true, M * 2, S).spark, 277);
+  assert.equal(productGrant("starter", false, M, S)?.spark, 498);
   delete process.env.ORBIT_PAYMENTS_ENABLED;
   assert.equal(checkoutEnabled(), false);
   process.env.ORBIT_PAYMENTS_ENABLED = "1";
@@ -77,7 +79,7 @@ test("xsolla: parse payment + token body has server amount and sandbox", () => {
   const ev = parseXsolla({ notification_type: "payment", user: { id: "u-a" }, transaction: { id: 9, external_id: "xs-1", dry_run: 1 }, purchase: { checkout: { amount: 4.99, currency: "USD" } } });
   assert.deepEqual(ev, { kind: "paid", orderId: "xs-1", userId: "u-a", usdCents: 499, currency: "USD", dryRun: true, txId: "9" });
   const conf = { merchantId: "1", projectId: "2", apiKey: "k", secret: "s", sandbox: true };
-  const b = tokenBody(conf, { id: "xs-1", userId: "u-a", product: "p550", usdCents: 499, spark: 550, bonus: 550, status: "open", provider: "xsolla", providerRef: "xs-1", at: 0 }, "https://x/");
+  const b = tokenBody(conf, { id: "xs-1", userId: "u-a", product: "p550", usdCents: 499, spark: 550, bonus: 550, status: "open", provider: "xsolla", providerRef: "xs-1", at: 0, quoteUntil: 0 }, "https://x/");
   assert.equal(b.settings.mode, "sandbox");
   assert.equal(b.purchase.checkout.amount, 4.99);
 });
@@ -85,14 +87,14 @@ test("xsolla: createSession calls token API with basic auth and returns sandbox 
   let seen: { url: string; auth: string } | null = null;
   const fake = (async (url: string, init: RequestInit) => { seen = { url, auth: String((init.headers as Record<string, string>).authorization) }; return new Response(JSON.stringify({ token: "T" })); }) as unknown as typeof fetch;
   const p = xsollaProvider({ merchantId: "1", projectId: "2", apiKey: "k", secret: "s", sandbox: true }, fake);
-  const s = await p.createSession({ id: "xs-1", userId: "u-a", product: "p100", usdCents: 99, spark: 100, bonus: 100, status: "open", provider: "xsolla", providerRef: "xs-1", at: 0 }, "https://x/");
+  const s = await p.createSession({ id: "xs-1", userId: "u-a", product: "p100", usdCents: 99, spark: 100, bonus: 100, status: "open", provider: "xsolla", providerRef: "xs-1", at: 0, quoteUntil: 0 }, "https://x/");
   assert.equal(s.url, "https://sandbox-secure.xsolla.com/paystation4/?token=T");
   assert.equal(seen!.url, "https://api.xsolla.com/merchant/v2/merchants/1/token");
   assert.equal(seen!.auth, `Basic ${Buffer.from("1:k").toString("base64")}`);
 });
 test("orders: first pack doubles, credit once, amount must match, starter once with cosmetics", () => {
-  const w = world([acct("u-a", 0)]);
-  const o = openOrder(w, [], "u-a", "p100", "xs-1", 1);
+  const w = { ...world([acct("u-a", 0)]), fund: 1000 };
+  const o = openOrder(w, [], "u-a", "p100", "xs-1", 1, G);
   assert.ok(!("error" in o));
   if ("error" in o) return;
   assert.equal(o.topups[0].amount, 200);
@@ -100,14 +102,14 @@ test("orders: first pack doubles, credit once, amount must match, starter once w
   const c = creditOrder(w, o.topups, "xs-1", 99);
   assert.equal(c.world.accounts[0].balance, 200);
   assert.equal(creditOrder(c.world, c.topups, "xs-1", 99).notice, "Вже зараховано.");
-  const o2 = openOrder(c.world, c.topups, "u-a", "p100", "xs-2", 2);
+  const o2 = openOrder(c.world, c.topups, "u-a", "p100", "xs-2", 2, G);
   assert.ok(!("error" in o2) && o2.topups.at(-1)!.amount === 100);
-  const s = openOrder(c.world, c.topups, "u-a", "starter", "xs-3", 3);
+  const s = openOrder(c.world, c.topups, "u-a", "starter", "xs-3", 3, G);
   if ("error" in s) throw new Error(s.error);
   const sc = creditOrder(c.world, s.topups, "xs-3", 299);
   const a = sc.world.accounts[0];
-  assert.equal(a.balance, 700);
+  assert.equal(a.balance, 698);
   assert.deepEqual(a.owned, ["style:neon", "theme:nebula"]);
-  assert.match((openOrder(sc.world, sc.topups, "u-a", "starter", "xs-4", 4) as { error: string }).error, /один/);
-  assert.match((openOrder(w, [], "u-a", "plus", "x", 1) as { error: string }).error, /немає/);
+  assert.match((openOrder(sc.world, sc.topups, "u-a", "starter", "xs-4", 4, G) as { error: string }).error, /один/);
+  assert.match((openOrder(w, [], "u-a", "plus", "x", 1, G) as { error: string }).error, /немає/);
 });

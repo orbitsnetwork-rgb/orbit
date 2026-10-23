@@ -811,3 +811,24 @@ export const seekHide = createServerFn({ method: "POST" })
     await sql.query(`insert into orbit_mod_log (mod_id, action, target_user, msg_id, room, note, at) values ($1, 'seek-hide', $2, null, null, '', $3)`, [me.id, data.uid, now]);
     return { ok: true };
   });
+
+const SEARCH_HITS = new Map<string, number[]>();
+/** Пошук людей за ім’ям/прізвищем для нової особистої розмови. Ліміт: 30 запитів/хв на людину (у процесі). */
+export const peopleSearch = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => ({ ...creds(raw), q: String((raw as { q?: unknown })?.q ?? "").slice(0, 40) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; people: { id: string; name: string }[]; error?: string }> => {
+    const S = await import("@/lib/orbit/people-search");
+    if (data.q.trim().length < S.SEARCH_MIN) return { ok: true, people: [] };
+    const sql = await db();
+    const me = await whoIs(sql, data);
+    if (!me) return { ok: false, people: [], error: "Увійди, щоб шукати людей." };
+    const now = Date.now();
+    const hits = (SEARCH_HITS.get(me.id) ?? []).filter((t) => t > now - 60_000);
+    if (hits.length >= S.SEARCH_PER_MIN) return { ok: false, people: [], error: "Забагато пошуків. Зачекай хвилину." };
+    if (SEARCH_HITS.size > 5000) SEARCH_HITS.clear();
+    SEARCH_HITS.set(me.id, [...hits, now]);
+    const bl = await sql.query<{ u: string }>(`select case when user_id = $1 then blocked else user_id end as u from orbit_blocks where user_id = $1 or blocked = $1`, [me.id]);
+    const bag = await g.__orbitWorldCache__?.get((text, params) => sql.query(text, params));
+    const people = (bag?.people ?? []).map((p) => ({ userId: p.userId, given: p.given, family: p.family }));
+    return { ok: true, people: S.searchPeople(data.q, me.world.accounts, people, me.id, new Set(bl.map((r) => r.u)), shortName) };
+  });

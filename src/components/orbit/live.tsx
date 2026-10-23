@@ -1,7 +1,8 @@
-import { Music, CircleHelp, MessagesSquare, Search } from "lucide-react";
+import { Music, CircleHelp, MessageCircle, MessagesSquare, Search, X } from "lucide-react";
+import { Avatar } from "@/components/orbit/ui/kit";
 import { useEffect, useRef, useState } from "react";
 import { Page } from "@/components/orbit/more";
-import { botSignal, dmOpen } from "@/lib/orbit/live";
+import { botSignal, dmOpen, peopleSearch } from "@/lib/orbit/live";
 import { ChatRoom, RoomList } from "@/components/orbit/chat";
 export { ChatRoom, RoomList };
 import { looksScripted, shortName } from "@/lib/orbit/live-rules";
@@ -156,6 +157,7 @@ export function LiveHub({ user, onBack, onClose, onSeek }: { world: World; user:
   const [unread, setUnread] = useState<Record<string, number> | undefined>(undefined);
   const [listKey, setListKey] = useState(0);
   const [err, setErr] = useState("");
+  const [finding, setFinding] = useState(false);
   const lastRoom = useRef<string | null>(null);
   const me = shortName(user.name);
   const dm = async (uid: string) => {
@@ -189,8 +191,11 @@ export function LiveHub({ user, onBack, onClose, onSeek }: { world: World; user:
         {err ? <p className="orbit-note cv-hub-err" role="alert">{err}</p> : null}
         <div className="cv-split">
           <div className="cv-side">
+          <PeopleFind onPick={(uid) => void dm(uid)} onQuery={setFinding} />
+          <div hidden={finding}>
           <RoomList key={listKey} current={room?.id ?? null} unread={unread} myName={me} onSeek={onSeek} onPick={(next) => setRoom({ id: next.id, title: next.title, unread: next.unread })}
             onCurrent={(cur) => setRoom((r) => (r && r.id === cur.id && r.title !== cur.title ? { ...r, title: cur.title } : r))} />
+          </div>
           </div>
           {room ? (
             <ChatRoom key={room.id} room={room.id} title={room.title} unreadAtOpen={room.unread} myName={me} onUnread={setUnread} onDm={(uid) => void dm(uid)} onBack={toList} />
@@ -207,5 +212,57 @@ export function LiveHub({ user, onBack, onClose, onSeek }: { world: World; user:
         </div>
       </div>
     </Page>
+  );
+}
+
+/**
+ * Пошук людей угорі «Розмов» (як у Direct): від 2 літер, затримка 250 мс, результати — «Ім’я П.» з аватаркою.
+ * Дотик — відкриває (або створює) особисту розмову. Хто в блоці — не з’являється.
+ */
+function PeopleFind({ onPick, onQuery }: { onPick: (uid: string) => void; onQuery: (on: boolean) => void }) {
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState<{ id: string; name: string }[] | null>(null);
+  const [error, setError] = useState("");
+  const on = q.trim().length >= 2;
+  useEffect(() => { onQuery(on); }, [on, onQuery]);
+  useEffect(() => {
+    if (!on) { setRows(null); setError(""); return; }
+    let alive = true;
+    const t = window.setTimeout(() => {
+      void peopleSearch({ data: { ...sessionCreds(), q: q.trim() } }).then((out) => {
+        if (!alive) return;
+        setRows(out.people); setError(out.ok ? "" : out.error ?? "");
+      }).catch(() => { if (alive) { setRows([]); setError("Немає зв’язку. Спробуй ще раз."); } });
+    }, 250);
+    return () => { alive = false; window.clearTimeout(t); };
+  }, [q, on]);
+  return (
+    <div className="pf">
+      <label className="pf-bar">
+        <Search size={17} strokeWidth={1.8} aria-hidden />
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Пошук людей за ім’ям або прізвищем" aria-label="Пошук людей" maxLength={40} autoComplete="off" enterKeyHint="search" />
+        {q ? <button type="button" className="pf-x" aria-label="Очистити пошук" onClick={() => setQ("")}><X size={15} aria-hidden /></button> : null}
+      </label>
+      {on ? (
+        <section className="orbit-block pf-res" aria-live="polite" aria-label="Знайдені люди">
+          {rows === null ? <div className="cv-skel cv-skel-list" role="status" aria-label="Шукаю"><div className="cv-skel-row"><span className="cv-skel-ava" /><span className="cv-skel-lines"><span /><span /></span></div></div> : null}
+          {error ? <p className="orbit-note" role="alert">{error}</p> : null}
+          {rows && !rows.length && !error ? <p className="pf-none">Нікого не знайшли за «{q.trim()}». Спробуй інше написання.</p> : null}
+          {rows && rows.length ? (
+            <ul className="pf-list">
+              {rows.map((p) => (
+                <li key={p.id}>
+                  <button type="button" className="pf-row" onClick={() => { setQ(""); onPick(p.id); }}>
+                    <Avatar id={p.id} name={p.name} size={44} />
+                    <span className="pf-t"><b>{p.name}</b><small>Написати особисто</small></span>
+                    <MessageCircle size={18} aria-hidden className="pf-go" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+    </div>
   );
 }

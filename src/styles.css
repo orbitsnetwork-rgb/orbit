@@ -2931,3 +2931,23 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .cn-act b { font: 600 14.5px/19px var(--font-sans); }
 .cn-act small { color: var(--text-2); font: 500 12.5px/17px var(--font-sans); }
 @media (prefers-reduced-motion: reduce) { .cn-bar i { transition: none; } }
+
+/* Розмови як Direct: пошук людей угорі, розділи «Особисті» / «Групи орбіт» */
+.pf { display: grid; gap: 10px; }
+.pf-bar { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 14px; border-radius: 14px; background: rgb(255 255 255 / .06); border: 1px solid rgb(255 255 255 / .08); color: var(--text-3); transition: border-color 150ms var(--ease), background-color 150ms var(--ease); }
+.pf-bar:focus-within { border-color: rgba(139, 123, 255, .55); background: rgb(255 255 255 / .08); }
+.pf-bar input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--text-1); font: 500 15px/20px var(--font-sans); }
+.pf-bar input::-webkit-search-cancel-button { display: none; }
+.pf-x { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgb(255 255 255 / .1); color: var(--text-2); border: 0; }
+.pf-res { padding: 8px; }
+.pf-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.pf-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 62px; padding: 8px 10px; border-radius: 12px; background: transparent; border: 0; color: inherit; text-align: left; }
+.pf-row:hover, .pf-row:focus-visible { background: rgb(255 255 255 / .05); }
+.pf-t { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.pf-t b { font: 650 15px/20px var(--font-sans); }
+.pf-t small { color: var(--text-3); font: 500 12.5px/16px var(--font-sans); }
+.pf-go { color: #c9c0ff; flex: none; }
+.pf-none { margin: 10px; color: var(--text-2); font: 500 14px/20px var(--font-sans); }
+.cv-sec + .cv-sec { margin-top: 6px; }
+.cv-sec-h { display: flex; align-items: center; gap: 8px; margin: 6px 10px 2px; font: 700 11px/16px var(--font-sans); letter-spacing: .09em; text-transform: uppercase; color: var(--text-3); }
+.cv-sec-h span { font-weight: 600; letter-spacing: 0; color: var(--text-3); opacity: .8; }

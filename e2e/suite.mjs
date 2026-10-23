@@ -370,6 +370,25 @@ await step("v20: rooms + live chat + room access control", async () => {
   await gRoom.waitFor({ timeout: 8000 }).catch(() => {});
   await g.waitForTimeout(500);
   check("v20: member sees the launch room with unread badge", (await gRoom.count()) === 1 && Number(await gRoom.locator(".orbit-room-n").innerText().catch(() => "0")) >= 1, `rooms=${await gRoom.count()} n=${await gRoom.locator(".orbit-room-n").innerText({ timeout: 1000 }).catch(() => "-")} txt=${(await g.locator(".cv-list").innerText().catch(() => "")).slice(0, 200)}`);
+  // Direct-пошук: за прізвищем, від 2 літер; результат — «Ім’я П.»; дотик відкриває особисту розмову; список має розділи.
+  check("direct: rooms split into sections", (await g.locator(".cv-sec-h", { hasText: "Групи орбіт" }).count()) === 1);
+  await g.getByRole("searchbox", { name: "Пошук людей" }).fill("ш");
+  await g.waitForTimeout(600);
+  check("direct: 1 letter does not search", (await g.locator(".pf-res").count()) === 0);
+  await g.getByRole("searchbox", { name: "Пошук людей" }).fill("Шевч");
+  const hit = g.locator(".pf-row", { hasText: "Ганна" });
+  await hit.first().waitFor({ timeout: 8000 }).catch(() => {});
+  check("direct: search by surname finds the person", (await hit.count()) === 1);
+  check("direct: full surname not leaked in results", !(await g.locator(".pf-res").innerText()).includes("Шевченко"));
+  await shot(g, "70_direct_search");
+  await axe(g, "direct search");
+  await hit.first().click();
+  await g.locator("#chat-input").waitFor({ timeout: 8000 });
+  check("direct: tapping result opens DM", (await g.locator(".cv-head h2, #chat-title").first().innerText()).includes("Ганна"));
+  await g.getByRole("button", { name: "До розмов" }).click();
+  await g.locator(".cv-sec-h", { hasText: "Особисті" }).waitFor({ timeout: 8000 }).catch(() => {});
+  check("direct: DM listed under «Особисті»", (await g.locator(".cv-sec", { hasText: "Особисті" }).locator(".orbit-room", { hasText: "Ганна" }).count()) === 1);
+  await shot(g, "71_direct_list");
   await shot(g, "30_room_list");
   await gRoom.click();
   check("v20: member reads the room", await g.locator(".cv-log").getByText("Екіпаже, тримаймось!").first().waitFor({ timeout: 8000 }).then(() => true, () => false));

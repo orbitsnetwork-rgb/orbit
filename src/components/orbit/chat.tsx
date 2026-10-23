@@ -584,8 +584,15 @@ export function RoomList({ current, onPick, unread, onCurrent, myName = "", onSe
         </div>
       ) : null}
       {rooms && rooms.length ? (
-        <ul className="orbit-rooms">
-          {rooms.map((room, i) => {
+        <>
+          {([["dm", "Особисті"], ["group", "Групи орбіт"]] as const).map(([kind, label]) => {
+            const list = rooms.filter((r) => (kind === "dm" ? r.kind === "dm" : r.kind !== "dm"));
+            if (!list.length) return null;
+            return (
+              <section key={kind} className="cv-sec" aria-label={label}>
+                <p className="cv-sec-h">{label}<span>{list.length}</span></p>
+                <ul className="orbit-rooms">
+          {list.map((room, i) => {
             const n = room.id === current ? 0 : room.unread;
             const mine = Boolean(room.last && (room.last.name === "Я" || (myName && room.last.name === myName))); // сервер позначає свої як «Я»
             return (
@@ -605,7 +612,11 @@ export function RoomList({ current, onPick, unread, onCurrent, myName = "", onSe
               </li>
             );
           })}
-        </ul>
+                </ul>
+              </section>
+            );
+          })}
+        </>
       ) : null}
       {rooms && rooms.length === 0 ? (
         <div className="cv-state cv-none">

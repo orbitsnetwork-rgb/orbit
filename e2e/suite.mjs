@@ -1065,6 +1065,48 @@ await step("thank phrase index validated server-side", async () => {
   const got = evs.filter((e) => e.t === "thanksGot");
   check("thanksGot event carries p within 0–5", got.length >= 1 && got.every((e) => e.p === undefined || (Number.isInteger(e.p) && e.p >= 0 && e.p < 6)), JSON.stringify(got));
 });
+await step("owner: «кільце ботів» signal (read-only, no device ids)", async () => {
+  // 4 акаунти за хвилини, по двоє на двох пристроях, підтверджують одне одного по колу (C→A, D→B, A→D, B→C) — ззовні ніхто.
+  const D1 = "d-RINGAAA2", D2 = "d-RINGBBB2";
+  const mk = async (n, ip, device) => ({ u: await L.apiRegister(n, { family: "Кільце", ip }), ip, device });
+  const [A, B, C, D] = [await mk("Ракета", "10.66.0.1", D1), await mk("Борт", "10.66.0.2", D1), await mk("Сопло", "10.66.0.3", D2), await mk("Дрон", "10.66.0.4", D2)];
+  // Без cookie пристрою: інакше сервер бере підписаний пристрій з cookie реєстрації (у кожного свій), а не спільний.
+  const as = (x) => ({ sessionId: x.u.id, sessionKey: x.u.key, ip: x.ip, device: x.device });
+  for (const x of [A, B, C, D]) await L.act({ type: "start" }, as(x));
+  // Новий акаунт підтверджує лише через годину після реєстрації — кільце чекає й годину (як справжня ферма).
+  L.advance(61 * 60_000);
+  await new Promise((r) => setTimeout(r, 400));
+  const errs = [];
+  for (const [w, a] of [[C, A], [D, B], [A, D], [B, C]]) {
+    const is = await L.act({ type: "issue" }, as(a));
+    const code = is.reply?.world?.creations?.find((y) => y.userId === a.u.id && y.code)?.code;
+    const r = await L.act({ type: "accept", code: code || "" }, as(w));
+    if (!code || r.reply?.error) errs.push(`${w.u.id}->${a.u.id}: ${is.reply?.error || ""} ${r.reply?.error || ""}`);
+  }
+  check("ring: 4 in-ring confirmations accepted", errs.length === 0, errs.join(" | "));
+  const own = await person("owner-ring");
+  await own.goto(L.BASE + "/owner");
+  await own.locator("#ow-token").fill("e2e-local-owner-token-not-real-0123456789");
+  await own.getByRole("button", { name: "Увійти" }).click();
+  await own.getByText("Кільця акаунтів").waitFor({ timeout: 10000 }).catch(() => {});
+  const ring = own.locator(".ow-ring", { hasText: "Ракета" });
+  const rt = (await ring.innerText().catch(() => "")) || "";
+  check("ring: owner sees the cluster with all 4 members", ["Ракета", "Борт", "Сопло", "Дрон"].every((n) => rt.includes(n)), rt);
+  check("ring: high signal with plain reasons", /Високий сигнал/.test(rt) && /2 пристрої/.test(rt) && /всередині групи/.test(rt) && /поза групою/.test(rt), rt);
+  const body = (await text(own)) + own.bodies.join("\n");
+  check("ring: no device ids in owner page or replies", !body.includes(D1) && !body.includes(D2) && !/d-[A-Z2-9]{8}/.test(body));
+  check("ring: section is read-only (no action buttons inside)", (await ring.getByRole("button").count()) === 0);
+  await ring.scrollIntoViewIfNeeded().catch(() => {});
+  await shot(own, "46_owner_rings");
+  await axe(own, "owner rings");
+  // Сигнал нічого не змінює: учасники кільця й далі працюють як звичайно.
+  const after = await L.act({ type: "pull" }, as(A));
+  check("ring: members are not blocked (pull ok, no error)", !after.reply?.error && after.reply?.world?.sessionId === A.u.id, after.reply?.error);
+  const bad = await L.newPerson("owner-ring-bad");
+  await bad.goto(L.BASE + "/owner");
+  check("ring: not visible without owner token", !(await text(bad)).includes("Ракета"));
+  await bad.context().close();
+});
 await step("desktop screenshots (1280×800)", async () => {
   const d = await person("desk");
   await d.setViewportSize({ width: 1280, height: 800 });

@@ -2760,3 +2760,14 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .vw-done { color: var(--sun); background: rgb(242 196 109 / .1); }
 .cs-card-map .cs-dot > i { width: 6px; height: 6px; }
 .cs-card-map .cs-line { stroke-width: 1.6; }
+
+/* Власник: «Кільця акаунтів» — лише сигнал */
+.ow-ring { border-left: 3px solid rgb(255 196 90 / .55); }
+.ow-ring-high { border-left-color: rgb(255 110 110 / .75); }
+.ow-ring-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin: 0; }
+.ow-ring-lvl { font-weight: 650; }
+.ow-ring-high .ow-ring-lvl { color: #ff9b9b; }
+.ow-ring-mid .ow-ring-lvl { color: #ffd38a; }
+.ow-ring-n { color: var(--text-3); font-size: 13px; }
+.ow-ring-who { margin: 6px 0 0; overflow-wrap: anywhere; }
+.ow-ring-why { margin: 6px 0 0; padding-left: 18px; color: var(--text-2); font-size: 13.5px; line-height: 1.45; }

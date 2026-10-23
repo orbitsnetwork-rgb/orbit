@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ownerAct, ownerView, type OwnerView } from "@/lib/orbit/owner";
+import { plural } from "@/lib/orbit/bot-ring";
 
 /**
  * Перевірка власником. Токен вводиться вручну й живе лише в цій вкладці (sessionStorage), у коді додатка його немає.
@@ -126,6 +127,23 @@ export function OwnerPage() {
                 <div className="ow-acts"><button type="button" className="orbit-chip" onClick={() => void act("botSeen", { userId: b.userId })}>Переглянуто</button></div>
               </article>
             ))}
+          </section>
+          <section aria-labelledby="ow-h8" className="ow-sec" data-rings={view.rings.length}>
+            <h2 id="ow-h8">Кільця акаунтів ({view.rings.length})</h2>
+            <p className="orbit-note">Групи, які схоже веде одна людина або скрипт: спільні пристрої, створення пачкою, підтвердження лише всередині групи. Лише сигнал — нічого не блокується і не забирається. Самі пристрої тут не показуються.</p>
+            {view.ringsError ? <p className="orbit-note" role="alert">Не вдалося порахувати кільця. Решта сторінки актуальна.</p> : null}
+            {!view.ringsError && view.rings.length === 0 ? <p className="orbit-note">Підозрілих груп немає.</p> : null}
+            {view.rings.map((r) => (
+              <article key={r.key} className={`ow-row ow-ring ow-ring-${r.level}`} data-ring={r.key}>
+                <p className="ow-ring-head">
+                  <span className="ow-ring-lvl">{r.level === "high" ? "Високий" : "Середній"} сигнал · {r.score}/100</span>
+                  <span className="ow-ring-n">{r.stats.size} {plural(r.stats.size, "акаунт", "акаунти", "акаунтів")}</span>
+                </p>
+                <p className="ow-ring-who">{r.members.map((m) => m.name).join(", ")}{r.stats.size > r.members.length ? ` і ще ${r.stats.size - r.members.length}` : ""}</p>
+                <ul className="ow-ring-why">{r.reasons.map((x) => <li key={x}>{x}</li>)}</ul>
+              </article>
+            ))}
+            <p className="orbit-note">Пристроїв, що сьогодні вичерпали ліміт реєстрацій: {view.regCapDevices}.</p>
           </section>
           <section aria-labelledby="ow-h4" className="ow-sec">
             <h2 id="ow-h4">Пауза в чаті ({view.mutes.length})</h2>

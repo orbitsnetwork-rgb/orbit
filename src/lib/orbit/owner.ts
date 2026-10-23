@@ -31,11 +31,36 @@ async function gate(token: unknown): Promise<{ ok: true; sql: Sql } | { ok: fals
   return { ok: true, sql };
 }
 
-async function names(sql: Sql): Promise<Map<string, string>> {
+type OwnWorld = import("@/lib/orbit/engine").World;
+async function loadWorld(sql: Sql): Promise<OwnWorld | null> {
   const { unpackDoc } = await import("@/lib/orbit/access");
   const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
-  const world = rows[0] ? unpackDoc(rows[0].doc).world : null;
-  return new Map((world?.accounts ?? []).map((a) => [a.id, a.name]));
+  return rows[0] ? unpackDoc(rows[0].doc).world : null;
+}
+
+/**
+ * «Кільце ботів»: лише читання з дзеркальних таблиць (orbit_device_seen, orbit_vouches, orbit_bot_flags) і світу.
+ * Ідентифікатори пристроїв лишаються на сервері — назовні тільки кількості. Помилка тут не ламає решту сторінки.
+ */
+async function rings(sql: Sql, world: OwnWorld | null): Promise<{ list: import("@/lib/orbit/bot-ring").Ring[]; regCapDevices: number; error?: boolean }> {
+  try {
+    const { findRings } = await import("@/lib/orbit/bot-ring");
+    const { NAMES_PER_DEVICE } = await import("@/lib/orbit/access");
+    const seenRows = await sql.query<{ device: string; ids: unknown }>(`select device, ids from orbit_device_seen where jsonb_typeof(ids) = 'array' and jsonb_array_length(ids) > 1`, []);
+    const vouchRows = await sql.query<{ witness_id: string; author_id: string; at: string }>(`select witness_id, author_id, at from orbit_vouches`, []);
+    const flagRows = await sql.query<{ user_id: string }>(`select user_id from orbit_bot_flags where state = 'review'`, []);
+    const today = new Date().toISOString().slice(0, 10);
+    const cap = await sql.query<{ n: number }>(`select count(*)::int as n from orbit_device_day where day = $1 and count >= $2`, [today, NAMES_PER_DEVICE]);
+    const seen: Record<string, string[]> = {};
+    for (const r of seenRows) if (Array.isArray(r.ids)) seen[r.device] = r.ids.filter((x): x is string => typeof x === "string");
+    const confirms = vouchRows.map((r) => ({ witness: r.witness_id, author: r.author_id, at: Number(r.at) }));
+    for (const c of world?.creations ?? []) for (const k of c.confirms) confirms.push({ witness: k.witnessId, author: c.userId, at: k.at });
+    const list = findRings({ accounts: (world?.accounts ?? []).map((a) => ({ id: a.id, name: a.name, createdAt: a.createdAt })), confirms, seen, flagged: flagRows.map((r) => r.user_id) });
+    return { list, regCapDevices: cap[0]?.n ?? 0 };
+  } catch (e) {
+    console.error("owner rings failed", e instanceof Error ? e.message : e);
+    return { list: [], regCapDevices: 0, error: true };
+  }
 }
 
 export type OwnerView = {
@@ -48,8 +73,13 @@ export type OwnerView = {
   modApps: { userId: string; name: string; why: string; exp: string; at: number; state: string }[];
   mods: { userId: string; name: string; at: number }[];
   modLog: { id: number; mod: string; action: string; target: string; msgId: number | null; note: string; at: number }[];
+  /** «Кільце ботів» — лише сигнал, без ідентифікаторів пристроїв. */
+  rings: import("@/lib/orbit/bot-ring").Ring[];
+  ringsError?: boolean;
+  /** Скільки пристроїв сьогодні вичерпали ліміт реєстрацій (без самих пристроїв). */
+  regCapDevices: number;
 };
-const NONE = { hidden: [], roles: [], bots: [], mutes: [], keepDays: 0, modApps: [], mods: [], modLog: [] };
+const NONE = { hidden: [], roles: [], bots: [], mutes: [], keepDays: 0, modApps: [], mods: [], modLog: [], rings: [], regCapDevices: 0 };
 
 export const ownerView = createServerFn({ method: "POST" })
   .inputValidator((raw: unknown) => ({ token: (raw as { token?: unknown })?.token }))
@@ -57,7 +87,9 @@ export const ownerView = createServerFn({ method: "POST" })
     const g = await gate(data.token);
     if (!g.ok) return { ok: false, error: g.error, ...NONE };
     const { sql } = g;
-    const who = await names(sql);
+    const world = await loadWorld(sql);
+    const who = new Map((world?.accounts ?? []).map((a) => [a.id, a.name]));
+    const ring = await rings(sql, world);
     const nm = (id: string, fallback = "—") => who.get(id) ?? fallback;
     const hidden = await sql.query<{ id: string; room: string; name: string; user_id: string; text: string; at: string; n: number }>(
       `select c.id, c.room, c.name, c.user_id, c.text, c.at, (select count(*)::int from orbit_chat_reports r where r.msg_id = c.id) as n
@@ -79,6 +111,9 @@ export const ownerView = createServerFn({ method: "POST" })
       bots: bots.map((r) => ({ userId: r.user_id, name: nm(r.user_id), reason: r.reason, hits: r.hits, lastAt: Number(r.last_at) })),
       mutes: mutes.map((r) => ({ userId: r.user_id, name: nm(r.user_id), until: Number(r.until_at), hiddenN: r.hidden_n })),
       keepDays: keepDays(process.env.ORBIT_CHAT_KEEP_DAYS),
+      rings: ring.list,
+      ...(ring.error ? { ringsError: true } : {}),
+      regCapDevices: ring.regCapDevices,
     };
   });
 

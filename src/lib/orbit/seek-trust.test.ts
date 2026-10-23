@@ -53,3 +53,19 @@ test("seek trust: card words — hidden/unknown/blocked dropped, newest first, m
   assert.deepEqual(m.get("c"), [{ from: "a", text: "ok", at: 2 }]);
   assert.equal(m.has("a"), false);
 });
+
+test("seekLeft: a fresh 7-day card reads «ще 7 дн.» even if now lags the creation by seconds/minutes (was «ще 8 дн.»)", async () => {
+  const { seekLeft } = await import("./seek-trust.ts");
+  const DAY = 86_400_000;
+  const created = Date.UTC(2026, 9, 23, 1, 0, 0);
+  const expires = created + 7 * DAY;
+  assert.equal(seekLeft(expires, created), "ще 7 дн.");
+  assert.equal(seekLeft(expires, created - 5_000), "ще 7 дн.", "server now taken 5 s before publishing");
+  assert.equal(seekLeft(expires, created - 50 * 60_000), "ще 7 дн.", "clock 50 min behind");
+  assert.equal(seekLeft(expires, created + 1), "ще 7 дн.");
+  assert.equal(seekLeft(expires, created + 22 * 3_600_000), "ще 7 дн.", "6 d 2 h left — a partial day still counts");
+  assert.equal(seekLeft(expires, created + DAY + 2 * 3_600_000), "ще 6 дн.");
+  assert.equal(seekLeft(expires, expires - 30 * 3_600_000), "ще 2 дн.");
+  assert.equal(seekLeft(expires, expires - 20 * 3_600_000), "до завтра");
+  assert.equal(seekLeft(expires, expires + 5_000), "до завтра");
+});

@@ -657,6 +657,8 @@ await step("seek: «Шукаю орбіту» card → list → DM / invite; blo
   await host.locator("#sk-text").fill("Шукаю людей для нового запуску, відповідаю ввечері ✦");
   await host.getByRole("button", { name: "Опублікувати" }).click();
   check("seek: card published for 7 days", await host.getByText("Картку опубліковано на 7 днів.").waitFor({ timeout: 8000 }).then(() => true, () => false));
+  // scale-2: залишок рахується від часу сервера (у e2e сервер зсунутий годинником) — свіжа картка «ще 7 дн.», не «ще 8 дн.».
+  { const mineNote = (await host.locator(".sk-mine p[role=status]").innerText().catch(() => "")) || ""; check("seek: fresh card reads «ще 7 дн.»", /ще 7 дн\./.test(mineNote), mineNote); }
   await host.getByRole("button", { name: "Оновити картку" }).click();
   check("seek: rate-limited re-publish", await host.getByText("Зачекай хвилину").waitFor({ timeout: 8000 }).then(() => true, () => false));
   await shot(host, "50_seek_mine");
@@ -664,6 +666,7 @@ await step("seek: «Шукаю орбіту» card → list → DM / invite; blo
   await openMore(g, "Шукаю орбіту");
   const card = g.locator(".sk-card", { hasText: "Шукаю людей для нового запуску" });
   check("seek: others see the card", await card.waitFor({ timeout: 8000 }).then(() => true, () => false));
+  { const meta = (await card.locator(".sk-who small").innerText().catch(() => "")) || ""; check("seek: others see «ще 7 дн.» on a fresh card", /ще 7 дн\./.test(meta), meta); }
   await card.getByRole("button", { name: /^Профіль:/ }).click();
   check("seek: profile opens inline", await hasText(g, "У світі з"));
   await shot(g, "51_seek_list");

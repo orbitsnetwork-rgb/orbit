@@ -745,10 +745,10 @@ export const seekSet = createServerFn({ method: "POST" })
 /** Живі картки «Шукаю орбіту» (не сховані, не прострочені, без заблокованих), найновіші першими. */
 export const seekList = createServerFn({ method: "POST" })
   .inputValidator((raw: unknown) => creds(raw))
-  .handler(async ({ data }): Promise<{ signedIn: boolean; cards: SeekCard[]; mine: SeekCard | null; mod: boolean }> => {
+  .handler(async ({ data }): Promise<{ signedIn: boolean; cards: SeekCard[]; mine: SeekCard | null; mod: boolean; /** час сервера — для «ще N дн.» */ now: number }> => {
     const sql = await db();
     const me = await whoIs(sql, data);
-    if (!me) return { signedIn: false, cards: [], mine: null, mod: false };
+    if (!me) return { signedIn: false, cards: [], mine: null, mod: false, now: Date.now() };
     const now = Date.now();
     const rows = await sql.query<{ user_id: string; text: string; at: string; expires_at: string; rep: boolean }>(
       `select s.user_id, s.text, s.at, s.expires_at, exists(select 1 from orbit_seek_reports r where r.card_user = s.user_id and r.reporter = $1) as rep
@@ -782,7 +782,7 @@ export const seekList = createServerFn({ method: "POST" })
         for (const c of others) { const w = picked.get(c.uid); if (w?.length) c.words = w; }
       } catch { /* без слів */ }
     }
-    return { signedIn: true, cards: others, mine: cards.find((c) => c.mine) ?? null, mod: await isMod(sql, me.id) };
+    return { signedIn: true, cards: others, mine: cards.find((c) => c.mine) ?? null, mod: await isMod(sql, me.id), now };
   });
 
 /** Скарга на картку: одна від людини; після 3 скарг картка ховається сама. */

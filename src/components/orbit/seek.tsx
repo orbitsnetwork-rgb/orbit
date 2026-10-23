@@ -8,13 +8,12 @@ import { sessionCreds } from "@/lib/orbit/store";
 import { DegreeChip } from "@/components/orbit/trust-path";
 import { shortName } from "@/lib/orbit/live-rules";
 import { trustGraph } from "@/lib/orbit/trust-path";
-import { cardTrust, trustLine, vouchersLine } from "@/lib/orbit/seek-trust";
+import { cardTrust, seekLeft, trustLine, vouchersLine } from "@/lib/orbit/seek-trust";
 import type { Account, World } from "@/lib/orbit/engine";
 
 type List = Awaited<ReturnType<typeof seekList>>;
 const INVITE = "Привіт! Побачив твою картку «Шукаю орбіту». Хочеш у мій екіпаж? Можу підтвердити твій запуск або дати код для свого — напиши, коли зручно.";
 const day = (ms: number) => new Date(ms).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
-const left = (ms: number) => { const d = Math.max(0, Math.ceil((ms - Date.now()) / 86_400_000)); return d <= 1 ? "до завтра" : `ще ${d} дн.`; };
 
 /** «Ще» → «Шукаю орбіту»: моя картка (≤140 знаків, 7 днів) і список людей, які шукають екіпаж. */
 /** Сигнали довіри на картці: ступінь від мене, через кого, скільки поручителів і до 2 їхніх слів. */
@@ -80,6 +79,8 @@ export function SeekPage({ onBack, onClose, onRoom, world, user }: { onBack: () 
   const report = (c: SeekCard) => run(`rep:${c.uid}`, async () => { await seekReport({ data: { ...sessionCreds(), uid: c.uid } }); await load(); return "Дякуємо, скаргу отримано."; });
   const hide = (c: SeekCard) => run(`hide:${c.uid}`, async () => { const out = await seekHide({ data: { ...sessionCreds(), uid: c.uid } }); await load(); return out.ok ? "Картку сховано." : (out.error ?? "Не вдалося."); });
   const mine = st?.mine;
+  // Залишок рахуємо від часу сервера (момент завантаження списку), а не від годинника телефону.
+  const left = (expires: number) => seekLeft(expires, st?.now ?? Date.now());
   return (
     <Page title="Шукаю орбіту" kicker="Спільнота" onBack={onBack} onClose={onClose}>
       <div className="orbit-stack" id="seek-page">

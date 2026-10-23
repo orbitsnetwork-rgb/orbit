@@ -342,6 +342,10 @@ await step("one confirm is enough + lifetime pair rule", async () => {
   check("exactly one «особисто» mark (QR scan), typed codes get none", (await marks.count()) === 1 && (await marks.first().innerText()).includes(names[0].split(" ")[0]), String(await marks.count()));
   await host.locator(".ch-who").first().scrollIntoViewIfNeeded();
   await shot(host, "09_charging");
+  const cn = host.locator(".cn");
+  check("post-confirm: «Що далі» crew card with chat button", (await cn.count()) === 1 && (await cn.getByRole("button", { name: "Написати екіпажу" }).count()) >= 1);
+  await cn.scrollIntoViewIfNeeded();
+  await shot(host, "09b_crew_next");
 });
 await step("v20: rooms + live chat + room access control", async () => {
   const urls = {};

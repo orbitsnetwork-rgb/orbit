@@ -88,7 +88,8 @@ export function unpackDoc(doc: unknown): Bag {
   };
 }
 
-export function packDoc(
+/** Обʼєкт документа рівно в тому вигляді, в якому packDoc його серіалізує (C1: знімок після запису розпаковується з нього ж). */
+export function docObject(
   world: World,
   keys: Record<string, string>,
   devices: Record<string, DeviceSlot> = {},
@@ -98,7 +99,11 @@ export function packDoc(
   seen: Record<string, string[]> = {},
   extra: Extra = emptyExtra(),
 ) {
-  return JSON.stringify({ v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits, seen, extra: { days: extra.days } });
+  return { v: 2, world: { ...world, sessionId: null }, keys, devices, people, topups, limits, seen, extra: { days: extra.days } };
+}
+
+export function packDoc(...args: Parameters<typeof docObject>) {
+  return JSON.stringify(docObject(...args));
 }
 
 /** Скільки акаунтів пам’ятаємо на один пристрій (найсвіжіші). */

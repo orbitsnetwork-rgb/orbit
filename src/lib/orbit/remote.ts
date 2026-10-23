@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { reclaim, samePhone, forgive, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
+import { reclaim, samePhone, forgive, limited, mailCode, markDevice, markSeen, sharedDevice, mintKey, namesLeft, docObject, packDoc, readPerson, shortName, strike, unpackDoc, type Identity, type Limit, type Topup } from "@/lib/orbit/access";
 import {
   acceptCode,
   confirmLaunch,
@@ -350,11 +350,6 @@ export const orbitAct = createServerFn({ method: "POST" })
     }
   });
 
-/** Спільна частина світу без поля now: щоб зрозуміти, чи годинник щось реально змінив. */
-function sameWorld(a: World, b: World) {
-  return JSON.stringify({ ...a, now: 0, sessionId: null }) === JSON.stringify({ ...b, now: 0, sessionId: null });
-}
-
 /**
  * Періодичне опитування лише читає: без блокування рядка й без перезапису.
  * Якщо годинник щось змінив (ціна доби, заряд, поділ фонду), повертаємо null —
@@ -380,20 +375,17 @@ async function peek(data: Call, out: Seen): Promise<OrbitReply | null> {
   return { world, self: me, v: held.v };
 }
 
-type Peek = { v: string; bag: import("@/lib/orbit/access").Bag; win: ClockWindow; people: Map<string, Identity> };
-const peekHeld = globalThis as { __orbitPeek__?: Peek | null };
+type Peek = import("@/lib/orbit/world-snap").Snap;
+/** C1: розпакований світ зі знімка процесу (world-snap.ts), якщо версія рядка (xmin|updated_at) та сама; інакше — з бази. */
 async function peekCache(query: <T>(text: string, params: unknown[]) => Promise<T[]>): Promise<Peek | null> {
-  const head = await query<{ v: string }>(`select updated_at::text as v from orbit_world where id = 'world'`, []);
-  if (!head[0]) return (peekHeld.__orbitPeek__ = null);
-  const cached = peekHeld.__orbitPeek__;
-  if (cached && cached.v === head[0].v) return cached;
-  const rows = await query<{ doc: unknown; v: string }>(`select doc, updated_at::text as v from orbit_world where id = 'world'`, []);
-  if (!rows[0]) return (peekHeld.__orbitPeek__ = null);
-  const bag = unpackDoc(rows[0].doc);
-  const world = { ...bag.world, sessionId: null };
-  const next: Peek = { v: rows[0].v, bag: { ...bag, world }, win: clockWindow(world), people: new Map(bag.people.map((row) => [row.userId, row])) };
-  peekHeld.__orbitPeek__ = next;
-  return next;
+  const S = await import("@/lib/orbit/world-snap");
+  const head = await query<{ rev: string; v: string }>(S.HEAD_SQL, []);
+  if (!head[0]) return null;
+  const hit = S.snapAt(S.snapKey(head[0]));
+  if (hit) return hit;
+  const rows = await query<{ doc: unknown; rev: string; v: string }>(`select doc, xmin::text as rev, updated_at::text as v from orbit_world where id = 'world'`, []);
+  if (!rows[0]) return null;
+  return S.putSnap(S.makeSnap(S.snapKey(rows[0]), rows[0].v, unpackDoc(rows[0].doc)));
 }
 
 /**
@@ -437,8 +429,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
     let paidEarly: Awaited<ReturnType<typeof readCheckout>> | null = null;
     if ((data.action.type === "topup" || data.action.type === "confirmTopup") && data.sessionId) {
       const { getSql } = await import("@/lib/db");
-      const rows = await (await getSql()).query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
-      const pre = rows[0] ? unpackDoc(rows[0].doc) : null;
+      const sqlPre = await getSql();
+      const pre = (await peekCache((text, params) => sqlPre.query(text, params)))?.bag ?? null;
       const K = await import("@/lib/orbit/key-hash");
       if (pre && K.verifyKey(pre.keys, data.sessionId, data.sessionKey, `v:${data.ip ?? "unknown"}`)) {
         if (data.action.type === "topup" && !paymentsEnabled()) {
@@ -455,7 +447,8 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       }
     }
     const { withTransaction } = await import("@/lib/db");
-    return withTransaction(async (sql) => {
+    const last: { saved: Saved | null } = { saved: null };
+    const committed = await withTransaction(async (sql) => {
       const { ensureSocial, insertEvents, insertEmission, insertOrigins, insertPayouts, insertThank } = await import("@/lib/orbit/social-db");
       await ensureSocial(sql);
       const pending: [string, Ev][] = [];
@@ -472,8 +465,29 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       await sql.query(`insert into orbit_world (id, doc) values ('world', $1::jsonb) on conflict (id) do nothing`, [
         packDoc(emptyWorld(), {}),
       ]);
-      const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world' for update`, []);
-      const bag = unpackDoc(rows[0]?.doc);
+      // C1 крок 2: під блокуванням читаємо лише версію рядка; doc — тільки якщо знімка цієї версії в процесі немає.
+      const S = await import("@/lib/orbit/world-snap");
+      const head = await sql.query<{ rev: string; v: string }>(`${S.HEAD_SQL} for update`, []);
+      const snap = head[0] ? S.snapAt(S.snapKey(head[0])) : null;
+      let bag: import("@/lib/orbit/access").Bag;
+      if (snap) {
+        // Знімок незмінний (заморожений): беремо поверхневу копію, бо нижче поля bag переприсвоюються.
+        bag = { ...snap.bag };
+        if (S.snapCheck()) {
+          await checkSnap(sql, snap);
+          console.info("world-snap: write hit verified", JSON.stringify(S.snapStats()));
+        }
+      } else {
+        const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
+        bag = unpackDoc(rows[0]?.doc);
+      }
+      /** Єдиний запис документа світу в цій транзакції: запам'ятовуємо, що записали, і нову версію рядка. */
+      const save = async (...args: Parameters<typeof docObject>) => {
+        const doc = docObject(...args);
+        const text = JSON.stringify(doc);
+        const rows = await sql.query<{ rev: string; v: string }>(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world' ${S.RETURNING}`, [text]);
+        last.saved = rows[0] ? { key: S.snapKey(rows[0]), v: rows[0].v, doc, text } : null;
+      };
       stored = { ...bag.world, sessionId: null };
       out.people = bag.people;
       let limits: Record<string, Limit> = bag.limits;
@@ -504,9 +518,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       const base = attach(clocked, self);
       const wall = Date.now();
       const persist = (people = bag.people) =>
-        sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen, track(clocked, bag.topups)),
-        ]);
+        save(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen, track(clocked, bag.topups));
       const gate = async (id: string, rule: keyof typeof RULES): Promise<OrbitReply | null> => {
         if (!limited(limits, id, wall)) return null;
         await persist();
@@ -582,9 +594,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
 
       if (data.action.type === "probe") {
         const email = data.action.email.trim().toLowerCase();
-        await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
-        ]);
+        await save(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups));
         return { world: base, taken: bag.people.some((person) => person.email === email), self: own(bag.people, self) };
       }
       if (data.action.type === "enterMail") {
@@ -596,9 +606,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           : K.findByKey(bag.keys, data.key);
         if (!userId || !K.verifyKey(bag.keys, userId, data.key, `v:${data.ip ?? "unknown"}`) || !clocked.accounts.some((account) => account.id === userId)) {
           loginMiss();
-          await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
-          ]);
+          await save(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups));
           return { world: base, error: LOCKED };
         }
         if (loginTarget) limits = forgive(limits, loginTarget);
@@ -607,17 +615,13 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         daily(userId);
         const opened = enter(attach(clocked, null), userId);
         const sharedMail = { ...opened.world, sessionId: null };
-        await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(sharedMail, bag.topups)),
-        ]);
+        await save(sharedMail, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(sharedMail, bag.topups));
         return { ...opened, world: attach(sharedMail, userId), self: own(bag.people, userId) };
       }
       if (data.action.type === "enter") bag.keys = K.upgradeKey(bag.keys, data.action.id, data.key);
       if (data.action.type === "enter" && !K.verifyKey(bag.keys, data.action.id, data.key, `v:${data.ip ?? "unknown"}`)) {
         loginMiss();
-        await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
-        ]);
+        await save(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups));
         return { world: base, error: LOCKED };
       }
       if (self && mailReady() && actsAsSelf(data.action) && data.action.type !== "confirmMail" && data.action.type !== "resendMail") {
@@ -637,9 +641,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       }
       if (actsAsSelf(data.action) && !self) {
         const step = data.sessionId ? { world: base, error: LOCKED } : run(base, data.action);
-        await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
-        ]);
+        await save(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups));
         return { ...step, self: own(bag.people, self) };
       }
 
@@ -664,9 +666,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         }
         limits = forgive(limits, `m:${self}`);
         const people = bag.people.map((row) => (row.userId === self ? { ...row, confirmed: true, mailCode: null, mailTries: 0, emailVerified: true } : row));
-        await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen, track(clocked, bag.topups)),
-        ]);
+        await save(clocked, bag.keys, bag.devices, people, bag.topups, limits, seen, track(clocked, bag.topups));
         return { world: base, self: people.find((row) => row.userId === self) ?? null, notice: "Пошту підтверджено." };
       }
       if ((data.action.type === "buy" || data.action.type === "list") && self) {
@@ -722,9 +722,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           ...bag.topups.filter((row) => row.id !== opened.id),
           { id: opened.id, userId: self, amount: data.action.amount, status: "open", at: clocked.now },
         ];
-        await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(clocked, bag.keys, bag.devices, bag.people, topups, limits, seen, track(clocked, topups)),
-        ]);
+        await save(clocked, bag.keys, bag.devices, bag.people, topups, limits, seen, track(clocked, topups));
         return { world: base, url: opened.url, notice: "Відкриваю тестову оплату.", self: own(bag.people, self) };
       }
       if (data.action.type === "confirmTopup" && self) {
@@ -734,9 +732,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         if (paid.userId !== self) return { world: base, error: "Це не твоя оплата.", self: own(bag.people, self) };
         const done = creditTopup(clocked, bag.topups, paid);
         const sharedPay = { ...done.world, sessionId: null };
-        await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-          packDoc(sharedPay, bag.keys, bag.devices, bag.people, done.topups, limits, seen, track(sharedPay, done.topups)),
-        ]);
+        await save(sharedPay, bag.keys, bag.devices, bag.people, done.topups, limits, seen, track(sharedPay, done.topups));
         return {
           world: attach(sharedPay, self),
           error: done.error,
@@ -759,9 +755,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
           clocked.now,
         );
         if ("error" in person) {
-          await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
-          ]);
+          await save(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups));
           return { world: base, error: person.error };
         }
         // Аудит #3: контакт, доведений Google/SMS, забирається в того, у кого він стоїть без доказу (прапор false).
@@ -769,15 +763,11 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         const provenPhone = Boolean(data.verifiedPhone && samePhone(data.verifiedPhone, person.phone));
         if (provenMail || provenPhone) bag.people = reclaim(bag.people, person.email, person.phone, { email: provenMail, phone: provenPhone });
         if (bag.people.some((row) => row.email === person.email || samePhone(row.phone, person.phone))) {
-          await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
-          ]);
+          await save(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups));
           return { world: base, error: "Така пошта або телефон вже є." };
         }
         if (!data.device || namesLeft(bag.devices, data.device, day) <= 0) {
-          await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [
-            packDoc(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups)),
-          ]);
+          await save(clocked, bag.keys, bag.devices, bag.people, bag.topups, limits, seen, track(clocked, bag.topups));
           return { world: base, error: data.device ? "Сьогодні з цього пристрою вже 3 імені." : "Пристрій не впізнано." };
         }
         // Пошта підтверджена Google — код не потрібен. Без поштового сервісу (і без dev-показу коду) код вимагати не можна: це глухий кут.
@@ -866,7 +856,7 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         daily(step.world.sessionId);
       }
       const shared = { ...step.world, sessionId: null };
-      await sql.query(`update orbit_world set doc = $1::jsonb, updated_at = now() where id = 'world'`, [packDoc(shared, keys, devices, people, topups, limits, seen, track(shared, topups))]);
+      await save(shared, keys, devices, people, topups, limits, seen, track(shared, topups));
       const session = step.world.sessionId;
       return { ...step, world: attach(shared, session), key, self: fresh?.userId ? fresh : own(people, session) };
       })();
@@ -885,4 +875,27 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       out.hist = await loadHistory(sql, done.world);
       return done;
     });
+    // Транзакція закомічена: наступний запит цього процесу з тією ж версією рядка візьме записане без JSON.parse.
+    if (last.saved) await rememberSaved(last.saved);
+    return committed;
+}
+
+type Saved = { key: string; v: string; doc: unknown; text: string };
+
+async function rememberSaved(saved: Saved) {
+  const S = await import("@/lib/orbit/world-snap");
+  if (S.snapCheck()) {
+    // ORBIT_SNAP_CHECK=1 (тести, e2e): розпаковка з обʼєкта має збігатися з розпаковкою з JSON (як з бази).
+    const { isDeepStrictEqual } = await import("node:util");
+    if (!isDeepStrictEqual(unpackDoc(saved.doc), unpackDoc(JSON.parse(saved.text)))) throw new Error("world-snap: write-through differs from JSON round trip");
+  }
+  S.rememberWrite(saved.key, saved.v, saved.doc);
+}
+
+/** ORBIT_SNAP_CHECK=1: знімок, яким користується запис, має дорівнювати документу в базі (інакше — помилка, а не тиха розбіжність). */
+async function checkSnap(sql: import("@/lib/db").Sql, snap: Peek) {
+  const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
+  const fresh = unpackDoc(rows[0]?.doc);
+  const { isDeepStrictEqual } = await import("node:util");
+  if (!isDeepStrictEqual({ ...fresh, world: { ...fresh.world, sessionId: null } }, snap.bag)) throw new Error("world-snap: snapshot differs from the stored doc");
 }

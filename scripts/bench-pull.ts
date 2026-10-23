@@ -3,7 +3,8 @@
  * Запуск: node --import ./scripts/ts-register.mjs scripts/bench-pull.ts 2000
  */
 import { benchWorld } from "../src/lib/orbit/bench-world.ts";
-import { packDoc, unpackDoc } from "../src/lib/orbit/access.ts";
+import { docObject, packDoc, unpackDoc } from "../src/lib/orbit/access.ts";
+import { makeSnap } from "../src/lib/orbit/world-snap.ts";
 import { adoptClock, emptyWorld } from "../src/lib/orbit/engine.ts";
 import { clockQuiet, clockWindow } from "../src/lib/orbit/clock-window.ts";
 import { project } from "../src/lib/orbit/remote.ts";
@@ -58,4 +59,18 @@ const write = time("write path (unchanged: parse+unpack+adoptClock+packDoc)", ()
   const w = adoptClock({ ...b.world, sessionId: null }, wall);
   return packDoc(w, b.keys, b.devices, b.people, b.topups, b.limits, b.seen, b.extra);
 });
-console.log(JSON.stringify({ n, docKB: Math.round(docText.length / 1024), before, miss, same: sameMs, changed, write }));
+// C1 крок 2 (scale-2): запис під FOR UPDATE бере знімок процесу, якщо версія рядка (xmin|updated_at) та сама.
+const snap = makeSnap("k", "v", unpackDoc(JSON.parse(docText)));
+const writeHit = time("scale-2 write path, snapshot hit (adoptClock+packDoc)", () => {
+  const b = { ...snap.bag };
+  const w = adoptClock({ ...b.world, sessionId: null }, wall);
+  return packDoc(w, b.keys, b.devices, b.people, b.topups, b.limits, b.seen, b.extra);
+});
+const written = docObject(snap.bag.world, snap.bag.keys, snap.bag.devices, snap.bag.people, snap.bag.topups, snap.bag.limits, snap.bag.seen, snap.bag.extra);
+const lazy = time("scale-2 lazy write-through unpack (next request, same isolate)", () => makeSnap("k2", "v2", unpackDoc(written)));
+const writeMiss = time("scale-2 write path, snapshot miss (= old write path)", () => {
+  const b = unpackDoc(JSON.parse(docText));
+  const w = adoptClock({ ...b.world, sessionId: null }, wall);
+  return packDoc(w, b.keys, b.devices, b.people, b.topups, b.limits, b.seen, b.extra);
+});
+console.log(JSON.stringify({ n, docKB: Math.round(docText.length / 1024), before, miss, same: sameMs, changed, write, writeHit, lazy, writeMiss }));

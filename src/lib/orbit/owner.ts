@@ -29,9 +29,10 @@ async function ownerBySession(session: unknown): Promise<{ ok: true; sql: Sql } 
   if (process.env.ORBIT_OWNER_EMAILS) {
     const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
     const { unpackDoc } = await import("@/lib/orbit/access");
-    const people = (rows[0] ? unpackDoc(rows[0].doc).people : []) as unknown as { userId?: string; email?: string }[];
+    const people = (rows[0] ? unpackDoc(rows[0].doc).people : []) as unknown as { userId?: string; email?: string; emailVerified?: boolean }[];
     const p = people.find((x) => x?.userId === me.id);
-    email = p?.email ?? null;
+    // Лише пошта, яку людина довела (Google / код з листа): інакше хтось міг би вписати чужу пошту.
+    email = p?.emailVerified === true ? (p.email ?? null) : null;
   }
   if (!ownerListed(me.id, email)) return null;
   await (await import("@/lib/orbit/live")).ensureLive(sql);

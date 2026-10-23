@@ -714,7 +714,10 @@ export const SEEK_DAYS = 7;
 const SEEK_MS = SEEK_DAYS * 24 * 60 * 60 * 1000;
 const SEEK_EDIT_GAP_MS = 60_000;
 const SEEK_HIDE_AFTER = 3;
-export type SeekCard = { uid: string; name: string; text: string; at: number; expires: number; mine: boolean; orbits: number; stability: number; since: number; reported: boolean };
+export type SeekCard = { uid: string; name: string; text: string; at: number; expires: number; mine: boolean; orbits: number; stability: number; since: number; reported: boolean;
+  /** До 2 несхованих «Слів поручителя» (як у «Шляху довіри»; сховані не виходять із бази). */
+  words?: import("@/lib/orbit/seek-trust").CardWord[] };
+const seekWordsFlag: { p?: Promise<void> } = {};
 
 /** Моя картка «Шукаю орбіту»: увімкнути/оновити (≤140 знаків, живе 7 днів) або зняти. Не частіше разу на хвилину. */
 export const seekSet = createServerFn({ method: "POST" })
@@ -760,7 +763,26 @@ export const seekList = createServerFn({ method: "POST" })
       cards.push({ uid: acc.id, name: shortName(acc.name), text: r.text, at: Number(r.at), expires: Number(r.expires_at), mine: acc.id === me.id,
         orbits: me.world.orbits.filter((o) => o.ownerId === acc.id).length, stability: acc.stability, since: acc.createdAt, reported: r.rep });
     }
-    return { signedIn: true, cards: cards.filter((c) => !c.mine), mine: cards.find((c) => c.mine) ?? null, mod: await isMod(sql, me.id) };
+    // Сигнали довіри: несховані слова поручителів (ті самі, що будь-хто, хто увійшов, бачить у «Шляху довіри»), ≤2 на картку.
+    // Без слів від людей, з якими в того, хто дивиться, є блок. Якщо таблиці ще немає або запит упав — картки без слів.
+    const others = cards.filter((c) => !c.mine);
+    if (others.length) {
+      try {
+        const W = await import("@/lib/orbit/who-server");
+        await W.ensureSchema(sql, seekWordsFlag, String((await import("../../../migrations/0051_orbit_vouch_words.sql?raw")).default));
+        const T = await import("@/lib/orbit/seek-trust");
+        const ids = others.map((c) => c.uid);
+        const wr = await sql.query<import("@/lib/orbit/seek-trust").WordRow>(
+          `select witness_id, author_id, text, at from (
+             select witness_id, author_id, text, at, row_number() over (partition by author_id order by at desc) as rn
+               from orbit_vouch_words where author_id = any($1::text[]) and not hidden) t
+            where rn <= 8`, [ids]);
+        const bl = await sql.query<{ u: string }>(`select case when user_id = $1 then blocked else user_id end as u from orbit_blocks where user_id = $1 or blocked = $1`, [me.id]);
+        const picked = T.pickCardWords(wr, new Set(me.world.accounts.map((a) => a.id)), new Set(bl.map((r) => r.u)));
+        for (const c of others) { const w = picked.get(c.uid); if (w?.length) c.words = w; }
+      } catch { /* без слів */ }
+    }
+    return { signedIn: true, cards: others, mine: cards.find((c) => c.mine) ?? null, mod: await isMod(sql, me.id) };
   });
 
 /** Скарга на картку: одна від людини; після 3 скарг картка ховається сама. */

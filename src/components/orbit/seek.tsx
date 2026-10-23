@@ -1,10 +1,15 @@
-import { Flag, Rocket, Send, Shield, UserRound, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Flag, Quote, Rocket, Send, Shield, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { startDm } from "@/components/orbit/live";
 import { SEEK_DAYS, SEEK_MAX, chatSend, seekHide, seekList, seekReport, seekSet, type SeekCard } from "@/lib/orbit/live";
 import { sessionCreds } from "@/lib/orbit/store";
+import { DegreeChip } from "@/components/orbit/trust-path";
+import { shortName } from "@/lib/orbit/live-rules";
+import { trustGraph } from "@/lib/orbit/trust-path";
+import { cardTrust, trustLine, vouchersLine } from "@/lib/orbit/seek-trust";
+import type { Account, World } from "@/lib/orbit/engine";
 
 type List = Awaited<ReturnType<typeof seekList>>;
 const INVITE = "Привіт! Побачив твою картку «Шукаю орбіту». Хочеш у мій екіпаж? Можу підтвердити твій запуск або дати код для свого — напиши, коли зручно.";
@@ -12,7 +17,33 @@ const day = (ms: number) => new Date(ms).toLocaleDateString("uk-UA", { day: "num
 const left = (ms: number) => { const d = Math.max(0, Math.ceil((ms - Date.now()) / 86_400_000)); return d <= 1 ? "до завтра" : `ще ${d} дн.`; };
 
 /** «Ще» → «Шукаю орбіту»: моя картка (≤140 знаків, 7 днів) і список людей, які шукають екіпаж. */
-export function SeekPage({ onBack, onClose, onRoom }: { onBack: () => void; onClose?: () => void; onRoom: () => void }) {
+/** Сигнали довіри на картці: ступінь від мене, через кого, скільки поручителів і до 2 їхніх слів. */
+function SeekTrust({ c, world, user, g }: { c: SeekCard; world: World; user: Account; g: ReturnType<typeof trustGraph> }) {
+  const t = cardTrust(g, world, user.id, c.uid);
+  const nameOf = (id: string) => shortName(world.accounts.find((a) => a.id === id)?.name ?? "Учасник");
+  return (
+    <div className="sk-trust" data-testid="sk-trust">
+      <p className="sk-trust-line" data-d={t.d ?? 0}>
+        {t.d ? <DegreeChip d={t.d} /> : <span className="tp-deg sk-deg-none" aria-hidden>—</span>}
+        <span>{trustLine(t, nameOf)}</span>
+        <span className={t.vouchers ? "sk-trust-v" : "sk-trust-v sk-trust-warn"}>{vouchersLine(t.vouchers)}</span>
+      </p>
+      {c.words?.length ? (
+        <ul className="sk-words" aria-label={`Слова поручителів про ${c.name}`}>
+          {c.words.map((w) => (
+            <li key={w.from} className="sk-word">
+              <Quote size={13} aria-hidden className="sk-word-q" />
+              <p><span className="sk-word-text">{w.text}</span> <span className="sk-word-from">— <Avatar id={w.from} name={nameOf(w.from)} size={18} /> {nameOf(w.from)}</span></p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+export function SeekPage({ onBack, onClose, onRoom, world, user }: { onBack: () => void; onClose?: () => void; onRoom: () => void; world: World; user: Account }) {
+  const g = useMemo(() => trustGraph(world), [world]);
   const [st, setSt] = useState<List | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState("");
@@ -70,6 +101,7 @@ export function SeekPage({ onBack, onClose, onRoom }: { onBack: () => void; onCl
         <section className="orbit-block" aria-labelledby="sk-list-h">
           <h2 className="orbit-h" id="sk-list-h">Шукають орбіту{st ? ` · ${st.cards.length}` : ""}</h2>
           {!st ? <div className="cv-skel cv-skel-list" aria-label="Завантажую"><span /><span /></div> : null}
+          {st?.cards.length ? <p className="orbit-note sk-trust-hint">1°–3° — як ви пов'язані підтвердженнями. Перш ніж довіряти, глянь, хто поручився.</p> : null}
           {st && !st.cards.length ? <p className="orbit-note">Поки нікого. Опублікуй свою картку — і тебе знайдуть першим.</p> : null}
           <ul className="sk-list">
             {st?.cards.map((c) => (
@@ -80,6 +112,7 @@ export function SeekPage({ onBack, onClose, onRoom }: { onBack: () => void; onCl
                   <button type="button" className="mo-icon" aria-expanded={open === c.uid} aria-label={`Профіль: ${c.name}`} onClick={() => setOpen(open === c.uid ? null : c.uid)}><UserRound size={18} aria-hidden /></button>
                 </div>
                 <p className="sk-text">{c.text}</p>
+                <SeekTrust c={c} world={world} user={user} g={g} />
                 {open === c.uid ? (
                   <dl className="sk-profile">
                     <div><dt>Орбіт</dt><dd>{c.orbits}</dd></div>

@@ -875,6 +875,39 @@ await step("next: emblem identity + constellation", async () => {
   await snap(host, "07_leaders_degree");
   await L.closePages(host);
 });
+await step("trust cards: «Шукаю орбіту» shows degree + vouch words; hidden word disappears", async () => {
+  const snapTc = (p, name) => p.screenshot({ path: join(L.SCREENS, `tc_${name}.png`) });
+  const v = crew[0]; await v.reload(); await v.waitForTimeout(1800);
+  const openSeek = async (p) => { await more(p, "Шукаю орбіту"); await p.locator("#sk-text").waitFor({ timeout: 8000 }); await p.waitForTimeout(800); };
+  await openSeek(v);
+  const card = v.locator(".sk-card", { hasText: "Шукаю людей для нового запуску" });
+  check("trust cards: host card still listed", await card.waitFor({ timeout: 8000 }).then(() => true, () => false));
+  const tr = card.getByTestId("sk-trust");
+  check("trust cards: trust row on the card", (await tr.count()) === 1);
+  const tt = (await tr.innerText().catch(() => "")) || "";
+  check("trust cards: 1° chip for the person I vouched for", (await tr.locator('.tp-deg[data-d="1"]').count()) === 1, tt);
+  check("trust cards: «Пряме підтвердження з тобою» + vouchers count", tt.includes("Пряме підтвердження з тобою") && /\d+ поручител/.test(tt), tt);
+  check("trust cards: vouch word quoted on the card", tt.includes("Знаю особисто, надійна людина"), tt);
+  check("trust cards: ≤2 words per card", (await card.locator(".sk-word").count()) <= 2);
+  check("trust cards: no ✦ amounts on the trust row", !/\d\s*✦/.test(tt), tt);
+  await card.scrollIntoViewIfNeeded(); await v.waitForTimeout(400);
+  await snapTc(v, "01_seek_trust_card");
+  await axe(v, "seek trust card");
+  // Людина ховає слово зі свого профілю → на картці його більше немає.
+  await host.reload(); await host.waitForTimeout(1800); await tab(host, "Я");
+  await host.locator(".cs-card").click(); await host.waitForTimeout(1500);
+  const hideBtn = host.locator(".vw-item", { hasText: "Знаю особисто" }).getByRole("button", { name: "Сховати з профілю" });
+  check("trust cards: author can hide the word", (await hideBtn.count()) === 1);
+  if (await hideBtn.count()) { await hideBtn.click(); await host.waitForTimeout(1200); }
+  await L.closePages(v); await v.reload(); await v.waitForTimeout(1800); await openSeek(v);
+  const t2 = (await v.locator(".sk-card", { hasText: "Шукаю людей для нового запуску" }).getByTestId("sk-trust").innerText().catch(() => "")) || "";
+  check("trust cards: hidden word not shown on the card", t2.length > 0 && !t2.includes("Знаю особисто"), t2);
+  await snapTc(v, "02_seek_trust_hidden");
+  // Повернути слово (стан для наступних кроків).
+  const showBtn = host.locator(".vw-item", { hasText: "Знаю особисто" }).getByRole("button", { name: "Показати всім" });
+  if (await showBtn.count()) { await showBtn.click(); await host.waitForTimeout(800); }
+  await L.closePages(host); await L.closePages(v);
+});
 await step("wallet: no top-ups → no split, lock line", async () => {
   const c = crew[0]; await c.reload(); await c.waitForTimeout(1500); await tab(c, "Я");
   let b = await text(c);

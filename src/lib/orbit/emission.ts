@@ -6,6 +6,7 @@
  * Чиста функція; формули рушія не змінює і не дублює — лише рахує суми зі стану.
  */
 import type { World } from "@/lib/orbit/engine";
+import { supplyOf } from "@/lib/orbit/supply";
 import type { Topup } from "@/lib/orbit/access";
 import type { Ev } from "@/lib/orbit/social";
 
@@ -22,7 +23,11 @@ export function emissionOf(prev: World, next: World, prevTopups: Topup[], nextTo
   const was = new Set(prevTopups.filter((row) => row.status === "paid").map((row) => row.id));
   const topup = nextTopups.filter((row) => row.status === "paid" && !was.has(row.id)).reduce((sum, row) => sum + row.amount, 0);
   const delta = massOf(next) - massOf(prev);
-  return { at: next.now, mass: massOf(next), fund: next.fund, starter, witness, topup, returned: 0, delta, unexplained: delta - topup };
+  // starter/witness тепер перекази з фонду (не випуск) — у звірку не входять, тому пишемо 0; довідково лишаються в подіях.
+  // У обіг ✦ потрапляють лише з кошика продажу скарбниці: випуск = на скільки зменшився кошик (≈ сплачені поповнення).
+  void starter; void witness; void topup;
+  const minted = supplyOf(prev).sale - supplyOf(next).sale;
+  return { at: next.now, mass: massOf(next), fund: next.fund, starter: 0, witness: 0, topup: minted, returned: 0, delta, unexplained: delta - minted };
 }
 
 export type DaySnap = { day: string; mass: number; fund: number; minted: number; returned: number; starter: number; witness: number; topup: number; unexplained: number };

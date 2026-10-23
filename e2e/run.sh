@@ -27,6 +27,8 @@ if [ -f "$ROOT/.env.local" ]; then
 fi
 # Як на проді (wrangler vars): скрипт платформи вимкнено, CSP його не пускає.
 export VITE_GROK_EXTENSIONS=0
+# spark-economy: e2e-фонд для стартових/нагород (лише локально).
+export ORBIT_E2E_SEED_FUND=500000
 unset DATABASE_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET ORBIT_DEV_MAIL_CODE NETLIFY_AUTH_TOKEN
 cd "$ROOT"
 if [ "${1:-}" != "--no-build" ]; then

@@ -53,7 +53,11 @@ export function ensureSupply(world: World): World {
   const ok = world.supply && typeof world.supply.sale === "number" && world.spark;
   if (ok) return world;
   const spark = world.spark ?? { micro: P0_MICRO, day: utc(world.now), hist: [{ day: utc(world.now), micro: P0_MICRO }], days: [] };
-  return { ...world, supply: supplyOf(world), spark };
+  const supply = supplyOf(world);
+  // Лише для e2e (PGlite): фонд порожнього світу отримує ✦ з кошика продажу, щоб перевірити бонуси. На проді змінної немає.
+  const seed = typeof process !== "undefined" && !world.supply && world.accounts.length === 0 ? Math.max(0, Math.floor(Number(process.env?.ORBIT_E2E_SEED_FUND) || 0)) : 0;
+  if (seed > 0) return { ...world, fund: world.fund + seed, supply: { ...supply, sale: supply.sale - seed, base: supply.sale - seed }, spark };
+  return { ...world, supply, spark };
 }
 
 /** Скільки фонд може дати на запит base: не більше 2% фонду за раз (плавно згасає, коли фонд малий). */

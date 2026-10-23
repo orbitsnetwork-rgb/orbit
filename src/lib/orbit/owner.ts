@@ -22,8 +22,8 @@ async function ownerBySession(session: unknown): Promise<{ ok: true; sql: Sql } 
   if (!session || typeof session !== "object") return null;
   const { getSql } = await import("@/lib/db");
   const sql = await getSql();
-  const live = await import("@/lib/orbit/live");
-  const me = await live.sessionUser(sql, session).catch(() => null);
+  const { sessionUser } = await import("@/lib/orbit/session-user");
+  const me = await sessionUser(sql, session).catch(() => null);
   if (!me) return null;
   let email: string | null = null;
   if (process.env.ORBIT_OWNER_EMAILS) {
@@ -34,7 +34,7 @@ async function ownerBySession(session: unknown): Promise<{ ok: true; sql: Sql } 
     email = p?.email ?? null;
   }
   if (!ownerListed(me.id, email)) return null;
-  await live.ensureLive(sql);
+  await (await import("@/lib/orbit/live")).ensureLive(sql);
   return { ok: true, sql };
 }
 

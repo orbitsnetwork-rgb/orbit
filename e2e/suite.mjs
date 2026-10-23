@@ -659,14 +659,43 @@ await step("seek: «Шукаю орбіту» card → list → DM / invite; blo
   check("seek: card published for 7 days", await host.getByText("Картку опубліковано на 7 днів.").waitFor({ timeout: 8000 }).then(() => true, () => false));
   // scale-2: залишок рахується від часу сервера (у e2e сервер зсунутий годинником) — свіжа картка «ще 7 дн.», не «ще 8 дн.».
   { const mineNote = (await host.locator(".sk-mine p[role=status]").innerText().catch(() => "")) || ""; check("seek: fresh card reads «ще 7 дн.»", /ще 7 дн\./.test(mineNote), mineNote); }
+  { const mineNote = (await host.locator(".sk-mine p[role=status]").innerText().catch(() => "")) || ""; check("seek polish: status has no double period", !mineNote.includes(".."), mineNote); }
+  {
+    // Іконка й підпис кнопки в один рядок (раніше svg ставав блоком над текстом), «Зняти» поруч з «Оновити картку».
+    const row = await host.evaluate(() => {
+      const chip = [...document.querySelectorAll(".sk-mine .sk-row .orbit-chip")].find((b) => /Зняти/.test(b.textContent || ""));
+      const go = document.querySelector(".sk-mine .sk-row .orbit-go");
+      const svg = chip?.querySelector("svg");
+      if (!chip || !go || !svg) return null;
+      const c = chip.getBoundingClientRect(), s = svg.getBoundingClientRect(), g = go.getBoundingClientRect();
+      return { dy: Math.abs((s.top + s.bottom) / 2 - (c.top + c.bottom) / 2), sameRow: Math.abs(c.top - g.top) < 4, h: c.height };
+    });
+    check("seek polish: «Зняти» icon inline + beside the main button", !!row && row.dy < 4 && row.sameRow && row.h <= 56, JSON.stringify(row));
+  }
   await host.getByRole("button", { name: "Оновити картку" }).click();
   check("seek: rate-limited re-publish", await host.getByText("Зачекай хвилину").waitFor({ timeout: 8000 }).then(() => true, () => false));
   await shot(host, "50_seek_mine");
+  {
+    // Полірування на десктопі: та сама картка й повідомлення sk-msg у 1280×800; під reduced-motion крапка статусу не анімується.
+    await host.setViewportSize({ width: 1280, height: 800 }); await host.waitForTimeout(400);
+    const dk = await host.evaluate(() => { const m = document.querySelector(".sk-msg"), r = m?.getBoundingClientRect(); return { msg: !!m, w: r ? Math.round(r.width) : 0, over: document.documentElement.scrollWidth > window.innerWidth + 1 }; });
+    check("seek polish desktop: sk-msg shown, no overflow", dk.msg && dk.w > 200 && !dk.over, JSON.stringify(dk));
+    await shot(host, "50d_seek_mine_desktop");
+    await host.emulateMedia({ reducedMotion: "reduce" });
+    const anim = await host.evaluate(() => { const d = document.querySelector(".sk-live-dot"); return d ? getComputedStyle(d).animationName : "missing"; });
+    check("seek polish: live dot not animated under reduced motion", anim === "none", anim);
+    await host.emulateMedia({ reducedMotion: null });
+    await host.setViewportSize({ width: 390, height: 844 }); await host.waitForTimeout(300);
+  }
   await axe(host, "seek");
   await openMore(g, "Шукаю орбіту");
   const card = g.locator(".sk-card", { hasText: "Шукаю людей для нового запуску" });
   check("seek: others see the card", await card.waitFor({ timeout: 8000 }).then(() => true, () => false));
   { const meta = (await card.locator(".sk-who small").innerText().catch(() => "")) || ""; check("seek: others see «ще 7 дн.» on a fresh card", /ще 7 дн\./.test(meta), meta); }
+  {
+    const bad = await g.evaluate(() => [...document.querySelectorAll(".sk-card .sk-row .orbit-chip")].filter((b) => { const svg = b.querySelector("svg"); if (!svg) return false; const c = b.getBoundingClientRect(), s = svg.getBoundingClientRect(); return Math.abs((s.top + s.bottom) / 2 - (c.top + c.bottom) / 2) > 4 || c.height > 44; }).map((b) => b.textContent));
+    check("seek polish: card action chips are one-line (icon + label)", bad.length === 0, JSON.stringify(bad));
+  }
   await card.getByRole("button", { name: /^Профіль:/ }).click();
   check("seek: profile opens inline", await hasText(g, "У світі з"));
   await shot(g, "51_seek_list");

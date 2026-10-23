@@ -154,7 +154,8 @@ export async function tab(page, name) {
 export async function more(page, item) {
   await tab(page, "Я");
   await page.getByRole("button", { name: /^Ще/ }).first().click();
-  await page.getByRole("button", { name: new RegExp("^" + item) }).last().click();
+  // Лише видимі кнопки: на сторінці «Ще» те саме ім'я є і в сітці, і в списку, а приховані копії давали флейк (клік чекав 30 с).
+  await page.getByRole("button", { name: new RegExp("^" + item) }).filter({ visible: true }).last().click();
   await page.waitForTimeout(700);
 }
 export async function closePages(page) {

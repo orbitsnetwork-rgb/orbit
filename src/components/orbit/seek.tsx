@@ -96,9 +96,9 @@ export function SeekPage({ onBack, onClose, onRoom, world, user }: { onBack: () 
             <button type="button" className="orbit-go" disabled={Boolean(busy) || text.trim().length < 3} onClick={() => void publish(true)}>{mine ? "Оновити картку" : "Опублікувати"}</button>
             {mine ? <button type="button" className="orbit-chip" disabled={Boolean(busy)} onClick={() => void publish(false)}><X size={14} aria-hidden /> Зняти</button> : null}
           </div>
-          {mine ? <p className="orbit-note" role="status">Опубліковано {day(mine.at)} · {left(mine.expires)}.</p> : null}
+          {mine ? <p className="orbit-note sk-live" role="status"><span className="sk-live-dot" aria-hidden />Опубліковано {day(mine.at)} · {left(mine.expires)}</p> : null}
         </section>
-        {msg ? <p className="orbit-note sk-msg" role="status">{msg}</p> : null}
+        {msg ? <p className="sk-msg" role="status" key={msg}>{msg}</p> : null}
         <section className="orbit-block" aria-labelledby="sk-list-h">
           <h2 className="orbit-h" id="sk-list-h">Шукають орбіту{st ? ` · ${st.cards.length}` : ""}</h2>
           {!st ? <div className="cv-skel cv-skel-list" aria-label="Завантажую"><span /><span /></div> : null}

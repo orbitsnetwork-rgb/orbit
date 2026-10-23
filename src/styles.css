@@ -2623,7 +2623,19 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .sk-word-from { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: var(--text-3); font-size: 12px; font-style: normal; vertical-align: middle; }
 .sk-word-from .k-ava { vertical-align: middle; }
 @keyframes sk-word-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .sk-word { animation: none; } }
+/* «Шукаю орбіту», полірування: іконка й текст кнопок в один рядок, «Зняти» поруч з головною дією, статус картки й повідомлення */
+.sk-row .orbit-chip { display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.sk-mine .sk-row { flex-wrap: nowrap; align-items: stretch; margin-top: 12px; }
+.sk-mine .sk-row .orbit-go { flex: 1 1 auto; width: auto; min-width: 0; }
+.sk-mine .sk-row .orbit-chip { flex: none; min-height: 52px; border-radius: 16px; padding-inline: 16px; }
+.sk-live { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 13px; }
+.sk-live-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--aurora); box-shadow: 0 0 0 0 rgb(80 220 170 / .5); animation: sk-live 2.4s ease-out infinite; }
+@keyframes sk-live { 0% { box-shadow: 0 0 0 0 rgb(80 220 170 / .45); } 70%, 100% { box-shadow: 0 0 0 7px rgb(80 220 170 / 0); } }
+.sk-card .sk-row { margin-top: 12px; }
+.sk-card .sk-quiet { margin-left: auto; border-color: transparent; background: transparent; color: var(--text-3); padding-inline: 8px; opacity: 1; }
+.sk-trust-v { flex-basis: 100%; margin-left: 0; }
+.sk-msg { margin: 0; padding: 10px 14px; border-radius: 14px; background: rgb(255 255 255 / .05); border: 1px solid rgb(255 255 255 / .09); color: var(--text-1); font-size: 13.5px; line-height: 1.4; animation: sk-word-in var(--t-base, .32s) var(--ease, ease) both; }
+@media (prefers-reduced-motion: reduce) { .sk-live-dot, .sk-msg, .sk-word { animation: none; } }
 .ox-dm { background: none; border: 0; padding: 0; color: var(--ion); text-decoration: underline; text-underline-offset: 2px; font: inherit; cursor: pointer; min-height: 24px; }
 
 /* ── Емблема і сузір'я (next-features) ── */

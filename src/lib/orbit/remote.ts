@@ -476,6 +476,14 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
         if (S.snapCheck()) {
           await checkSnap(sql, snap);
           console.info("world-snap: write hit verified", JSON.stringify(S.snapStats()));
+        } else if (S.sampleCheck()) {
+          // Прод: вибіркова звірка. Розбіжність = помилка в журнал, знімок геть, працюємо з документом із бази.
+          const fresh = await sameAsDb(sql, snap);
+          if (fresh) {
+            console.error("world-snap: sampled check MISMATCH — snapshot dropped, using stored doc", JSON.stringify(S.snapStats()));
+            S.dropSnap();
+            bag = fresh;
+          }
         }
       } else {
         const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
@@ -874,6 +882,10 @@ async function act(data: Call, out: Seen): Promise<OrbitReply> {
       out.social = await loadSocial(sql, done.world, days);
       out.hist = await loadHistory(sql, done.world);
       return done;
+    }).catch(async (error: unknown) => {
+      // Відкат: не довіряємо знімку, яким користувалась ця транзакція (наступний запит прочитає doc з бази).
+      (await import("@/lib/orbit/world-snap")).dropSnap();
+      throw error;
     });
     // Транзакція закомічена: наступний запит цього процесу з тією ж версією рядка візьме записане без JSON.parse.
     if (last.saved) await rememberSaved(last.saved);
@@ -890,6 +902,14 @@ async function rememberSaved(saved: Saved) {
     if (!isDeepStrictEqual(unpackDoc(saved.doc), unpackDoc(JSON.parse(saved.text)))) throw new Error("world-snap: write-through differs from JSON round trip");
   }
   S.rememberWrite(saved.key, saved.v, saved.doc);
+}
+
+/** Вибіркова звірка на проді: null — збігається; інакше — розпакований документ із бази (ним і працюємо). */
+async function sameAsDb(sql: import("@/lib/db").Sql, snap: Peek): Promise<import("@/lib/orbit/access").Bag | null> {
+  const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
+  const fresh = unpackDoc(rows[0]?.doc);
+  const { isDeepStrictEqual } = await import("node:util");
+  return isDeepStrictEqual({ ...fresh, world: { ...fresh.world, sessionId: null } }, snap.bag) ? null : fresh;
 }
 
 /** ORBIT_SNAP_CHECK=1: знімок, яким користується запис, має дорівнювати документу в базі (інакше — помилка, а не тиха розбіжність). */

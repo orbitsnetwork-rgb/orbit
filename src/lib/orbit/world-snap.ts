@@ -15,8 +15,8 @@
  * Розпаковка — той самий unpackDoc, що й для рядка з бази (тест і ORBIT_SNAP_CHECK=1 звіряють це з JSON-круговим шляхом).
  *
  * Незмінність: знімок спільний для запитів, тож код запису не має змінювати його на місці (усе в рушії й access — копіями).
- * На проді заморожуємо контейнери верхнього рівня (дешево); з ORBIT_SNAP_CHECK=1 (тести, e2e) — глибоко, щоб будь-яка
- * спроба змінити знімок одразу падала з TypeError.
+ * Заморожуємо глибоко завжди: будь-яка спроба змінити знімок одразу падає з TypeError. ORBIT_SNAP_CHECK=1 (тести, e2e)
+ * додатково звіряє знімок з документом у базі на кожному влученні запису.
  */
 import { unpackDoc, type Bag, type Identity } from "@/lib/orbit/access";
 import { clockWindow, type ClockWindow } from "@/lib/orbit/clock-window";
@@ -41,10 +41,12 @@ export function snapCheck() {
   return typeof process !== "undefined" && process.env?.ORBIT_SNAP_CHECK?.trim() === "1";
 }
 
-function deepFreeze<T>(value: T): T {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
+  // Обходимо й уже заморожені обʼєкти (хтось міг заморозити лише верхній рівень); seen — від повторних обходів спільних гілок.
+  if (value && typeof value === "object" && !seen.has(value)) {
+    seen.add(value);
     Object.freeze(value);
-    for (const key of Object.keys(value as object)) deepFreeze((value as Record<string, unknown>)[key]);
+    for (const key of Object.keys(value as object)) deepFreeze((value as Record<string, unknown>)[key], seen);
   }
   return value;
 }
@@ -58,9 +60,20 @@ function freezeShallow(bag: Bag) {
   Object.freeze(bag);
 }
 
+/** На проді звіряємо кожне SAMPLE-те влучення запису з документом у базі (дешево в середньому, ловить будь-яку розбіжність). */
+export const SAMPLE = 64;
+export function sampleCheck() {
+  const h = holder();
+  return snapCheck() || (h.stats.hits + h.stats.lazy) % SAMPLE === 0;
+}
+
 /** Знімок з уже розпакованого документа (рядок з бази → unpackDoc). */
 export function makeSnap(key: string, v: string, unpacked: Bag): Snap {
   const bag: Bag = { ...unpacked, world: { ...unpacked.world, sessionId: null } };
+  // Глибоке заморожування коштує ≈ стільки ж, скільки JSON.parse (bench-pull: +9 мс на 2000 людей), тож на проді —
+  // лише контейнери верхнього рівня. Захист від зміни на місці: увесь серверний код незмінний (копії), e2e і тести
+  // ганяються з ORBIT_SNAP_CHECK=1 (глибоко + звірка з базою на кожному влученні), на проді — вибіркова звірка
+  // (sampleCheck) з самолікуванням, а відкат транзакції скидає знімок (dropSnap).
   if (snapCheck()) deepFreeze(bag);
   else freezeShallow(bag);
   return { key, v, bag, win: clockWindow(bag.world), people: new Map(bag.people.map((row) => [row.userId, row])) };
@@ -95,7 +108,16 @@ export function putSnap(snap: Snap) {
 /** Після УСПІШНОГО коміту власного запису: що записано і з яким ключем. */
 export function rememberWrite(key: string, v: string, doc: unknown) {
   const h = holder();
-  h.pending = { key, v, doc };
+  // Документ ділить обʼєкти з відповіддю цього запиту (attach/reply). З ORBIT_SNAP_CHECK=1 заморожуємо його одразу
+  // після коміту — e2e доводить, що жоден подальший код не змінює те, що стане знімком.
+  h.pending = { key, v, doc: snapCheck() ? deepFreeze(doc) : doc };
+}
+
+/** Транзакція запису впала (відкат): знімок, яким вона користувалась, більше не вважаємо надійним. */
+export function dropSnap() {
+  const h = holder();
+  h.snap = null;
+  h.pending = null;
 }
 
 export function snapStats() {

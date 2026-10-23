@@ -7,7 +7,7 @@ import { acceptCode, adoptClock, buyOldest, cancelListing, enter, issueCode, lis
 import { docObject, markDevice, markSeen, packDoc, strike, unpackDoc, type Bag } from "./access.ts";
 import { markDay } from "./social.ts";
 import { benchWorld } from "./bench-world.ts";
-import { clearSnap, HEAD_SQL, makeSnap, putSnap, rememberWrite, RETURNING, snapAt, snapKey, snapStats } from "./world-snap.ts";
+import { clearSnap, dropSnap, HEAD_SQL, makeSnap, putSnap, rememberWrite, RETURNING, SAMPLE, sampleCheck, snapAt, snapKey, snapStats } from "./world-snap.ts";
 
 const mig = (name: string) => readFileSync(new URL(`../../../migrations/${name}`, import.meta.url), "utf8");
 function rng(seed: number) {
@@ -34,18 +34,56 @@ test("world-snap: hit / miss / lazy write-through; a newer DB read drops a stale
 });
 
 test("world-snap: snapshot is frozen — writes can't change it in place (deep with ORBIT_SNAP_CHECK=1)", () => {
-  const bag = unpackDoc(JSON.parse(packDoc(...args(benchWorld(5)))));
-  const prod = makeSnap("k", "v", bag);
+  delete process.env.ORBIT_SNAP_CHECK;
+  const prod = makeSnap("k", "v", unpackDoc(JSON.parse(packDoc(...args(benchWorld(5))))));
   assert.throws(() => (prod.bag.world.accounts as unknown[]).push(1), TypeError);
   assert.throws(() => { (prod.bag.keys as Record<string, string>)["u-x"] = "1"; }, TypeError);
+  assert.throws(() => { (prod.bag as { keys: unknown }).keys = {}; }, TypeError);
   process.env.ORBIT_SNAP_CHECK = "1";
   try {
     const deep = makeSnap("k", "v", unpackDoc(JSON.parse(packDoc(...args(benchWorld(5))))));
     assert.throws(() => { (deep.bag.world.accounts[0] as { balance: number }).balance = 1; }, TypeError);
     assert.throws(() => { (deep.bag.world.creations[0].confirms as unknown[]).push(1); }, TypeError);
+    assert.throws(() => { (deep.bag.people[0] as { email: string }).email = "x@y.z"; }, TypeError);
+    // Навіть якщо хтось заморозив лише верхній рівень — вкладене все одно заморожується.
+    const half = unpackDoc(JSON.parse(packDoc(...args(benchWorld(5)))));
+    Object.freeze(half.world.accounts);
+    assert.throws(() => { (makeSnap("k2", "v", half).bag.world.accounts[0] as { balance: number }).balance = 1; }, TypeError);
   } finally {
     delete process.env.ORBIT_SNAP_CHECK;
   }
+});
+
+test("world-snap: production samples every SAMPLE-th write hit for a DB parity check", () => {
+  clearSnap();
+  delete process.env.ORBIT_SNAP_CHECK;
+  const bag = unpackDoc(JSON.parse(packDoc(...args(benchWorld(3)))));
+  putSnap(makeSnap("1|a", "a", bag));
+  let sampled = 0;
+  for (let i = 0; i < SAMPLE * 3; i++) {
+    assert.ok(snapAt("1|a"));
+    if (sampleCheck()) sampled += 1;
+  }
+  assert.equal(sampled, 3);
+  clearSnap();
+});
+
+test("world-snap: (ORBIT_SNAP_CHECK=1) write-through doc is frozen at commit (shared with the reply) and dropSnap forgets everything after a rollback", () => {
+  clearSnap();
+  process.env.ORBIT_SNAP_CHECK = "1";
+  const bag = unpackDoc(JSON.parse(packDoc(...args(benchWorld(5)))));
+  const doc = docObject(...args(bag)) as { world: { accounts: { balance: number }[] } };
+  rememberWrite("7|x", "x", doc);
+  assert.throws(() => { doc.world.accounts[0].balance = 999; }, TypeError, "reply code can't alter what becomes the next snapshot");
+  const lazy = snapAt("7|x");
+  assert.ok(lazy && isDeepStrictEqual(lazy.bag, makeSnap("y", "x", unpackDoc(JSON.parse(JSON.stringify(doc)))).bag));
+  putSnap(makeSnap("8|y", "y", bag));
+  rememberWrite("9|z", "z", docObject(...args(bag)));
+  dropSnap();
+  assert.equal(snapAt("8|y"), null, "snapshot used by a rolled-back write is not trusted");
+  assert.equal(snapAt("9|z"), null);
+  clearSnap();
+  delete process.env.ORBIT_SNAP_CHECK;
 });
 
 test("world-snap: 400 random engine steps on a frozen write-through snapshot == JSON round trip (what a DB read gives)", () => {

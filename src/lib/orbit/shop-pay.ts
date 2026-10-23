@@ -31,7 +31,8 @@ export function openOrder(world: World, topups: Topup[], userId: string, product
   const saleLeft = live.supply!.sale;
   const reserved = topups.filter((t) => t.status === "open" && t.provider && t.at > now - QUOTE_MS).reduce((s, t) => s + t.amount - (t.bonus ?? 0), 0);
   const avail = Math.max(0, saleLeft - reserved);
-  const today = Math.max(0, releasedLeft(live.supply!, now) - reserved);
+  // Огляд (Gemini #4): відкриті замовлення не резервують денний випуск — інакше скрипт міг би «заморозити» його без оплати.
+  const today = releasedLeft(live.supply!, now);
   const g = productGrant(product as ProductId, firstDone(topups, userId), quoteMicro(live.spark!.micro, avail), avail);
   if (!g) return { error: "Такого пакета немає." };
   if (avail <= 0) return { error: "Скарбниця продала всі 8 000 000 ✦." };
@@ -41,7 +42,7 @@ export function openOrder(world: World, topups: Topup[], userId: string, product
   if (spentToday(topups, userId, now, MONTH_MS) + cents > MONTH_LIMIT_CENTS) return { error: "Ліміт — $300 за 30 днів на людину." };
   const pending = topups.filter((t) => t.userId === userId && t.status === "open" && t.provider && t.at > now - QUOTE_MS).reduce((s2, t) => s2 + t.amount, 0);
   if (me.balance + (me.starterPending ?? 0) + pending + g.spark + g.bonus > HOLD_CAP) return { error: "В одних руках може бути не більше 80 000 ✦ (1% усіх)." };
-  const order: Order = { id, userId, product: product as ProductId, usdCents: cents, spark: g.spark, bonus: g.bonus, status: "open", provider: "xsolla", providerRef: id, at: now, quoteUntil: now + QUOTE_MS };
+  const order: Order = { id, userId, product: product as ProductId, usdCents: cents, spark: g.spark, bonus: g.bonus, status: "open", provider: "xsolla", providerRef: id, at: now, quoteUntil: Math.min(now + QUOTE_MS, Date.parse(`${new Date(now).toISOString().slice(0, 10)}T00:00:00.000Z`) + DAY_MS) };
   const open = topups.filter((t) => t.status === "open" && t.userId === userId && t.provider).slice(-4);
   const rest = topups.filter((t) => !(t.status === "open" && t.userId === userId && t.provider));
   return { order, topups: [...rest, ...open, { id, userId, amount: g.spark + g.bonus, bonus: g.bonus, status: "open", at: now, product, usdCents: cents, provider: "xsolla" }] };

@@ -1,8 +1,7 @@
 /** Головна v8: гаманець з діями, ціна з графіком-спарклайном, банери, «Ринок», «Активність». */
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowLeftRight, Check, Coins, Eye, EyeOff, GraduationCap, Hourglass, Landmark, ListOrdered, Orbit as OrbitIcon, Plus, QrCode, Rocket, Share2, Trophy } from "lucide-react";
+import { ArrowLeftRight, Check, Coins, Eye, EyeOff, Hourglass, Landmark, ListOrdered, Orbit as OrbitIcon, Plus, QrCode, Rocket, Share2, Trophy } from "lucide-react";
 import { DAY_MS, FUND_PERIOD_MS, WITNESS_OD, activeCreation, type Account, type World } from "@/lib/orbit/engine";
-import { LESSONS } from "@/lib/orbit/learn";
 import { MASK, useHidden } from "@/lib/orbit/prefs";
 import { dayDelta, perDay, priceSeries, sumPerDay } from "@/lib/orbit/series";
 import { useCountUp } from "@/lib/orbit/count-up";
@@ -195,7 +194,6 @@ export function Banners({ world, user, onTab, onOpen, onLocked }: { world: World
     const creation = activeCreation(world, user.id);
     const out: Banner[] = [];
     if (!creation) out.push({ id: "launch", kicker: "Запуск", title: "Перша орбіта — приблизно за добу", text: "Одне підтвердження від іншої людини і 24 години заряду. Почни зараз — коди можна пересилати посиланням.", cta: "Почати запуск", icon: <Rocket size={44} strokeWidth={1.3} />, tone: "nebula", onClick: () => onTab("mine") });
-    out.push({ id: "learn", kicker: `Навчання · ${LESSONS.length} уроків`, title: "Як працює орбіта", text: "Короткі уроки з тестом наприкінці: ціна дня, черга, фонд і заряд.", cta: "Почати урок", icon: <GraduationCap size={44} strokeWidth={1.3} />, tone: "ion", onClick: () => onOpen("learn") });
     if (leader && leader.stability > 0) out.push({ id: "leader", kicker: "Рейтинг", title: `Лідер стабільності — ${leader.name}`, text: `${leader.stability} стабільності. ${place ? `Ти на ${place} місці з ${ranked.length}.` : ""}`, cta: "Весь рейтинг", icon: <Trophy size={44} strokeWidth={1.3} />, tone: "sun", onClick: () => onOpen("leaders") });
     out.push({ id: "fund", kicker: "Фонд", title: `Поділ через ${leftShort(due - world.now)}`, text: `У фонді ${fmt.format(world.fund)} ✦. Він ділиться між активними учасниками.`, cta: "До фонду", icon: <Hourglass size={44} strokeWidth={1.3} />, tone: "aurora", onClick: () => onTab("flow") });
     out.push({ id: "soon", kicker: "Гроші", title: "Купівля ✦, ввід і вивід — після юриста", text: "Провайдера оплати оберемо після юридичного оформлення. Без дат і без обіцянок доходу.", cta: "Чому замочок", icon: <Landmark size={44} strokeWidth={1.3} />, tone: "nebula", soon: true, onClick: onLocked });

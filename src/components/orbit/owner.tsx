@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ownerAct, ownerView, type OwnerView } from "@/lib/orbit/owner";
 import { plural } from "@/lib/orbit/bot-ring";
+import { sessionCreds } from "@/lib/orbit/store";
 
 /**
  * Перевірка власником. Токен вводиться вручну й живе лише в цій вкладці (sessionStorage), у коді додатка його немає.
@@ -14,12 +15,14 @@ export function OwnerPage() {
   const [view, setView] = useState<OwnerView | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const session = () => { const c = sessionCreds(); return c.sessionId && c.sessionKey ? c : undefined; };
   async function load(t = token) {
     setBusy(true);
     setError("");
     try {
-      const out = await ownerView({ data: { token: t } });
-      if (out.ok) { setView(out); try { sessionStorage.setItem(KEY, t); } catch { /* приватний режим */ } }
+      const out = await ownerView({ data: { token: t || undefined, session: session() } });
+      if (out.ok) { setView(out); if (t) try { sessionStorage.setItem(KEY, t); } catch { /* приватний режим */ } }
       else { setView(null); setError(out.error ?? "Немає доступу."); try { sessionStorage.removeItem(KEY); } catch { /* */ } }
     } catch { setError("Сервер не відповідає."); }
     setBusy(false);
@@ -27,13 +30,15 @@ export function OwnerPage() {
   useEffect(() => {
     let t = "";
     try { t = sessionStorage.getItem(KEY) ?? ""; } catch { /* */ }
-    if (t) { setToken(t); void load(t); }
+    if (t) setToken(t);
+    // Спершу — за акаунтом власника (без токена). Токен лишається запасним шляхом.
+    void load(t).finally(() => setChecking(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   async function act(op: "restore" | "delete" | "roleSeen" | "botSeen" | "unmute" | "modApprove" | "modReject" | "modRevoke", extra: { id?: number; userId?: string; role?: string }) {
     if (op === "delete" && !window.confirm("Видалити повідомлення назавжди?")) return;
     if (op === "modRevoke" && !window.confirm("Зняти роль модератора?")) return;
-    const out = await ownerAct({ data: { token, op, ...extra } }).catch(() => ({ ok: false, error: "Сервер не відповідає." }));
+    const out = await ownerAct({ data: { token: token || undefined, session: session(), op, ...extra } }).catch(() => ({ ok: false, error: "Сервер не відповідає." }));
     if (!out.ok) setError(out.error ?? "Не вдалося.");
     await load();
   }
@@ -46,13 +51,17 @@ export function OwnerPage() {
     <main className="ow-page">
       <h1 className="orbit-h">Перевірка власника</h1>
       <p className="orbit-note">Тут нічого не змінює ✦ чи орбіти: лише видимість повідомлень і позначки «переглянуто». Ролі видаються вручну.</p>
-      {!view ? (
+      {!view && checking ? <p className="orbit-note" role="status">Перевіряю акаунт…</p> : null}
+      {!view && !checking ? (
+        <>
+        <p className="orbit-note">{sessionCreds().sessionId ? "Цей акаунт не власник. Увійди в додаток акаунтом власника або введи запасний токен." : "Увійди в додаток акаунтом власника — панель відкриється сама. Або введи запасний токен."} <a href="/">До додатка</a></p>
         <form className="ow-login" onSubmit={(e) => { e.preventDefault(); void load(); }}>
           <label htmlFor="ow-token">Токен власника</label>
           <input id="ow-token" className="orbit-field" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
           <button type="submit" className="orbit-go" disabled={busy || token.trim().length < 8}>{busy ? "Перевіряю…" : "Увійти"}</button>
         </form>
-      ) : (
+        </>
+      ) : view ? (
         <>
           <div className="ow-bar">
             <button type="button" className="orbit-chip" onClick={() => void load()} disabled={busy}>{busy ? "Оновлюю…" : "Оновити"}</button>
@@ -155,8 +164,8 @@ export function OwnerPage() {
             ))}
           </section>
         </>
-      )}
-      {error ? <p className="orbit-note" role="alert">{error}</p> : null}
+      ) : null}
+      {error && !checking && !(view === null && !token) ? <p className="orbit-note" role="alert">{error}</p> : null}
     </main>
   );
 }

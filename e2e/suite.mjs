@@ -200,8 +200,7 @@ let guest;
 const pre = [];
 await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
   check("v19: bell still in header", (await host.locator(".mo-bell").count()) === 1);
-  const music = host.getByRole("button", { name: "Увімкнути фонову музику" });
-  check("v19: music toggle off by default", (await music.count()) === 1 && (await music.getAttribute("aria-pressed")) === "false");
+  check("clutter: no background music toggle", (await host.getByRole("button", { name: "Увімкнути фонову музику" }).count()) === 0);
   await host.getByRole("button", { name: "Ще", exact: true }).click();
   check("v19: explorer entry kept", await hasText(host, "Оглядач"));
   await host.getByText("Розмови", { exact: true }).first().click();
@@ -251,11 +250,8 @@ await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
   await shot(host, "20c_chat_edit_delete");
   check("v24: day separator present", (await host.locator(".cv-day").count()) >= 1);
   check("v21: reactions lock removed (reactions are live)", !(await hasText(host, "Скоро в живому")));
-  // screen-polish-1: на телефоні питання — під списком розмов, не під розмовою.
-  check("chat polish: FAQ hidden while a conversation is open (mobile)", !(await host.locator("#faq-title").isVisible()));
-  await host.getByRole("button", { name: "До розмов" }).click();
-  await host.locator("#faq-title").scrollIntoViewIfNeeded();
-  await shot(host, "21_live_roles_faq");
+  check("clutter: no FAQ inside Розмови", (await host.locator("#faq-title").count()) === 0);
+  await shot(host, "21_live_chat_message");
   await host.keyboard.press("Escape");
   await host.waitForTimeout(300);
   await host.keyboard.press("Escape");
@@ -1100,17 +1096,17 @@ await step("fund + payout history", async () => {
   await shot(crew[0], "18_fund");
   await axe(crew[0], "fund");
 });
-await step("transparency + CSV", async () => {
-  await more(host, "Прозорість");
-  check("transparency page", await hasText(host, "Випущено"));
-  check("reconcile shows 0", /Розбіжн[^\n]*\n?\s*0|звірк[^\n]*0/i.test(await text(host)) || (await hasText(host, "0 ✦")));
-  await shot(host, "19_transparency");
-  await axe(host, "transparency");
-  const csvBtn = host.getByRole("button", { name: /CSV/ }).or(host.getByRole("link", { name: /CSV/ }));
-  const [dl] = await Promise.all([host.waitForEvent("download", { timeout: 8000 }), csvBtn.first().click()]);
-  const path = await dl.path();
-  const csv = (await import("node:fs")).readFileSync(path, "utf8");
-  check("CSV downloaded with header + rows", csv.split("\n").filter(Boolean).length >= 2, csv.slice(0, 120));
+await step("clutter removed from Ще; owner tile hidden for non-owner", async () => {
+  await host.getByRole("button", { name: "Ще", exact: true }).click();
+  await host.waitForTimeout(800);
+  const t = await text(host);
+  check("Ще: no «Стан системи»", !t.includes("Стан системи"));
+  check("Ще: no «Прозорість»", !t.includes("Прозорість"));
+  check("Ще: no «Навчання»", !t.includes("Навчання"));
+  check("Ще: no duplicate tiles", (await host.locator(".mh-tiles").count()) === 0);
+  check("Ще: no «Події світу»", !t.includes("Події світу"));
+  check("Ще: no admin tile without owner env", !t.includes("Адмін-панель"));
+  await shot(host, "19_more_clean");
   await L.closePages(host);
 });
 await step("fees 97/2/1", async () => {
@@ -1157,8 +1153,8 @@ await step("offline / empty / error states", async () => {
   await L.closePages(e);
   e.allowErrors = true;
   await e.route("**/_serverFn/**", (r) => r.fulfill({ status: 500, body: "boom" }));
-  await more(e, "Прозорість");
-  check("error state on transparency («недоступний»)", await hasText(e, "недоступний", 10000));
+  await more(e, "Розмови");
+  check("error state on Розмови", await hasText(e, "Не вдалося завантажити розмови", 10000));
   await shot(e, "24_error");
   await e.unroute("**/_serverFn/**");
   await L.closePages(e);

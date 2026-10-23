@@ -8,7 +8,7 @@ import { PioneerBoard, PioneerCard } from "@/components/orbit/pioneer";
 import { DailyCharge } from "@/components/orbit/daily-charge";
 import { Activity, Banners, FirstStep, MarketsCard, PriceMini, isNewcomer, Wallet as WalletCard } from "@/components/orbit/home";
 import { AlertCircle, CheckCircle2, Clock3, ListOrdered, Rocket, ShoppingCart, Tag } from "lucide-react";
-import { ArrowLeftRight, Bell, CircleHelp, GraduationCap, Telescope, Trophy, Hexagon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
+import { ArrowLeftRight, Bell, CircleHelp, Telescope, Trophy, Hexagon, LayoutGrid, Orbit, UserRound, Wallet, Waves } from "lucide-react";
 import type { Confirm } from "@/components/orbit/exchange";
 import { type Route } from "@/components/orbit/more";
 import { LockedSheet } from "@/components/orbit/locked";
@@ -19,7 +19,6 @@ import { toastsOn, useInbox } from "@/lib/orbit/inbox";
 import type { DocId } from "@/lib/orbit/docs";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 // 14: важкі екрани — окремими чанками, вантажаться при першому відкритті.
-const MusicToggleLazy = lazy(() => import("@/components/orbit/live").then((m) => ({ default: m.MusicToggle })));
 const ExchangeLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.Exchange })));
 const ConfirmSheetLazy = lazy(() => import("@/components/orbit/exchange").then((m) => ({ default: m.ConfirmSheet })));
 const ChecklistLazy = lazy(() => import("@/components/orbit/checklist").then((m) => ({ default: m.Checklist })));
@@ -262,7 +261,6 @@ export function OrbitApp() {
             </div>
           </div>
           <div className="mo-top-right">
-            <Suspense fallback={null}><MusicToggleLazy /></Suspense>
             <TopBalance balance={user.balance} hidden={hidden} onOpen={() => nav.open("assets")} />
             <button type="button" className="mo-icon mo-bell" aria-label={inbox.unread ? `Сповіщення, нових ${inbox.unread}` : "Сповіщення"} aria-haspopup="dialog" onClick={() => nav.open("inbox")}>
               <Bell size={18} strokeWidth={1.5} />
@@ -278,7 +276,7 @@ export function OrbitApp() {
           <Boundary name={tab}>
           {tab === "home" ? <Home world={world} user={user} onTab={setTab} onOpen={nav.open} /> : null}
           {tab === "market" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо обмін…</div>}><ExchangeLazy world={world} user={user} /></Suspense> : null}
-          {tab === "mine" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо заявку…</div>}><MineLazy world={world} user={user} /></Suspense> : null}
+          {tab === "mine" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо заявку…</div>}><MineLazy world={world} user={user} onOpen={nav.open} /></Suspense> : null}
           {tab === "flow" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо фонд…</div>}><Fund world={world} user={user} /></Suspense> : null}
           {tab === "me" ? <Suspense fallback={<div className="orbit-empty" role="status"><span className="st-spin" aria-hidden /> Відкриваємо профіль…</div>}><PersonLazy world={world} user={user} onOpen={nav.open} /></Suspense> : null}
           </Boundary>
@@ -753,6 +751,5 @@ function Home({ world, user, onTab, onOpen }: { world: World; user: Account; onT
 const QUICK: { route: Route; label: string; icon: ReactNode }[] = [
   { route: "explorer", label: "Оглядач", icon: <Telescope size={19} strokeWidth={1.5} /> },
   { route: "leaders", label: "Рейтинг", icon: <Trophy size={19} strokeWidth={1.5} /> },
-  { route: "learn", label: "Навчання", icon: <GraduationCap size={19} strokeWidth={1.5} /> },
   { route: "help", label: "Довідка", icon: <CircleHelp size={19} strokeWidth={1.5} /> },
 ];

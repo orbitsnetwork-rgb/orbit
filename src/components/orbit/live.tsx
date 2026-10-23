@@ -191,7 +191,6 @@ export function LiveHub({ user, onBack, onClose, onSeek }: { world: World; user:
           <div className="cv-side">
           <RoomList key={listKey} current={room?.id ?? null} unread={unread} myName={me} onSeek={onSeek} onPick={(next) => setRoom({ id: next.id, title: next.title, unread: next.unread })}
             onCurrent={(cur) => setRoom((r) => (r && r.id === cur.id && r.title !== cur.title ? { ...r, title: cur.title } : r))} />
-          <div className="cv-faq"><QuestionList /></div>
           </div>
           {room ? (
             <ChatRoom key={room.id} room={room.id} title={room.title} unreadAtOpen={room.unread} myName={me} onUnread={setUnread} onDm={(uid) => void dm(uid)} onBack={toList} />

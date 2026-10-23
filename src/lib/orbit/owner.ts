@@ -9,7 +9,44 @@ import { createServerFn } from "@tanstack/react-start";
 type Sql = import("@/lib/db").Sql;
 const FAILS = new Map<string, number[]>();
 
-async function gate(token: unknown): Promise<{ ok: true; sql: Sql } | { ok: false; error: string }> {
+/**
+ * Власник за акаунтом: ORBIT_OWNER_IDS (id акаунтів через кому) або ORBIT_OWNER_EMAILS (пошта, підтверджена при реєстрації).
+ * Обидві змінні — лише в налаштуваннях воркера, не в git. Перевірка ключа сесії — та сама, що в чаті.
+ */
+export function ownerListed(id: string, email: string | null, env = process.env): boolean {
+  const list = (v?: string) => (v ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (list(env.ORBIT_OWNER_IDS).includes(id.toLowerCase())) return true;
+  return Boolean(email) && list(env.ORBIT_OWNER_EMAILS).includes(String(email).trim().toLowerCase());
+}
+async function ownerBySession(session: unknown): Promise<{ ok: true; sql: Sql } | null> {
+  if (!session || typeof session !== "object") return null;
+  const { getSql } = await import("@/lib/db");
+  const sql = await getSql();
+  const live = await import("@/lib/orbit/live");
+  const me = await live.sessionUser(sql, session).catch(() => null);
+  if (!me) return null;
+  let email: string | null = null;
+  if (process.env.ORBIT_OWNER_EMAILS) {
+    const rows = await sql.query<{ doc: unknown }>(`select doc from orbit_world where id = 'world'`, []);
+    const { unpackDoc } = await import("@/lib/orbit/access");
+    const people = (rows[0] ? unpackDoc(rows[0].doc).people : []) as unknown as { userId?: string; email?: string }[];
+    const p = people.find((x) => x?.userId === me.id);
+    email = p?.email ?? null;
+  }
+  if (!ownerListed(me.id, email)) return null;
+  await live.ensureLive(sql);
+  return { ok: true, sql };
+}
+
+/** Чи бачить цей акаунт «Адмін-панель» (лише так/ні; нічого не розкриває). */
+export const ownerCheck = createServerFn({ method: "POST" })
+  .inputValidator((raw: unknown) => ({ session: (raw as { session?: unknown })?.session }))
+  .handler(async ({ data }): Promise<{ owner: boolean }> => ({ owner: Boolean(await ownerBySession(data.session).catch(() => null)) }));
+
+async function gate(token: unknown, session?: unknown): Promise<{ ok: true; sql: Sql } | { ok: false; error: string }> {
+  const viaSession = await ownerBySession(session).catch(() => null);
+  if (viaSession) return viaSession;
+  if (!token) return { ok: false, error: session ? "Цей акаунт не має доступу до адмін-панелі." : "Увійди акаунтом власника." };
   const ip = await (await import("@/lib/orbit/client-ip")).requestIp();
   const now = Date.now();
   const fails = (FAILS.get(ip) ?? []).filter((t) => t > now - 10 * 60_000);
@@ -82,9 +119,9 @@ export type OwnerView = {
 const NONE = { hidden: [], roles: [], bots: [], mutes: [], keepDays: 0, modApps: [], mods: [], modLog: [], rings: [], regCapDevices: 0 };
 
 export const ownerView = createServerFn({ method: "POST" })
-  .inputValidator((raw: unknown) => ({ token: (raw as { token?: unknown })?.token }))
+  .inputValidator((raw: unknown) => ({ token: (raw as { token?: unknown })?.token, session: (raw as { session?: unknown })?.session }))
   .handler(async ({ data }): Promise<OwnerView> => {
-    const g = await gate(data.token);
+    const g = await gate(data.token, data.session);
     if (!g.ok) return { ok: false, error: g.error, ...NONE };
     const { sql } = g;
     const world = await loadWorld(sql);
@@ -122,9 +159,10 @@ const OPS: Op[] = ["restore", "delete", "roleSeen", "botSeen", "unmute", "modApp
 
 export const ownerAct = createServerFn({ method: "POST" })
   .inputValidator((raw: unknown) => {
-    const b = (raw ?? {}) as { token?: unknown; op?: unknown; id?: unknown; userId?: unknown; role?: unknown };
+    const b = (raw ?? {}) as { token?: unknown; session?: unknown; op?: unknown; id?: unknown; userId?: unknown; role?: unknown };
     return {
       token: b.token,
+      session: b.session,
       op: OPS.includes(b.op as Op) ? (b.op as Op) : null,
       id: Math.max(0, Math.floor(Number(b.id) || 0)),
       userId: typeof b.userId === "string" ? b.userId.slice(0, 64) : "",
@@ -132,7 +170,7 @@ export const ownerAct = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
-    const g = await gate(data.token);
+    const g = await gate(data.token, data.session);
     if (!g.ok) return { ok: false, error: g.error };
     if (!data.op) return { ok: false, error: "Невідома дія." };
     const { sql } = g;

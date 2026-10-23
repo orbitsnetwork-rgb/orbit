@@ -2906,3 +2906,28 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .sh-offer small { display: block; opacity: .75; font-size: 12px; }
 .sh-plus { border-color: rgba(124,92,255,.4); background: rgba(124,92,255,.08); }
 .sk-boost { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(245,196,81,.15); color: var(--sun, #f5c451); border: 1px solid rgba(245,196,81,.35); vertical-align: middle; }
+/* «Що далі» — екіпаж після підтвердження */
+.cn { display: grid; gap: 12px; }
+.cn .orbit-kicker { display: inline-flex; gap: 6px; align-items: center; }
+.cn-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cn-crew { display: grid; gap: 10px; padding: 14px; border-radius: 16px; background: linear-gradient(160deg, rgba(139, 123, 255, 0.10), rgba(255, 255, 255, 0.02)); border: 1px solid rgba(139, 123, 255, 0.22); }
+.cn-crew[data-state="done"] { background: linear-gradient(160deg, rgba(255, 196, 92, 0.12), rgba(255, 255, 255, 0.02)); border-color: rgba(255, 196, 92, 0.28); }
+.cn-top { display: flex; gap: 10px; align-items: center; }
+.cn-ico { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: rgba(139, 123, 255, 0.18); color: #c9c0ff; flex: none; }
+.cn-t { display: grid; gap: 2px; min-width: 0; }
+.cn-t b { font: 650 15px/20px var(--font-sans); }
+.cn-t small { color: var(--text-2); font: 500 12.5px/17px var(--font-sans); }
+.cn-bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.cn-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8b7bff, #5fd4ff); transition: width .6s ease; }
+.cn-people { display: flex; align-items: center; gap: 0; }
+.cn-people > span { margin-right: -6px; border-radius: 50%; box-shadow: 0 0 0 2px var(--orbit-bg, #0b0d18); }
+.cn-people small { margin-left: 14px; color: var(--text-2); font: 500 12.5px/16px var(--font-sans); }
+.cn-go { display: inline-flex; gap: 8px; align-items: center; justify-content: center; }
+.cn-more { display: grid; gap: 8px; }
+.cn-act { display: flex; gap: 12px; align-items: center; text-align: left; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); color: inherit; min-height: 56px; }
+.cn-act:hover { background: rgba(255, 255, 255, 0.06); }
+.cn-act > svg { color: #c9c0ff; flex: none; }
+.cn-act span { display: grid; gap: 2px; }
+.cn-act b { font: 600 14.5px/19px var(--font-sans); }
+.cn-act small { color: var(--text-2); font: 500 12.5px/17px var(--font-sans); }
+@media (prefers-reduced-motion: reduce) { .cn-bar i { transition: none; } }

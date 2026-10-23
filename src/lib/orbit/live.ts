@@ -63,6 +63,11 @@ async function whoIs(sql: Sql, c: Creds): Promise<{ id: string; name: string; wo
   return account ? { id: account.id, name: shortName(account.name), world: bag.world } : null;
 }
 
+/** Хто за цим ключем сесії (для сторінки власника): той самий шлях перевірки, що й у чаті. */
+export async function sessionUser(sql: Sql, raw: unknown): Promise<{ id: string; name: string; world: World } | null> {
+  return whoIs(sql, creds(raw));
+}
+
 /** Для сторінки власника: таблиці живого шару (міграції 0038–0041) мають існувати. */
 export async function ensureLive(sql: Sql) {
   await ready(sql);

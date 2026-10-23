@@ -13,6 +13,8 @@ import { OrbitRings } from "@/components/orbit/space/orbit-rings";
 import { dropInvite, INVITE_EVENT, readInvite } from "@/lib/orbit/invite";
 import { buzz } from "@/lib/orbit/feel";
 import { Notice, left, useWall } from "@/components/orbit/app-bits";
+import { CrewNext } from "@/components/orbit/crew-next";
+import type { Route } from "@/components/orbit/more";
 
 const CodeShareLazy = lazy(() => import("@/components/orbit/code-share").then((m) => ({ default: m.CodeShare })));
 function CodeShare(props: React.ComponentProps<typeof CodeShareLazy>) {
@@ -23,7 +25,7 @@ function CodeShare(props: React.ComponentProps<typeof CodeShareLazy>) {
   );
 }
 
-export function Mine({ world, user }: { world: World; user: Account }) {
+export function Mine({ world, user, onOpen }: { world: World; user: Account; onOpen?: (route: Route) => void }) {
   const links = useOrbits((state) => state.mine?.links);
   const qrNow = useOrbits((state) => state.mine?.qr);
   const creation = activeCreation(world, user.id);
@@ -52,6 +54,7 @@ export function Mine({ world, user }: { world: World; user: Account }) {
           <p className="orbit-note ch-center">Орбіта набирає заряд. Результат з’явиться тут сам — застосунок можна закрити.</p>
           <Witnesses world={world} creation={creation} title="Тебе запускають" />
         </section>
+        <CrewNext world={world} user={user} now={wall} onOpen={onOpen} />
         <ConfirmCard userId={user.id} ownCode={null} />
         {tail}
       </div>
@@ -88,6 +91,7 @@ export function Mine({ world, user }: { world: World; user: Account }) {
         </p>
       </section>
       <NudgeButton world={world} creation={creation} userId={user.id} now={wall} />
+      <CrewNext world={world} user={user} now={wall} onOpen={onOpen} />
       <ConfirmCard userId={user.id} ownCode={live ? creation.code : null} />
       {tail}
       </div>
@@ -97,6 +101,7 @@ export function Mine({ world, user }: { world: World; user: Account }) {
   const chance = Math.round(chanceOf(world.orbits.length) * 100);
   return (
     <div className="orbit-stack">
+      <CrewNext world={world} user={user} now={wall} onOpen={onOpen} />
       <section className="orbit-block mn-idle" aria-labelledby="mn-idle-title">
         <div className="mn-idle-art" aria-hidden>
           <OrbitRings />

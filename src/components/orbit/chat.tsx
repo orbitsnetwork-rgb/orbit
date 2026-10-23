@@ -132,6 +132,7 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
   const stick = useRef(false);
   const hold = useRef(0);
   const typedAt = useRef(0);
+  const shiftDown = useRef(false);
   const unreadCb = useRef(onUnread);
   unreadCb.current = onUnread;
   /** Останній id першого завантаження: усе новіше з’являється з легкою анімацією (не вся історія разом). */
@@ -520,7 +521,13 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
           <textarea ref={input} id="chat-input" className="orbit-field cv-input" rows={1} enterKeyHint="send" autoComplete="off" autoCorrect="on" spellCheck
             disabled={muted > Date.now()} value={text} maxLength={CHAT_MAX} placeholder="Повідомлення…"
             onChange={(e) => onType(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); } if (e.key === "Escape" && (reply || editing)) { setReply(null); if (editing) setText(""); setEditing(null); } }} />
+            onBeforeInput={(e) => {
+              // Android (Gboard/Samsung): клавіша «Надіслати» приходить як insertLineBreak під час набору (isComposing, keyCode 229) — keydown її не ловить.
+              const ne = e.nativeEvent as InputEvent;
+              if ((ne.inputType === "insertLineBreak" || ne.inputType === "insertParagraph") && !shiftDown.current) { e.preventDefault(); void submit(); }
+            }}
+            onKeyUp={(e) => { shiftDown.current = e.shiftKey; }}
+            onKeyDown={(e) => { shiftDown.current = e.shiftKey; if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); } if (e.key === "Escape" && (reply || editing)) { setReply(null); if (editing) setText(""); setEditing(null); } }} />
           <button type="submit" className="cv-send" aria-label={editing ? "Зберегти" : "Надіслати"} disabled={muted > Date.now() || text.trim().length < 1}>
             {editing ? <Check size={20} aria-hidden /> : <Send size={19} aria-hidden />}
           </button>

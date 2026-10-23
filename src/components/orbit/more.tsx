@@ -4,7 +4,7 @@ import { HUB_LOCKS } from "@/lib/orbit/locked";
 import { Avatar } from "@/components/orbit/ui/kit";
 import { InstallButton } from "@/components/orbit/install";
 import { Boundary, LinkBanner } from "@/components/orbit/states";
-import { Sparkles, Activity, Scale, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle, ShieldCheck, UserSearch } from "lucide-react";
+import { Sparkles, Activity, Bell, GraduationCap, Trophy, CircleHelp, ChevronLeft, Percent, Shield, Telescope, ChevronRight, FileText, History as HistoryIcon, Mail, Search, Wallet, X, MessageCircle, ShieldCheck, UserSearch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DOC_GROUPS, DOCS, DRAFT_NOTE, EDITION, SUPPORT_MAIL, type DocId } from "@/lib/orbit/docs";
 
@@ -118,32 +118,30 @@ export function Row({ icon, title, sub, onClick, badge, badgeOn }: { icon: React
 }
 
 
-type Entry = { route: Route | "mail"; title: string; sub: string; icon: ReactNode; tone: "sun" | "ion" | "nebula" | "aurora" | "mars"; group: "mine" | "world" | "rules"; auth?: boolean; badge?: string };
+type Entry = { route: Route | "mail" | "owner"; title: string; sub: string; icon: ReactNode; tone: "sun" | "ion" | "nebula" | "aurora" | "mars"; group: "admin" | "mine" | "world" | "rules"; auth?: boolean; badge?: string };
 
 function entries(docs: number, unread: number): Entry[] {
   return [
     { route: "assets", title: "Активи", sub: "Баланс, мої орбіти, статуси", icon: <Wallet size={18} strokeWidth={1.7} />, tone: "sun", group: "mine", auth: true },
     { route: "shop", title: "Крамниця ✦", sub: "Стилі емблеми, теми сузір'я, просування", icon: <Sparkles size={18} strokeWidth={1.7} />, tone: "sun", group: "mine", auth: true },
     { route: "history", title: "Історія", sub: "Купівлі, продажі, заряди, фонд", icon: <HistoryIcon size={18} strokeWidth={1.7} />, tone: "ion", group: "mine", auth: true },
-    { route: "inbox", title: "Сповіщення", sub: "Події світу і про мене", icon: <Bell size={18} strokeWidth={1.7} />, tone: "nebula", group: "mine", auth: true, badge: unread ? String(unread > 99 ? "99+" : unread) : undefined },
+    { route: "inbox", title: "Сповіщення", sub: "Мої орбіти, підтвердження, розмови", icon: <Bell size={18} strokeWidth={1.7} />, tone: "nebula", group: "mine", auth: true, badge: unread ? String(unread > 99 ? "99+" : unread) : undefined },
     { route: "security", title: "Безпека", sub: "Ключ, пристрій, вихід", icon: <Shield size={18} strokeWidth={1.7} />, tone: "aurora", group: "mine", auth: true },
     { route: "explorer", title: "Оглядач", sub: "Будь-яка орбіта за номером", icon: <Telescope size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
     { route: "live", title: "Розмови", sub: "Особисті розмови і кімнати запусків", icon: <MessageCircle size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
     { route: "seek", title: "Шукаю орбіту", sub: "Люди, які шукають екіпаж", icon: <UserSearch size={18} strokeWidth={1.7} />, tone: "ion", group: "world", auth: true },
     { route: "moderator", title: "Стати модератором", sub: "Заявка і її стан", icon: <ShieldCheck size={18} strokeWidth={1.7} />, tone: "nebula", group: "world", auth: true },
     { route: "leaders", title: "Рейтинг", sub: "Стабільність, орбіти, тримання", icon: <Trophy size={18} strokeWidth={1.7} />, tone: "sun", group: "world", auth: true },
-    { route: "status", title: "Стан системи", sub: "Зв’язок, розклад ціни і фонду", icon: <Activity size={18} strokeWidth={1.7} />, tone: "aurora", group: "world", auth: true },
-    { route: "transparency", title: "Прозорість", sub: "Усі іскри, випуск, фонд і звірка", icon: <Scale size={18} strokeWidth={1.7} />, tone: "sun", group: "world" },
     { route: "fees", title: "Комісії і ліміти", sub: "Скільки і за що, мої ліміти на сьогодні", icon: <Percent size={18} strokeWidth={1.7} />, tone: "mars", group: "rules", auth: true },
     { route: "docs", title: "Документи", sub: "Правила, умови, приватність, ризики", icon: <FileText size={18} strokeWidth={1.7} />, tone: "nebula", group: "rules", badge: String(docs) },
-    { route: "learn", title: "Навчання", sub: "5 уроків по хвилині", icon: <GraduationCap size={18} strokeWidth={1.7} />, tone: "ion", group: "rules" },
     { route: "help", title: "Довідка", sub: "Відповіді на часті питання", icon: <CircleHelp size={18} strokeWidth={1.7} />, tone: "aurora", group: "rules" },
+    { route: "owner", title: "Адмін-панель", sub: "Скарги, заявки, модератори, кільця акаунтів", icon: <ShieldCheck size={18} strokeWidth={1.7} />, tone: "mars", group: "admin", auth: true },
     { route: "mail", title: "Написати нам", sub: SUPPORT_MAIL, icon: <Mail size={18} strokeWidth={1.7} />, tone: "sun", group: "rules" },
   ];
 }
 
-const TILES: Route[] = ["assets", "history", "inbox", "security", "explorer", "leaders", "learn", "help"];
 const GROUPS: { id: Entry["group"]; title: string }[] = [
+  { id: "admin", title: "Власник" },
   { id: "mine", title: "Мої іскри" },
   { id: "world", title: "Світ" },
   { id: "rules", title: "Правила і підтримка" },
@@ -152,14 +150,26 @@ const GROUPS: { id: Entry["group"]; title: string }[] = [
 /** Хаб «Ще». Плитки найчастішого, пошук по розділах, групи, «Скоро». Нижнє меню не росте. */
 export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onOpen: (route: Route) => void; onBack: () => void; signedIn: boolean; unread?: number; profile?: { name: string; id: string; line: string } }) {
   const [query, setQuery] = useState("");
-  const all = entries(Object.keys(DOCS).length, unread).filter((row) => signedIn || !row.auth);
+  const [owner, setOwner] = useState(false);
+  useEffect(() => {
+    if (!signedIn) return;
+    let alive = true;
+    void (async () => {
+      const { ownerCheck } = await import("@/lib/orbit/owner");
+      const { sessionCreds } = await import("@/lib/orbit/store");
+      const out = await ownerCheck({ data: { session: sessionCreds() } }).catch(() => ({ owner: false }));
+      if (alive) setOwner(out.owner);
+    })();
+    return () => { alive = false; };
+  }, [signedIn]);
+  const all = entries(Object.keys(DOCS).length, unread).filter((row) => (signedIn || !row.auth) && (row.route !== "owner" || owner));
   const go = (row: Entry) => {
-    if (row.route === "mail") window.location.href = `mailto:${SUPPORT_MAIL}?subject=${encodeURIComponent("Орбіти")}`;
-    else onOpen(row.route);
+    if (row.route === "owner") window.location.href = "/owner";
+    else if (row.route === "mail") window.location.href = `mailto:${SUPPORT_MAIL}?subject=${encodeURIComponent("Орбіти")}`;
+    else onOpen(row.route as Route);
   };
   const q = query.trim().toLowerCase();
   const hits = q ? all.filter((row) => `${row.title} ${row.sub}`.toLowerCase().includes(q)) : null;
-  const tiles = signedIn ? TILES.map((id) => all.find((row) => row.route === id)).filter((row): row is Entry => Boolean(row)) : [];
   return (
     <Page title="Ще" kicker="Орбіти" onBack={onBack}>
       {profile ? (
@@ -187,16 +197,6 @@ export function MoreHub({ onOpen, onBack, signedIn, unread = 0, profile }: { onO
         </section>
       ) : (
         <>
-          {tiles.length ? (
-            <nav className="mh-tiles" aria-label="Найчастіше">
-              {tiles.map((row) => (
-                <button key={row.route} type="button" data-tone={row.tone} onClick={() => go(row)} aria-label={row.badge && row.route === "inbox" ? `${row.title}, нових ${row.badge}` : row.title}>
-                  <span aria-hidden>{row.icon}{row.badge && row.route === "inbox" ? <b>{row.badge}</b> : null}</span>
-                  {row.title}
-                </button>
-              ))}
-            </nav>
-          ) : null}
           {GROUPS.map((group) => {
             const rows = all.filter((row) => row.group === group.id);
             if (!rows.length) return null;

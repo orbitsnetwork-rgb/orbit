@@ -1,5 +1,5 @@
-import { Music, CircleHelp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Music, CircleHelp, MessagesSquare, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Page } from "@/components/orbit/more";
 import { botSignal, dmOpen } from "@/lib/orbit/live";
 import { ChatRoom, RoomList } from "@/components/orbit/chat";
@@ -143,7 +143,11 @@ export async function startDm(peer: string): Promise<{ room: string; title: stri
   } catch { return "Немає зв’язку. Спробуй ще раз."; }
 }
 
-export function LiveHub({ user, onBack, onClose }: { world: World; user: Account; onBack: () => void; onClose?: () => void }) {
+/**
+ * «Розмови» як у месенджерах: на телефоні — або список, або одна розмова на весь екран (назад — до списку);
+ * шапка розмови стає верхньою панеллю; на широкому екрані — список (і питання під ним) ліворуч, розмова праворуч.
+ */
+export function LiveHub({ user, onBack, onClose, onSeek }: { world: World; user: Account; onBack: () => void; onClose?: () => void; onSeek?: () => void }) {
   const [room, setRoom] = useState<{ id: string; title: string; unread: number } | null>(() => {
     const next = pendingRoom;
     pendingRoom = null;
@@ -152,6 +156,8 @@ export function LiveHub({ user, onBack, onClose }: { world: World; user: Account
   const [unread, setUnread] = useState<Record<string, number> | undefined>(undefined);
   const [listKey, setListKey] = useState(0);
   const [err, setErr] = useState("");
+  const lastRoom = useRef<string | null>(null);
+  const me = shortName(user.name);
   const dm = async (uid: string) => {
     setErr("");
     const out = await startDm(uid);
@@ -160,22 +166,46 @@ export function LiveHub({ user, onBack, onClose }: { world: World; user: Account
     setRoom({ id: out.room, title: out.title, unread: 0 });
     setListKey((k) => k + 1);
   };
+  const toList = () => {
+    lastRoom.current = room?.id ?? null;
+    setRoom(null);
+  };
+  // Після «назад» на телефоні: угору й фокус на розмову, з якої вийшли (як у месенджерах).
+  useEffect(() => {
+    if (room || !lastRoom.current) return;
+    const id = lastRoom.current;
+    lastRoom.current = null;
+    const t = window.setTimeout(() => {
+      document.querySelector(".mo-body")?.scrollTo({ top: 0 });
+      (document.querySelector(`.orbit-room[data-room="${CSS.escape(id)}"]`) as HTMLElement | null)?.focus({ preventScroll: true });
+    }, 30);
+    return () => window.clearTimeout(t);
+  }, [room]);
+  // Відкрили розмову — шапка розмови має бути вгорі екрана.
+  useEffect(() => { if (room) document.querySelector(".mo-body")?.scrollTo({ top: 0 }); }, [room?.id]);
   return (
     <Page title="Розмови" kicker="Живе" onBack={onBack} onClose={onClose}>
-      <div className="orbit-stack">
-        {err ? <p className="orbit-note" role="alert">{err}</p> : null}
+      <div className="cv-hub" data-open={room ? "1" : "0"}>
+        {err ? <p className="orbit-note cv-hub-err" role="alert">{err}</p> : null}
         <div className="cv-split">
-          <RoomList key={listKey} current={room?.id ?? null} unread={unread} onPick={(next) => setRoom({ id: next.id, title: next.title, unread: next.unread })}
+          <div className="cv-side">
+          <RoomList key={listKey} current={room?.id ?? null} unread={unread} myName={me} onSeek={onSeek} onPick={(next) => setRoom({ id: next.id, title: next.title, unread: next.unread })}
             onCurrent={(cur) => setRoom((r) => (r && r.id === cur.id && r.title !== cur.title ? { ...r, title: cur.title } : r))} />
+          <div className="cv-faq"><QuestionList /></div>
+          </div>
           {room ? (
-            <ChatRoom key={room.id} room={room.id} title={room.title} unreadAtOpen={room.unread} myName={shortName(user.name)} onUnread={setUnread} onDm={(uid) => void dm(uid)} />
+            <ChatRoom key={room.id} room={room.id} title={room.title} unreadAtOpen={room.unread} myName={me} onUnread={setUnread} onDm={(uid) => void dm(uid)} onBack={toList} />
           ) : (
             <section className="orbit-block cv cv-pick" aria-label="Розмова не обрана">
-              <div className="orbit-chat-empty cv-empty"><p><b>Обери розмову</b> зліва або знайди людей у «Шукаю орбіту».</p></div>
+              <div className="cv-pick-in">
+                <span className="cv-pick-ico" aria-hidden><MessagesSquare size={30} strokeWidth={1.5} /></span>
+                <p className="cv-pick-t">Обери розмову</p>
+                <p className="cv-pick-s">Зліва — кімнати твоїх запусків і особисті розмови. Нових людей шукай у «Шукаю орбіту».</p>
+                {onSeek ? <button type="button" className="orbit-chip cv-pick-go" onClick={onSeek}><Search size={15} aria-hidden /> Шукаю орбіту</button> : null}
+              </div>
             </section>
           )}
         </div>
-        <QuestionList />
       </div>
     </Page>
   );

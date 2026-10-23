@@ -251,6 +251,9 @@ await step("v19: live layer (chat, roles, faq, music, bell kept)", async () => {
   await shot(host, "20c_chat_edit_delete");
   check("v24: day separator present", (await host.locator(".cv-day").count()) >= 1);
   check("v21: reactions lock removed (reactions are live)", !(await hasText(host, "Скоро в живому")));
+  // screen-polish-1: на телефоні питання — під списком розмов, не під розмовою.
+  check("chat polish: FAQ hidden while a conversation is open (mobile)", !(await host.locator("#faq-title").isVisible()));
+  await host.getByRole("button", { name: "До розмов" }).click();
   await host.locator("#faq-title").scrollIntoViewIfNeeded();
   await shot(host, "21_live_roles_faq");
   await host.keyboard.press("Escape");
@@ -354,7 +357,7 @@ await step("v20: rooms + live chat + room access control", async () => {
   const mine = host.locator(".orbit-room", { hasText: "Мій запуск" });
   await mine.waitFor({ timeout: 8000 }).catch(() => {});
   check("v20: room list has no world chat, has my launch room", (await host.locator(".orbit-room", { hasText: "Світ" }).count()) === 0 && (await mine.count()) === 1);
-  check("v20: no room picked yet → calm empty state", await hasText(host, "Обери розмову"));
+  check("v20: no room picked yet → list is the whole screen on mobile (no «Обери розмову» panel)", (await host.locator(".cv-pick").count()) === 1 && !(await host.locator(".cv-pick").isVisible()) && (await host.locator(".cv-list").isVisible()));
   await mine.click();
   await host.waitForTimeout(800);
   check("v20: launch room is private copy", await hasText(host, "Бачать лише автор і ті, хто підтвердив"));
@@ -373,7 +376,7 @@ await step("v20: rooms + live chat + room access control", async () => {
   check("v20: member sees the launch room with unread badge", (await gRoom.count()) === 1 && Number(await gRoom.locator(".orbit-room-n").innerText().catch(() => "0")) >= 1, `rooms=${await gRoom.count()} n=${await gRoom.locator(".orbit-room-n").innerText({ timeout: 1000 }).catch(() => "-")} txt=${(await g.locator(".cv-list").innerText().catch(() => "")).slice(0, 200)}`);
   await shot(g, "30_room_list");
   await gRoom.click();
-  check("v20: member reads the room", await hasText(g, "Екіпаже, тримаймось!"));
+  check("v20: member reads the room", await g.locator(".cv-log").getByText("Екіпаже, тримаймось!").first().waitFor({ timeout: 8000 }).then(() => true, () => false));
   await g.waitForTimeout(1500);
   const t0 = Date.now();
   await host.locator("#chat-input").fill("Живе повідомлення без оновлення");
@@ -382,7 +385,7 @@ await step("v20: rooms + live chat + room access control", async () => {
   check("v20: live delivery to member without reload (≤12 s)", arrived, `${Date.now() - t0} ms`);
   await g.locator("#chat-input").fill("Тут! Підтримую 🚀");
   await g.getByRole("button", { name: "Надіслати" }).click();
-  await host.getByText("Тут! Підтримую").waitFor({ timeout: 12000 }).catch(() => {});
+  await host.locator(".cv-log").getByText("Тут! Підтримую").first().waitFor({ timeout: 12000 }).catch(() => {});
   await shot(host, "31_room_messages");
   await axe(host, "v20 room");
   host.off("request", spy);
@@ -409,6 +412,61 @@ await step("v20: rooms + live chat + room access control", async () => {
   await host.keyboard.press("Escape"); await host.waitForTimeout(300); await host.keyboard.press("Escape");
   await g.keyboard.press("Escape"); await g.waitForTimeout(300); await g.keyboard.press("Escape");
 });
+/** screen-polish-1: «Розмови» — список ↔ розмова на телефоні, розділ на десктопі, стани, рух. Викликається з відкритою розмовою. */
+async function chatPolish(host, g) {
+  const geo = () => host.evaluate(() => {
+    const r = (sel) => { const el = document.querySelector(sel); if (!el) return null; const b = el.getBoundingClientRect(); return b.width || b.height ? { t: Math.round(b.top), b: Math.round(b.bottom), l: Math.round(b.left), r: Math.round(b.right), h: Math.round(b.height) } : null; };
+    return { list: r(".cv-list"), chat: r(".cv"), head: r(".cv-head"), send: r(".cv-send"), log: r(".cv-log"), h1: r(".mo-title"), bar: r(".mo-bar"), back: r(".cv-back"), vh: window.innerHeight, over: document.documentElement.scrollWidth > window.innerWidth + 1 };
+  });
+  const m = await geo();
+  check("chat polish: mobile conversation is full-screen (list, page bar + title hidden, chat header on top, composer in view)", !m.list && !m.h1 && !m.bar && !!m.back && !!m.head && m.head.t < 60 && !!m.send && m.send.b <= m.vh && !!m.log && m.log.h > 380 && !m.over, JSON.stringify(m));
+  const pres = (await host.locator(".cv-head-t small").innerText().catch(() => "")).trim();
+  check("chat polish: presence line is human («N онлайн» / «зараз тут лише ти»)", /^\d+ онлайн$|^зараз тут лише ти$|друку/.test(pres), pres);
+  await shot(host, "60_chat_mobile_conversation");
+  // «Назад» у шапці розмови веде до списку (як у месенджерах), а не закриває сторінку.
+  await host.getByRole("button", { name: "До розмов" }).click();
+  await host.locator(".cv-list").waitFor({ timeout: 4000 });
+  await host.waitForTimeout(150);
+  const back = await host.evaluate(() => ({ focus: document.activeElement?.getAttribute("data-room") || "", list: !!document.querySelector(".cv-list")?.getBoundingClientRect().height, h1: !!document.querySelector(".mo-title")?.getBoundingClientRect().height, input: !!document.querySelector("#chat-input") }));
+  check("chat polish: «До розмов» → list, page title back, focus on the room I left", back.list && back.h1 && !back.input && back.focus.startsWith("l:"), JSON.stringify(back));
+  check("chat polish: list heading «Усі розмови», rooms have separators + time", (await host.locator("#rooms-title").textContent()) === "Усі розмови" && (await host.locator(".cv-room-time").count()) >= 1);
+  await shot(host, "33_room_list");
+  await axe(host, "chat polish list");
+  // Свої останні слова у списку — «Ти:».
+  await g.getByRole("button", { name: "До розмов" }).click();
+  const gRow = g.locator(".orbit-room", { hasText: "Запуск, який я підтримав" });
+  await gRow.waitFor({ timeout: 6000 });
+  const gLast = await gRow.locator(".cv-room-last").innerText().catch(() => "");
+  check("chat polish: own last message shows as «Ти:» in the list", /^Ти:/.test(gLast), gLast);
+  await gRow.click();
+  await g.locator("#chat-input").waitFor({ timeout: 6000 });
+  // Рух: вимикається під prefers-reduced-motion.
+  await host.emulateMedia({ reducedMotion: "reduce" });
+  const rm = await host.evaluate(() => getComputedStyle(document.querySelector(".cv-list li")).animationName);
+  check("chat polish: list motion off under reduced motion", rm === "none", rm);
+  await host.emulateMedia({ reducedMotion: null });
+  // Десктоп: список | розмова поруч, без горизонтального переповнення.
+  await host.setViewportSize({ width: 1280, height: 800 }); await host.waitForTimeout(300);
+  const pickOk = await host.locator(".cv-pick").isVisible();
+  await host.locator(".orbit-room", { hasText: "Мій запуск" }).click();
+  await host.locator(".cv-log").getByText("Тут! Підтримую").first().waitFor({ timeout: 8000 });
+  await host.waitForTimeout(400);
+  const d = await geo();
+  check("chat polish desktop: split view (list left, chat right), tall log, no back button, no overflow", pickOk && !!d.list && !!d.chat && d.list.r <= d.chat.l && d.log && d.log.h > 300 && !d.back && !d.over && d.send && d.send.b <= d.vh, JSON.stringify(d));
+  await shot(host, "60d_chat_desktop");
+  await axe(host, "chat polish desktop");
+  await host.setViewportSize({ width: 390, height: 844 }); await host.waitForTimeout(300);
+  // Немає зв’язку посеред розмови → м’який банер і «немає зв’язку» в шапці; потім саме відновлюється.
+  host.allowErrors = true;
+  await host.route("**/_serverFn/**", (r) => r.fulfill({ status: 500, body: "boom" }));
+  const off = await host.locator(".cv-offline").waitFor({ timeout: 15000 }).then(() => true, () => false);
+  check("chat polish: offline banner in an open conversation + header says «немає зв’язку»", off && /немає зв’язку/.test(await host.locator(".cv-head-t small").innerText().catch(() => "")));
+  await shot(host, "61_chat_offline");
+  await host.unroute("**/_serverFn/**");
+  const healed = await host.locator(".cv-offline").waitFor({ state: "detached", timeout: 20000 }).then(() => true, () => false);
+  check("chat polish: offline banner clears by itself", healed);
+  host.errors = []; host.allowErrors = false;
+}
 await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async () => {
   const urls = {};
   const spy = (r) => { const b = r.postData() || ""; if (r.url().includes("/_serverFn/") && b.includes('"kind"')) urls.react = r.url(); };
@@ -418,14 +476,13 @@ await step("v21: cosmic reactions (cosmetic, members only, toggle, live)", async
     await p.getByText("Розмови", { exact: true }).first().click();
     await p.locator("#rooms-title").waitFor({ timeout: 8000 });
     await p.locator(".orbit-room", { hasText: label }).click();
-    await p.getByText("Екіпаже, тримаймось!").waitFor({ timeout: 8000 });
+    await p.locator(".cv-log").getByText("Екіпаже, тримаймось!").first().waitFor({ timeout: 8000 });
   };
   const g = crew[0];
   await open(host, "Мій запуск");
   await open(g, "Запуск, який я підтримав");
-  await host.locator("#rooms-title").scrollIntoViewIfNeeded();
-  await host.evaluate(() => document.querySelector("#rooms-title")?.scrollIntoView({ block: "start" }));
-  await shot(host, "33_room_list");
+  await chatPolish(host, g); // закінчується з відкритою «Мій запуск»
+  await host.locator(".cv-log").getByText("Тут! Підтримую").first().waitFor({ timeout: 8000 });
   const msg = host.locator(".orbit-msg", { hasText: "Тут! Підтримую" });
   await msg.getByRole("button", { name: /^Реакція на повідомлення/ }).click();
   const pick = host.getByRole("group", { name: "Обери реакцію" });
@@ -701,7 +758,7 @@ await step("seek: «Шукаю орбіту» card → list → DM / invite; blo
   await shot(g, "51_seek_list");
   await card.getByRole("button", { name: "Запросити в екіпаж" }).click();
   const inDm = await g.getByText("Бачите лише ви двоє").first().waitFor({ timeout: 10000 }).then(() => true, () => false);
-  check("seek: invite opens the DM with the invitation sent", inDm && (await hasText(g, "Хочеш у мій екіпаж?")));
+  check("seek: invite opens the DM with the invitation sent", inDm && (await g.locator(".cv-log").getByText("Хочеш у мій екіпаж?").first().waitFor({ timeout: 8000 }).then(() => true, () => false)));
   await shot(g, "52_dm_invite");
   await axe(g, "dm");
   // Блок: після блокування писати в розмову не можна.
@@ -1057,7 +1114,23 @@ await step("offline / empty / error states", async () => {
   check("error state on transparency («недоступний»)", await hasText(e, "недоступний", 10000));
   await shot(e, "24_error");
   await e.unroute("**/_serverFn/**");
+  await L.closePages(e);
+  // screen-polish-1: «Розмови» — немає зв’язку (з «Спробувати зараз») → порожньо з кроком до «Шукаю орбіту».
+  await e.route("**/_serverFn/**", (r) => r.fulfill({ status: 500, body: "boom" }));
+  await more(e, "Розмови");
+  const rErr = await e.getByText("Не вдалося завантажити розмови").waitFor({ timeout: 10000 }).then(() => true, () => false);
+  check("chat polish: rooms error state with «Спробувати зараз»", rErr && (await e.getByRole("button", { name: "Спробувати зараз" }).count()) === 1);
+  await shot(e, "62_rooms_error");
+  await e.unroute("**/_serverFn/**");
+  await e.getByRole("button", { name: "Спробувати зараз" }).click();
+  const rEmpty = await e.getByText("Розмов ще немає").waitFor({ timeout: 10000 }).then(() => true, () => false);
+  check("chat polish: retry → empty state with a way to «Шукаю орбіту»", rEmpty && (await e.locator(".cv-none").getByRole("button", { name: "Шукаю орбіту" }).count()) === 1);
+  await shot(e, "63_rooms_empty");
   e.errors = []; e.allowErrors = false;
+  await axe(e, "chat polish empty");
+  await e.locator(".cv-none").getByRole("button", { name: "Шукаю орбіту" }).click();
+  check("chat polish: empty-state button opens «Шукаю орбіту»", await e.locator(".sk-card, #sk-text, textarea").first().waitFor({ timeout: 8000 }).then(() => true, () => false) && await hasText(e, "Шукаю орбіту"));
+  await L.closePages(e);
 });
 await step("thank phrase index validated server-side", async () => {
   // A forged phrase index must never reach anyone's inbox: only 0–5 are kept.

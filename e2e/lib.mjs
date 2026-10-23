@@ -159,7 +159,7 @@ export async function more(page, item) {
   await page.waitForTimeout(700);
 }
 export async function closePages(page) {
-  const all = page.getByRole("button", { name: "Закрити все" });
+  const all = page.getByRole("button", { name: "Закрити все" }).filter({ visible: true }); // у розмові на телефоні панель сторінки схована
   if (await all.count()) await all.first().click().catch(() => {});
   else await page.keyboard.press("Escape").catch(() => {});
   await page.waitForTimeout(300);

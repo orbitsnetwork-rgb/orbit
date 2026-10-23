@@ -49,7 +49,7 @@ export function Pages({
   if (top === "leaders" && world && user) return <Leaders world={world} user={user} onBack={onPop} onClose={closer} />;
   if (top === "status" && world) return <Status world={world} onBack={onPop} onClose={closer} />;
   if (top === "transparency") return <Transparency onBack={onPop} onClose={closer} />;
-  if (top === "live" && world && user) return <LiveHub world={world} user={user} onBack={onPop} onClose={closer} />;
+  if (top === "live" && world && user) return <LiveHub world={world} user={user} onBack={onPop} onClose={closer} onSeek={() => onReplace("seek")} />;
   if (top === "seek" && world && user) return <SeekPage onBack={onPop} onClose={closer} onRoom={() => onReplace("live")} world={world} user={user} />;
   if (top === "moderator" && world && user) return <ModeratorPage onBack={onPop} onClose={closer} />;
   if (top === "learn") return <Learn onBack={onPop} onClose={closer} />;

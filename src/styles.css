@@ -2771,3 +2771,100 @@ button.cl-row:focus-visible { outline: 2px solid var(--ion); outline-offset: 1px
 .ow-ring-n { color: var(--text-3); font-size: 13px; }
 .ow-ring-who { margin: 6px 0 0; overflow-wrap: anywhere; }
 .ow-ring-why { margin: 6px 0 0; padding-left: 18px; color: var(--text-2); font-size: 13.5px; line-height: 1.45; }
+
+/* ── screen-polish-1: «Розмови» як у месенджерах ─────────────────────────────
+   Телефон: або список, або одна розмова на весь екран (назад — до списку). Широкий екран: список | розмова. */
+.cv-hub { display: grid; gap: 14px; min-width: 0; }
+.cv-side { display: grid; gap: 14px; min-width: 0; }
+.cv-hub-err { margin: 0; }
+.cv-list { gap: 4px; padding: 10px 8px; }
+.cv-list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 10px 6px; }
+.cv-list-h { margin: 0; font: 700 11.5px/16px var(--font-sans); letter-spacing: .09em; text-transform: uppercase; color: var(--text-3); }
+.cv-list-n { font: 600 12px/16px var(--font-sans); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cv-list li { position: relative; animation: cv-row-in 280ms var(--ease) backwards; animation-delay: calc(var(--i, 0) * 28ms); }
+.cv-list li + li::before { content: ""; position: absolute; top: 0; left: 70px; right: 10px; height: 1px; background: rgb(255 255 255 / .05); }
+@keyframes cv-row-in { from { opacity: 0; transform: translateY(4px); } }
+.cv-list .orbit-room { min-height: 70px; padding: 10px; gap: 12px; transition: background-color 150ms var(--ease); -webkit-tap-highlight-color: transparent; }
+.cv-list .orbit-room:active { background: rgb(255 255 255 / .06); }
+.cv-list .cv-room-ava { width: 48px; height: 48px; }
+.cv-list .orbit-room-t { gap: 3px; }
+.cv-room-name { font: 650 15px/20px var(--font-sans); color: var(--text-1); letter-spacing: -.005em; }
+.cv-room-bottom { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cv-room-bottom .cv-room-last { flex: 1; min-width: 0; font-size: 13.5px; line-height: 18px; }
+.cv-room-last b { font-weight: 600; color: var(--text-2); }
+.orbit-room.has-unread .cv-room-last, .orbit-room.has-unread .cv-room-last b { color: var(--text-1); }
+.orbit-room.has-unread .cv-room-time { color: var(--ion); font-weight: 700; }
+.cv-list .orbit-room-n { min-width: 22px; height: 22px; box-shadow: 0 0 0 3px rgb(111 214 236 / .12); }
+
+/* Стани: завантаження, порожньо, немає зв’язку, лише для учасників. */
+.cv-state { display: grid; justify-items: center; align-content: center; text-align: center; gap: 6px; padding: 28px 16px; margin: auto; max-width: 36ch; border: 0; }
+.cv-state-ico { width: 56px; height: 56px; margin-bottom: 6px; border-radius: 18px; display: grid; place-items: center; color: var(--text-2); background: rgb(255 255 255 / .04); border: 1px solid rgb(255 255 255 / .08); }
+.cv-state-ico.is-glow { color: var(--ion); background: radial-gradient(circle at 30% 25%, rgb(139 123 255 / .28), rgb(111 214 236 / .06) 70%); border-color: rgb(139 123 255 / .28); box-shadow: 0 0 36px rgb(139 123 255 / .18); }
+.cv-state-off .cv-state-ico { color: #f2c46d; background: rgb(242 196 109 / .07); border-color: rgb(242 196 109 / .22); }
+.cv-state .cv-state-t { margin: 0; font: 700 16px/22px var(--font-sans); color: var(--text-1); letter-spacing: -.01em; }
+.cv-state .cv-state-s { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+.cv-state-go, .cv-pick-go { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding-inline: 16px; }
+.cv-skel-list { padding: 2px 0; gap: 0; }
+.cv-skel-row { display: flex; align-items: center; gap: 12px; padding: 11px 10px; }
+.cv-skel-list .cv-skel-ava { flex: none; width: 48px; height: 48px; border-radius: 50%; }
+.cv-skel-list .cv-skel-lines { flex: 1; display: grid; gap: 8px; height: auto; background: none; animation: none; border-radius: 0; }
+.cv-skel-list .cv-skel-lines span { height: 11px; border-radius: 6px; width: 46%; }
+.cv-skel-list .cv-skel-lines span + span { width: 82%; }
+.cv-skel span:nth-child(2n) { animation-delay: .15s; }
+.cv-offline { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.4; color: var(--text-1); background: rgb(242 196 109 / .07); border: 1px solid rgb(242 196 109 / .25); }
+.cv-offline svg { flex: none; color: #f2c46d; }
+.cv-pick { min-height: 320px; }
+.cv-pick-in { display: grid; justify-items: center; gap: 6px; text-align: center; max-width: 36ch; }
+.cv-pick-ico { width: 64px; height: 64px; margin-bottom: 6px; border-radius: 20px; display: grid; place-items: center; color: var(--ion); background: radial-gradient(circle at 30% 25%, rgb(139 123 255 / .28), rgb(111 214 236 / .06) 70%); border: 1px solid rgb(139 123 255 / .28); box-shadow: 0 0 40px rgb(139 123 255 / .16); }
+.cv-pick-t { margin: 0; font: 700 17px/24px var(--font-sans); color: var(--text-1); }
+.cv-pick-s { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+
+/* Шапка розмови: присутність, «друкує», назад. */
+.cv-head { gap: 10px; min-height: 48px; }
+.cv-back { flex: none; margin-left: -4px; }
+.cv-head-t h2 { font: 700 16px/21px var(--font-sans); letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-head-t { flex: 1; }
+.cv-presence { opacity: 1; }
+.cv-presence:not(.is-on) { color: var(--text-3); }
+.cv-presence:not(.is-on) i { background: var(--text-3); box-shadow: none; }
+.cv-presence.is-off { display: inline-flex; align-items: center; gap: 5px; color: #f2c46d; }
+.cv-typing { display: inline-flex; align-items: center; gap: 2px; color: var(--ion); }
+.cv-typing i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: cv-dot 1.2s ease-in-out infinite; }
+.cv-typing i:first-of-type { margin-left: 3px; }
+.cv-typing i:nth-of-type(2) { animation-delay: .15s; }
+.cv-typing i:nth-of-type(3) { animation-delay: .3s; }
+@keyframes cv-dot { 0%, 80%, 100% { opacity: .25; transform: none; } 40% { opacity: 1; transform: translateY(-2px); } }
+.cv-msg.is-new { animation: cv-in 220ms var(--ease) backwards; }
+.cv-msg.orbit-msg-mine.is-new { transform-origin: 100% 100%; }
+@keyframes cv-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+.cv-locked { min-height: 280px; }
+.cv-input { transition: border-color 150ms var(--ease); overflow-y: auto; }
+
+@media (max-width: 899px) {
+  .cv-hub[data-open="1"] .cv-side, .cv-hub[data-open="0"] .cv-pick { display: none; }
+  /* Розмова на весь екран: її шапка (назад · аватар · назва · присутність) замінює панель сторінки. */
+  .mo-page:has(.cv-hub[data-open="1"]) :is(.mo-bar, .mo-head) { display: none; }
+  .mo-inner:has(.cv-hub[data-open="1"]) { width: 100%; padding: 0; gap: 0; }
+  .cv-hub[data-open="1"] { gap: 0; }
+  .cv-hub[data-open="1"] .cv { display: flex; flex-direction: column; gap: 6px; height: 100dvh; min-height: 0; padding: max(8px, env(safe-area-inset-top)) 10px max(8px, env(safe-area-inset-bottom)); border: 0; border-radius: 0; box-shadow: none; animation: none; }
+  .cv-hub[data-open="1"] .cv-head { margin: 0 -10px; padding: 0 10px 8px; }
+  .cv-hub[data-open="1"] .orbit-chat-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .cv-hub[data-open="1"] .cv-log { flex: 1; min-height: 0; max-height: none; border-radius: 0; }
+  .cv-hub[data-open="1"] .cv-scope { font-size: 12px; text-align: center; color: var(--text-3); }
+  .cv-hub[data-open="1"] .cv-hub-err { margin: 8px; }
+}
+@media (min-width: 900px) {
+  .mo-inner:has(.cv-hub) { width: min(68rem, 100%); }
+  .cv-back { display: none; }
+  .cv-hub .cv-split { grid-template-columns: 330px minmax(0, 1fr); align-items: stretch; }
+  .mo-inner:has(.cv-hub) { padding-bottom: 20px; }
+  .cv-hub .cv-side { position: sticky; top: 0; display: grid; gap: 14px; align-content: start; max-height: calc(100dvh - 190px); min-height: 460px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .cv-hub .cv { display: flex; flex-direction: column; height: calc(100dvh - 190px); min-height: 460px; }
+  .cv-hub .cv-pick { display: grid; place-items: center; }
+  .cv-hub .orbit-chat-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .cv-hub .cv-log { flex: 1; min-height: 0; max-height: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cv-list li, .cv-msg.is-new, .cv-typing i { animation: none; }
+  .cv-list .orbit-room, .cv-input { transition: none; }
+}

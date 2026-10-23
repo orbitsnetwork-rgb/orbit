@@ -4,7 +4,7 @@
  * 12 космічних реакцій, «друкує…», згадки @Ім'я, перехід до непрочитаного, оптимістичне надсилання з повтором.
  * Транспорт — довге опитування (сервер тримає до 8 с); хто пише — визначає сервер за ключем сесії.
  */
-import { ArrowDown, Check, CheckCheck, Copy, CornerUpLeft, Flag, Lock, MoreHorizontal, Pencil, RotateCw, Send, Shield, SmilePlus, Trash2, Users, X } from "lucide-react";
+import { ArrowDown, Check, CheckCheck, ChevronLeft, Copy, CornerUpLeft, Flag, Lock, MessagesSquare, MoreHorizontal, Pencil, RotateCw, Search, Send, Shield, SmilePlus, Trash2, WifiOff, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "@/components/orbit/ui/kit";
@@ -134,6 +134,9 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
   const typedAt = useRef(0);
   const unreadCb = useRef(onUnread);
   unreadCb.current = onUnread;
+  /** Останній id першого завантаження: усе новіше з’являється з легкою анімацією (не вся історія разом). */
+  const baseId = useRef(-1);
+  const kick = useRef<() => void>(() => {});
 
   function take(next: ChatReadOut, full: boolean) {
     setAllowed(next.allowed);
@@ -181,6 +184,7 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
         if (!alive) return;
         if (full) { stick.current = true; void import("@/lib/orbit/inbox").then((m) => m.refreshChatNotes()); }
         take(next, full);
+        if (full && baseId.current < 0) baseId.current = next.lines.length ? next.lines[next.lines.length - 1].id : 0;
         setLoaded(true);
         setFailed(false);
         pause = 0;
@@ -194,6 +198,8 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
       timer = window.setTimeout(() => void loop(), pause || 50);
     }
     const onVis = () => { if (document.visibilityState === "visible" && !busy) { window.clearTimeout(timer); void loop(); } };
+    kick.current = () => { if (busy) return; window.clearTimeout(timer); pause = 0; void loop(); };
+    baseId.current = -1;
     void loop();
     document.addEventListener("visibilitychange", onVis);
     return () => { alive = false; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVis); };
@@ -217,6 +223,14 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
       setFresh(0);
     }
   }, [lines.length, pending.length, unreadFrom]);
+
+  // Поле вводу росте разом із текстом (до 140 px), як у месенджерах.
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight + 2, 140)}px`;
+  }, [text]);
 
   function onScroll() {
     const el = box.current;
@@ -349,22 +363,34 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
 
   if (!allowed) {
     return (
-      <section className="orbit-block cv" aria-labelledby="chat-title">
-        <h2 className="orbit-h orbit-h-row" id="chat-title"><Lock size={18} aria-hidden /> {title}</h2>
-        <p className="orbit-note" role="alert">Ця кімната лише для учасників запуску: автора і тих, хто його підтвердив.</p>
+      <section className="orbit-block cv cv-locked" aria-labelledby="chat-title">
+        <header className="cv-head">
+          {onBack ? <button type="button" className="mo-icon cv-back" aria-label="До розмов" onClick={onBack}><ChevronLeft size={20} aria-hidden /></button> : null}
+          <span className="cv-head-ico" aria-hidden><Lock size={20} /></span>
+          <div className="cv-head-t"><h2 id="chat-title">{title}</h2></div>
+        </header>
+        <div className="cv-state" role="alert">
+          <span className="cv-state-ico" aria-hidden><Lock size={26} strokeWidth={1.6} /></span>
+          <p className="cv-state-t">Кімната лише для учасників</p>
+          <p className="cv-state-s">Сюди пишуть автор запуску і ті, хто його підтвердив.</p>
+        </div>
       </section>
     );
   }
   const dm = room.startsWith("d:") ? (room.slice(2).split("~").find((id) => id !== sessionCreds().sessionId) ?? null) : null;
-  const typingText = typing.length ? `${typing.join(", ")} ${typing.length === 1 ? "друкує" : "друкують"}…` : "";
+  const typingText = typing.length ? `${typing.join(", ")} ${typing.length === 1 ? "друкує" : "друкують"}` : "";
+  const presence = dm ? (online >= 2 ? "у мережі" : "особиста розмова") : online >= 2 ? `${online} онлайн` : "зараз тут лише ти";
+  const offline = loaded && failed;
   return (
-    <section className="orbit-block cv" aria-labelledby="chat-title">
+    <section className="orbit-block cv" aria-labelledby="chat-title" data-state={!loaded ? "loading" : offline ? "offline" : "ok"}>
       <header className="cv-head">
-        {onBack ? <button type="button" className="mo-icon cv-back" aria-label="До розмов" onClick={onBack}><CornerUpLeft size={18} aria-hidden /></button> : null}
+        {onBack ? <button type="button" className="mo-icon cv-back" aria-label="До розмов" onClick={onBack}><ChevronLeft size={20} aria-hidden /></button> : null}
         <span className="cv-head-ico" aria-hidden>{dm ? <Avatar id={dm} name={title} size={40} /> : <ReactionIcon id="launch" size={26} />}</span>
         <div className="cv-head-t">
           <h2 id="chat-title">{title}</h2>
-          <small aria-live="polite">{typingText || <span className="orbit-live-dot" role="status" aria-label={`Онлайн: ${online}`}><i aria-hidden /> {online} онлайн</span>}</small>
+          <small aria-live="polite">{typingText ? <span className="cv-typing">{typingText}<i aria-hidden /><i aria-hidden /><i aria-hidden /></span>
+            : offline ? <span className="cv-presence is-off" role="status"><WifiOff size={12} aria-hidden /> немає зв’язку</span>
+            : <span className={`orbit-live-dot cv-presence${online >= 2 ? " is-on" : ""}`} role="status" aria-label={`Онлайн: ${online}`}><i aria-hidden /> {presence}</span>}</small>
         </div>
         {dm ? <DmMenu peer={dm} name={title} /> : null}
       </header>
@@ -372,15 +398,21 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
       <div className="orbit-chat-wrap">
         <div ref={box} className="orbit-chat cv-log" onScroll={onScroll} role="log" aria-live="polite" aria-label="Повідомлення чату">
           {!loaded ? (
-            <div className="cv-skel" aria-label="Завантажую повідомлення">{[60, 42, 70].map((w, i) => <span key={i} style={{ width: `${w}%` }} className={i === 1 ? "is-mine" : ""} />)}</div>
+            <div className="cv-skel" role="status" aria-label="Завантажую повідомлення">{[58, 40, 72, 46].map((w, i) => <span key={i} style={{ width: `${w}%` }} className={i % 2 ? "is-mine" : ""} />)}</div>
           ) : null}
           {loaded && failed && !lines.length ? (
-            <div className="orbit-chat-empty" role="alert"><p><b>Немає зв’язку з чатом.</b> Перевір інтернет — ми спробуємо ще раз самі.</p></div>
+            <div className="cv-state cv-state-off" role="alert">
+              <span className="cv-state-ico" aria-hidden><WifiOff size={26} strokeWidth={1.6} /></span>
+              <p className="cv-state-t">Немає зв’язку з чатом</p>
+              <p className="cv-state-s">Перевір інтернет — ми пробуємо ще раз самі. Повідомлення нікуди не зникнуть.</p>
+              <button type="button" className="orbit-chip cv-state-go" onClick={() => kick.current()}><RotateCw size={15} aria-hidden /> Спробувати зараз</button>
+            </div>
           ) : null}
           {loaded && !failed && lines.length === 0 && pending.length === 0 ? (
-            <div className="orbit-chat-empty cv-empty">
-              <ReactionIcon id="galaxy" size={44} />
-              <p><b>Поки тихо.</b> Привітайся першим — {dm ? `${title} побачить це тут.` : "твій екіпаж побачить."}</p>
+            <div className="orbit-chat-empty cv-empty cv-state">
+              <span className="cv-state-ico is-glow" aria-hidden><ReactionIcon id="galaxy" size={40} /></span>
+              <p className="cv-state-t">Поки тихо</p>
+              <p className="cv-state-s">Привітайся першим — {dm ? `${title} побачить це тут.` : "твій екіпаж побачить."}</p>
             </div>
           ) : null}
           {rows.map(({ line, newDay, head, tail }) => {
@@ -392,7 +424,7 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
               <Fragment key={line.id}>
                 {newDay ? <div className="cv-day" role="separator"><span>{dayLabel(line.at, now)}</span></div> : null}
                 {line.id === unreadFrom ? <div className="cv-unread" role="separator"><span>Непрочитані</span></div> : null}
-                <div className={`orbit-msg cv-msg${line.mine ? " orbit-msg-mine" : ""}${head ? " is-head" : " is-cont"}${tail ? " is-tail" : ""}${flash === line.id ? " is-flash" : ""}${line.deleted ? " is-deleted" : ""}`} data-msg={line.id} {...press(line.id)}>
+                <div className={`orbit-msg cv-msg${line.mine ? " orbit-msg-mine" : ""}${!line.mine && baseId.current >= 0 && line.id > baseId.current ? " is-new" : ""}${head ? " is-head" : " is-cont"}${tail ? " is-tail" : ""}${flash === line.id ? " is-flash" : ""}${line.deleted ? " is-deleted" : ""}`} data-msg={line.id} {...press(line.id)}>
                   {!line.mine ? <span className="cv-ava">{tail ? <Avatar id={line.uid} name={line.name} size={30} /> : null}</span> : null}
                   <div className="orbit-msg-b">
                     {head && !line.mine ? <p className="orbit-msg-h"><b>{line.name}</b></p> : null}
@@ -455,7 +487,7 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
             );
           })}
           {pending.map((p) => (
-            <div key={p.key} className={`orbit-msg cv-msg orbit-msg-mine is-head is-tail is-pending${p.state === "failed" ? " is-failed" : ""}`}>
+            <div key={p.key} className={`orbit-msg cv-msg orbit-msg-mine is-new is-head is-tail is-pending${p.state === "failed" ? " is-failed" : ""}`}>
               <div className="orbit-msg-b">
                 {p.replyTo ? <span className="cv-quote"><b>{p.replyTo.name}</b><span>{p.replyTo.text}</span></span> : null}
                 <p className="orbit-msg-t">{richText(p.text, myName)}</p>
@@ -473,6 +505,7 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
           <button type="button" className="orbit-chat-pill" aria-label={`Перейти до нових повідомлень: ${fresh}`} onClick={toEnd}><ArrowDown size={14} aria-hidden /> {fresh} {plural(fresh, "нове", "нові", "нових")}</button>
         ) : null}
       </div>
+      {offline && lines.length ? <p className="cv-offline" role="status"><WifiOff size={14} aria-hidden /> Немає зв’язку — нові повідомлення з’являться, щойно він повернеться.</p> : null}
       {muted > Date.now() ? <p className="orbit-chat-mute" role="status">{muteText(muted)}</p> : null}
       <form className="cv-compose" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
         {reply || editing ? (
@@ -501,9 +534,10 @@ export function ChatRoom({ room, title = "Розмова", unreadAtOpen = 0, myN
 }
 
 /** Список розмов: остання репліка, час, непрочитане. */
-export function RoomList({ current, onPick, unread, onCurrent }: { current: string | null; onPick: (room: RoomRow) => void; unread?: Record<string, number>; onCurrent?: (room: RoomRow) => void }) {
+export function RoomList({ current, onPick, unread, onCurrent, myName = "", onSeek }: { current: string | null; onPick: (room: RoomRow) => void; unread?: Record<string, number>; onCurrent?: (room: RoomRow) => void; myName?: string; onSeek?: () => void }) {
   const [rooms, setRooms] = useState<RoomRow[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -516,39 +550,64 @@ export function RoomList({ current, onPick, unread, onCurrent }: { current: stri
     void load();
     const id = window.setInterval(() => void load(), 20_000);
     return () => { alive = false; window.clearInterval(id); };
-  }, [current]);
+  }, [current, tick]);
   useEffect(() => {
     if (!unread) return;
     setRooms((rows) => rows?.map((r) => (r.id === current ? { ...r, unread: 0 } : { ...r, unread: unread[r.id] ?? r.unread })) ?? rows);
   }, [unread, current]);
   const now = Date.now();
+  const total = rooms?.reduce((n, r) => n + (r.id === current ? 0 : r.unread), 0) ?? 0;
   return (
-    <nav className="orbit-block cv-list" aria-labelledby="rooms-title">
-      <h2 className="orbit-h orbit-h-row" id="rooms-title"><Users size={18} aria-hidden /> <span>Розмови</span></h2>
-      {!rooms && !failed ? <div className="cv-skel cv-skel-list" aria-label="Завантажую розмови"><span /><span /></div> : null}
-      {failed && !rooms ? <p className="orbit-note" role="alert">Не вдалося завантажити розмови. Спробуємо ще раз за хвилину.</p> : null}
-      {rooms ? (
+    <nav className="orbit-block cv-list" aria-labelledby="rooms-title" data-state={!rooms ? (failed ? "error" : "loading") : rooms.length ? "ok" : "empty"}>
+      <div className="cv-list-head">
+        <h2 className="cv-list-h" id="rooms-title">Усі розмови</h2>
+        {rooms && rooms.length ? <span className="cv-list-n">{total ? `${total} ${plural(total, "непрочитане", "непрочитані", "непрочитаних")}` : `${rooms.length}`}</span> : null}
+      </div>
+      {!rooms && !failed ? (
+        <div className="cv-skel cv-skel-list" role="status" aria-label="Завантажую розмови">
+          {[0, 1, 2].map((i) => <div key={i} className="cv-skel-row"><span className="cv-skel-ava" /><span className="cv-skel-lines"><span /><span /></span></div>)}
+        </div>
+      ) : null}
+      {failed && !rooms ? (
+        <div className="cv-state cv-state-off" role="alert">
+          <span className="cv-state-ico" aria-hidden><WifiOff size={24} strokeWidth={1.6} /></span>
+          <p className="cv-state-t">Не вдалося завантажити розмови</p>
+          <p className="cv-state-s">Ми спробуємо ще раз самі за хвилину.</p>
+          <button type="button" className="orbit-chip cv-state-go" onClick={() => { setFailed(false); setTick((t) => t + 1); }}><RotateCw size={15} aria-hidden /> Спробувати зараз</button>
+        </div>
+      ) : null}
+      {rooms && rooms.length ? (
         <ul className="orbit-rooms">
-          {rooms.map((room) => {
+          {rooms.map((room, i) => {
             const n = room.id === current ? 0 : room.unread;
+            const mine = Boolean(room.last && (room.last.name === "Я" || (myName && room.last.name === myName))); // сервер позначає свої як «Я»
             return (
-              <li key={room.id}>
-                <button type="button" className={room.id === current ? "orbit-room is-on" : "orbit-room"} aria-current={room.id === current ? "true" : undefined}
+              <li key={room.id} style={{ ["--i" as string]: Math.min(i, 8) }}>
+                <button type="button" data-room={room.id} className={`orbit-room${room.id === current ? " is-on" : ""}${n ? " has-unread" : ""}`} aria-current={room.id === current ? "true" : undefined}
                   aria-label={`${room.title}, ${room.kind === "dm" ? "особиста розмова" : `${room.members} учасн.`}, ${n ? `непрочитаних ${n}` : "усе прочитано"}`}
                   onClick={() => { setRooms((rows) => rows?.map((r) => (r.id === room.id ? { ...r, unread: 0 } : r)) ?? rows); onPick({ ...room, unread: n }); }}>
-                  <span className="orbit-room-k cv-room-ava" aria-hidden>{room.kind === "dm" ? <Avatar id={room.peer ?? room.id} name={room.title} size={44} /> : <ReactionIcon id={room.kind === "crew" ? "spark" : "launch"} size={24} />}</span>
+                  <span className="orbit-room-k cv-room-ava" aria-hidden>{room.kind === "dm" ? <Avatar id={room.peer ?? room.id} name={room.title} size={48} /> : <ReactionIcon id={room.kind === "crew" ? "spark" : "launch"} size={24} />}</span>
                   <span className="orbit-room-t">
                     <span className="cv-room-top"><span className="cv-room-name">{room.title}</span>{room.last ? <time className="cv-room-time">{listTime(room.last.at, now)}</time> : null}</span>
-                    <small className="cv-room-last">{room.last ? <><b>{room.last.name}:</b> {room.last.text}</> : room.kind === "dm" ? "Особиста розмова · поки без повідомлень" : `${room.members} учасн. · поки без повідомлень`}</small>
+                    <span className="cv-room-bottom">
+                      <small className="cv-room-last">{room.last ? <><b>{mine ? "Ти" : room.last.name}:</b> {room.last.text}</> : room.kind === "dm" ? "Особиста розмова · поки без повідомлень" : `${room.members} учасн. · поки без повідомлень`}</small>
+                      {n ? <span className="orbit-room-n" aria-hidden>{n >= 99 ? "99+" : n}</span> : null}
+                    </span>
                   </span>
-                  {n ? <span className="orbit-room-n" aria-hidden>{n >= 99 ? "99+" : n}</span> : null}
                 </button>
               </li>
             );
           })}
         </ul>
       ) : null}
-      {rooms && rooms.length === 0 ? <p className="orbit-note cv-none">Розмов ще немає. Кімнату отримує кожен запуск (автор і той, хто підтвердив), а особисто можна написати з «Шукаю орбіту» чи з профілю власника в «Оглядачі».</p> : null}
+      {rooms && rooms.length === 0 ? (
+        <div className="cv-state cv-none">
+          <span className="cv-state-ico is-glow" aria-hidden><MessagesSquare size={26} strokeWidth={1.6} /></span>
+          <p className="cv-state-t">Розмов ще немає</p>
+          <p className="cv-state-s">Кімнату отримує кожен запуск — для автора і тих, хто підтвердив. Особисто можна написати з «Шукаю орбіту» чи з профілю власника в «Оглядачі».</p>
+          {onSeek ? <button type="button" className="orbit-chip cv-state-go" onClick={onSeek}><Search size={15} aria-hidden /> Шукаю орбіту</button> : null}
+        </div>
+      ) : null}
     </nav>
   );
 }
